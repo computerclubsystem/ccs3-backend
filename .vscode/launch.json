@@ -1,0 +1,44 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "state-manager",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${workspaceFolder}/apps/state-manager/src/index.mts",
+            "outFiles": [
+                "${workspaceFolder}/apps/state-manager/dist/**/*.mjs"
+            ]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "device-connector",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${workspaceFolder}/apps/device-connector/src/index.mts",
+            "outFiles": [
+                "${workspaceFolder}/apps/device-connector/dist/**/*.mjs"
+            ]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "operator-connector",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${workspaceFolder}/apps/operator-connector/src/index.mts",
+            "outFiles": [
+                "${workspaceFolder}/apps/operator-connector/dist/**/*.mjs"
+            ]
+        }
+    ]
+}

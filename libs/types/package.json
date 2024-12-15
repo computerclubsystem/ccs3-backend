@@ -1,0 +1,24 @@
+{
+    "name": "@computerclubsystem/types",
+    "version": "1.0.0",
+    "description": "",
+    "type": "module",
+    "types": "dist/*/**.d.ts",
+    "exports": {
+        ".": null,
+        "./channels/*": "./dist/channels/*",
+        "./entities/*": "./dist/entities/*",
+        "./messages/*": "./dist/messages/*"
+    },
+    "scripts": {
+        "build": "tsc --project tsconfig.json --sourceMap",
+        "build:watch": "tsc --project tsconfig.json --sourceMap --watch",
+        "tsc": "tsc"
+    },
+    "author": "",
+    "license": "ISC",
+    "dependencies": {},
+    "devDependencies": {
+        "typescript": "5.3.3"
+    }
+}
