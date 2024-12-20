@@ -6,7 +6,6 @@ WORKDIR /app
 COPY libs/types ./libs/types
 COPY libs/redis-client ./libs/redis-client
 COPY apps/state-manager ./apps/state-manager
-COPY apps/
 COPY package-lock.json .
 COPY package.json .
 # TODO: Installation should also install dependencies in node_modules - this one uses symlinks causing the dependencies folders like libs/redis-client mandatory
