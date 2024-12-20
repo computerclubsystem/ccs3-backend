@@ -42,16 +42,16 @@ You will be asked for password - select a good password, with lower and upper ca
 
 Repeat the above for device connector service certificate:
 ```bash
-bash create-cert-signed-by-ca.sh ccs3.device-connector.local ccs3-ca.crt ccs3-ca.key /C=BG/ST=Varna/O=CCS3/OU=Dev/CN=ccs3.device-connector.local serverAuth
+bash create-cert-signed-by-ca.sh ccs3.pc-connector.local ccs3-ca.crt ccs3-ca.key /C=BG/ST=Varna/O=CCS3/OU=Dev/CN=ccs3.pc-connector.local serverAuth
 ```
 
 The services need the `.crt` and `.key` file to operate correctly. Copy these files in the `certificates` directory of this project. The different services will look for different certificate files. These are the file names that are used by the services:
 - Operator connector (operator browser are connecting to this service):
-  - `ccs3.operator-connector.local.crt`
-  - `ccs3.operator-connector.local.key`
+  - `operator-connector.crt`
+  - `operator-connector.key`
 - Device connector (applications that run on client computers are connecting to this service)
-  - `ccs3.device-connector.local.crt`
-  - `ccs3.device-connector.local.key`
+  - `pc-connector.crt`
+  - `pc-connector.key`
 
 
 ## Client certificates

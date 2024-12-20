@@ -24,7 +24,18 @@ CREATE TABLE device
     approved BOOLEAN NOT NULL,
     enabled BOOLEAN NOT NULL,
     device_group_id INTEGER NULL,
-    CONSTRAINT fk_device_device_group_id_device_group_id FOREIGN KEY (device_group_id) REFERENCES device_group(id) 
+    CONSTRAINT fk_device_device_group_id_device_group_id 
+        FOREIGN KEY (device_group_id)
+        REFERENCES device_group(id) 
 );
 
-INSERT INTO db_metadata (name, value) VALUES ('database-version', '1');
+INSERT INTO db_metadata
+(
+    name,
+    value
+)
+VALUES
+(
+    'database-version',
+    '1'
+);

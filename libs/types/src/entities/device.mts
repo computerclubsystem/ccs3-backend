@@ -1,8 +1,11 @@
 export interface Device {
-    id: string;
-    name: string;
+    id: number;
     certificateThumbprint: string;
-    active: boolean;
-    allowedIpAddress?: string;
+    ipAddress: string;
+    name?: string;
+    description?: string;
     createdAt: string;
+    approved: boolean;
+    enabled: boolean;
+    deviceGroupId?: number;
 }

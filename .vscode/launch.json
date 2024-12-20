@@ -19,13 +19,13 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "device-connector",
+            "name": "pc-connector",
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "program": "${workspaceFolder}/apps/device-connector/src/index.mts",
+            "program": "${workspaceFolder}/apps/pc-connector/src/index.mts",
             "outFiles": [
-                "${workspaceFolder}/apps/device-connector/dist/**/*.mjs"
+                "${workspaceFolder}/apps/pc-connector/dist/**/*.mjs"
             ]
         },
         {

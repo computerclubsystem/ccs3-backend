@@ -46,7 +46,7 @@ spec:
     spec:
       containers:
       - name: ccs3-state-manager-container
-        image: ccs3/state-manager:0.0.1
+        image: ccs3/state-manager:latest
         env:
         - name: CCS3_REDIS_HOST
           value: "ccs3-redis-service"
@@ -60,7 +60,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ccs3-device-connector-deployment
+  name: ccs3-pc-connector-deployment
   labels:
     app: ccs3
     tier: backend
@@ -73,11 +73,11 @@ spec:
     metadata:
       labels:
         app: ccs3
-        pod: device-connector
+        pod: pc-connector
     spec:
       containers:
-      - name: ccs3-device-connector-container
-        image: ccs3/device-connector:0.0.1
+      - name: ccs3-pc-connector-container
+        image: ccs3/pc-connector:latest
         env:
         - name: CCS3_REDIS_HOST
           value: "ccs3-redis-service"
@@ -108,7 +108,7 @@ spec:
     spec:
       containers:
       - name: ccs3-operator-connector-container
-        image: ccs3/operator-connector:0.0.1
+        image: ccs3/operator-connector:latest
         env:
         - name: CCS3_REDIS_HOST
           value: "ccs3-redis-service"
@@ -142,17 +142,17 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: ccs3-device-connector-service
+  name: ccs3-pc-connector-service
   labels:
     app: ccs3
-    service: ccs3-device-connector-service
+    service: ccs3-pc-connector-service
 spec:
   type: LoadBalancer
   ports:
-    - name: device-connector-backend
+    - name: pc-connector-backend
       protocol: TCP
       port: 65443
       # targetPort: 6379
   selector:
     app: ccs3
-    pod: device-connector
+    pod: pc-connector

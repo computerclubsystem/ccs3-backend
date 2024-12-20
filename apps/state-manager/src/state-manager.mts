@@ -18,6 +18,10 @@ import { PostgreStorageProvider } from './postgre-storage/postgre-storage-provid
 import { BusDeviceUnknownDeviceConnectedRequestMessage } from '@computerclubsystem/types/messages/bus/bus-device-unknown-device-connected-request.message.mjs';
 import { IDevice } from './storage/entities/device.mjs';
 import { ConnectionRoundTripData } from '@computerclubsystem/types/messages/declarations/connection-roundtrip-data.mjs';
+import { SystemSettingsName } from './storage/entities/constants/system-setting-names.mjs';
+import { EntityConverter } from './entity-converter.mjs';
+import { BusDeviceConnectionEventMessage } from '@computerclubsystem/types/messages/bus/bus-device-connection-event.message.mjs';
+import { IDeviceConnectionEvent } from './storage/entities/device-connection-event.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -25,12 +29,9 @@ export class StateManager {
     private readonly subClient = new RedisSubClient();
     private readonly pubClient = new RedisPubClient();
     private readonly logger = new Logger();
-    private allDevices: Device[] = [];
     private storageProvider!: StorageProvider;
-
-    getEnvVarValue(envVarName: string, defaultValue?: string): string | undefined {
-        return process.env[envVarName] || defaultValue;
-    };
+    private state = this.createDefaultState();
+    private readonly entityConverter = new EntityConverter();
 
     async start(): Promise<boolean> {
         this.logger.setPrefix(this.className);
@@ -39,9 +40,10 @@ export class StateManager {
             this.logger.error('The database cannot be initialized');
             return false;
         }
-        // TODO: For testing only
-        // await this.addDummyDevices();
-        // this.allDevices = await this.storeConnector.getAllDevices();
+
+        await this.loadSystemSettings();
+
+        setInterval(() => this.mainTimerCallback(), 1000);
 
         const redisHost = this.getEnvVarValue('CCS3_REDIS_HOST');
         const redisPortEnvVarVal = this.getEnvVarValue('CCS3_REDIS_PORT');
@@ -144,6 +146,9 @@ export class StateManager {
             case MessageType.busDeviceUnknownDeviceConnectedRequest:
                 this.processBusDeviceUnknownDeviceConnectedMessageRequest(message as BusDeviceUnknownDeviceConnectedRequestMessage);
                 break;
+            case MessageType.busDeviceConnectionEvent:
+                this.processDeviceConnectionEventMessage(message as BusDeviceConnectionEventMessage);
+                break;
         }
     }
 
@@ -153,10 +158,25 @@ export class StateManager {
             const msg = createBusDeviceGetByCertificateReplyMessage();
             msg.header.correlationId = message.header.correlationId;
             msg.header.roundTripData = message.header.roundTripData;
-            msg.body.device = device;
+            msg.body.device = device && this.entityConverter.storageDeviceToDevice(device);
             this.publishMessage(ChannelName.devices, msg);
         } catch (err) {
             this.logger.warn(`Can't process BusDeviceGetByCertificateRequestMessage message`, message, err);
+        }
+    }
+
+    async processDeviceConnectionEventMessage(message: BusDeviceConnectionEventMessage): Promise<void> {
+        try {
+            const deviceConnectionEvent: IDeviceConnectionEvent = {
+                device_id: message.body.deviceId,
+                ip_address: message.body.ipAddress,
+                note: message.body.note,
+                timestamp: this.getNowAsIsoString(),
+                type: this.entityConverter.deviceConnectionEventTypeToDeviceConnectionEventStorage(message.body.type),
+            } as IDeviceConnectionEvent;
+            await this.storageProvider.addDeviceConnectionEvent(deviceConnectionEvent);
+        } catch (err) {
+            this.logger.warn(`Can't process BusDeviceConnectedMessage message`, message, err);
         }
     }
 
@@ -206,6 +226,40 @@ export class StateManager {
         }
     };
 
+    getEnvVarValue(envVarName: string, defaultValue?: string): string | undefined {
+        return process.env[envVarName] || defaultValue;
+    }
+
+    private mainTimerCallback(): void {
+        const now = this.getNowAsNumber();
+        this.checkForRefreshDeviceStatuses(now);
+    }
+
+    private checkForRefreshDeviceStatuses(now: number): void {
+        if (this.state.deviceStatusRefreshInProgress) {
+            return;
+        }
+        if ((now - this.state.lastDeviceStatusRefreshAt) > this.state.systemSettings.deviceStatusRefreshInterval * 1000) {
+            this.state.lastDeviceStatusRefreshAt = now;
+            this.refreshDeviceStatuses();
+        }
+    }
+
+    private async refreshDeviceStatuses(): Promise<void> {
+        try {
+            this.state.deviceStatusRefreshInProgress = true;
+            const deviceStatuses = await this.storageProvider.getAllDeviceStatuses();
+            // TODO: Collect all the necessary information and generate message(s)
+            //       with devices statuses for use by other services
+        } catch (err) {
+            // TODO: Count database errors and eventually send system notification
+            this.logger.error('Cannot get all device statuses', err);
+        } finally {
+            this.state.deviceStatusRefreshInProgress = false;
+            this.state.lastDeviceStatusRefreshAt = this.getNowAsNumber();
+        }
+    }
+
     private async initializeDatabase(): Promise<boolean> {
         const storageProviderConnectionString = this.getEnvVarValue(envVars.CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING);
         this.storageProvider = this.getStorageProvider();
@@ -229,6 +283,22 @@ export class StateManager {
 
     private getNowAsIsoString(): string {
         return new Date().toISOString();
+    }
+
+    private createDefaultState(): IStateManagerState {
+        const state: IStateManagerState = {
+            systemSettings: {
+                deviceStatusRefreshInterval: 10,
+            },
+            lastDeviceStatusRefreshAt: this.getNowAsNumber(),
+            deviceStatusRefreshInProgress: false,
+        };
+        return state;
+    }
+
+    private async loadSystemSettings(): Promise<void> {
+        const deviceStatusRefreshIntervalSystemSetting = await this.storageProvider.getSystemSettingByName(SystemSettingsName.device_status_refresh_interval);
+        this.state.systemSettings.deviceStatusRefreshInterval = +deviceStatusRefreshIntervalSystemSetting!.value!;
     }
 
     // // TODO: For testing only
@@ -278,4 +348,14 @@ export class StateManager {
     //         this.publishMessage(ChannelName.devices, msg);
     //     }, 5000);
     // }
+}
+
+interface IStateManagerState {
+    systemSettings: IStateManagerSystemSettings;
+    lastDeviceStatusRefreshAt: number;
+    deviceStatusRefreshInProgress: boolean;
+}
+
+interface IStateManagerSystemSettings {
+    deviceStatusRefreshInterval: number;
 }

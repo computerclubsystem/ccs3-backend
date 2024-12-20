@@ -3,7 +3,7 @@ import { MessageType } from '../declarations/message-type.mjs';
 import { Message } from '../declarations/message.mjs';
 
 export interface DeviceStatus {
-    deviceId: string;
+    deviceId: number;
     state: DeviceState;
     totalSum: number;
     totalTime: number;

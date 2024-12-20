@@ -1,19 +1,24 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import pg, { QueryResult } from 'pg';
 
 import { StorageProviderConfig } from 'src/storage/storage-provider-config.mjs';
 import { StorageProvider } from 'src/storage/storage-provider.mjs';
 import { StorageProviderInitResult } from 'src/storage/storage-provider-init-result.mjs';
 import { Logger } from '../logger.mjs';
-import { Metadata } from 'src/storage/entities/metadata.mjs';
+import { IMetadata } from 'src/storage/entities/metadata.mjs';
 import { IDevice } from 'src/storage/entities/device.mjs';
 import { IUser } from 'src/storage/entities/user.mjs';
-import pg, { QueryResult } from 'pg';
+import { IDeviceStatus } from 'src/storage/entities/device-status.mjs';
+import { QueryUtils } from './queries/query-utils.mjs';
+import { ISystemSetting } from 'src/storage/entities/system-setting.mjs';
+import { IDeviceConnectionEvent } from 'src/storage/entities/device-connection-event.mjs';
 
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
     private logger: Logger;
     private readonly className = (this as any).constructor.name;
+    private readonly queryHelper = new QueryUtils();
 
     constructor() {
         this.logger = new Logger();
@@ -37,89 +42,48 @@ export class PostgreStorageProvider implements StorageProvider {
         return result;
     }
 
-    async getUser(username: string, passwordHash: string): Promise<IUser | undefined> {
-        const query = `
-        SELECT 
-            id,
-            username,
-            enabled
-        FROM "user"
-        WHERE username = $1 AND password_hash = $2
-        LIMIT 1
-        `;
-        const params: any[] = [
-            username,
-            passwordHash
-        ];
-        const res = await this.execQuery(query, params);
-        return res.rows[0];
+    async addDeviceConnectionEvent(deviceConnection: IDeviceConnectionEvent): Promise<IDeviceConnectionEvent | undefined> {
+        const queryData = this.queryHelper.addDeviceConnectionEventQueryData(deviceConnection);
+        const res = await this.execQuery(queryData.query, queryData.params);
+        return res.rows[0] as IDeviceConnectionEvent | undefined;
     }
-    
+
+    async getSystemSettingByName(name: string): Promise<ISystemSetting | undefined> {
+        const queryData = this.queryHelper.getSystemSettingByNameQueryData(name);
+        const res = await this.execQuery(queryData.query, queryData.params);
+        return res.rows[0] as ISystemSetting | undefined;
+    }
+
+    async getAllSystemSettings(): Promise<ISystemSetting[]> {
+        const query = this.queryHelper.getAllSystemSettingsQuery();
+        const res = await this.execQuery(query);
+        return res.rows as ISystemSetting[];
+    }
+
+    async getAllDeviceStatuses(): Promise<IDeviceStatus[]> {
+        const query = this.queryHelper.getAllDeviceStatusesQuery();
+        const res = await this.execQuery(query);
+        return res.rows as IDeviceStatus[];
+    }
+
+    async getUser(username: string, passwordHash: string): Promise<IUser | undefined> {
+        const queryData = this.queryHelper.getUserQueryData(username, passwordHash);
+        const res = await this.execQuery(queryData.query, queryData.params);
+        return res.rows[0] as IUser | undefined;
+    }
+
     async createDevice(device: IDevice): Promise<IDevice> {
-        const query = `
-        INSERT INTO device
-        (
-            certificate_thumbprint,
-            created_at,
-            ip_address,
-            name,
-            description,
-            approved,
-            enabled,
-            device_group_id
-        )
-        VALUES
-        (
-            $1, $2, $3, $4, $5, $6, $7, $8
-        )
-        RETURNING 
-            id,
-            certificate_thumbprint,
-            created_at,
-            ip_address,
-            name,
-            description,
-            approved,
-            enabled,
-            device_group_id
-        `;
-        const params: any[] = [
-            device.certificate_thumbprint,
-            device.created_at,
-            device.ip_address,
-            device.name,
-            device.description,
-            device.approved,
-            device.enabled,
-            device.device_group_id,
-        ];
-        const res = await this.execQuery(query, params);
-        return res.rows[0];
+        const queryData = this.queryHelper.createDeviceQueryData(device);
+        const res = await this.execQuery(queryData.query, queryData.params);
+        return res.rows[0] as IDevice;
     }
 
     async getDeviceByCertificateThumbprint(certificateThumbprint: string): Promise<IDevice | undefined> {
-        const query = `
-        SELECT 
-            id,
-            certificate_thumbprint,
-            ip_address,
-            name,
-            description,
-            created_at,
-            approved,
-            enabled,
-            device_group_id
-        FROM device
-        WHERE certificate_thumbprint = $1
-        LIMIT 1
-        `;
-        const params: any[] = [
-            certificateThumbprint,
-        ];
-        const res = await this.execQuery(query, params);
-        return res.rows[0];
+        const queryData = this.queryHelper.getDeviceByCertificateThumbprintQueryData(certificateThumbprint);
+        const res = await this.execQuery(queryData.query, queryData.params);
+        return res.rows[0] as IDevice | undefined;
     }
-    
+
     private async execQuery(query: string, params?: any[]): Promise<QueryResult<any>> {
         let client: pg.PoolClient | null = null;
         let res: QueryResult<any>;
@@ -165,7 +129,7 @@ export class PostgreStorageProvider implements StorageProvider {
                 if (existenceResult.rowCount === 1 && existenceResult.rows[0].exists) {
                     const versionResult = await migrateClient.query(`SELECT value FROM db_metadata WHERE name=$1::text`, ['database-version']);
                     if (versionResult.rowCount === 1) {
-                        databaseVersion = parseInt((versionResult.rows[0] as Metadata).value!);
+                        databaseVersion = parseInt((versionResult.rows[0] as IMetadata).value!);
                     }
                 } else {
                     databaseVersion = 0;

@@ -99,7 +99,7 @@ openssl req -x509 -new -nodes -key ccs3-ca.key -sha256 -days 3650 -out ccs3-ca.c
   - `Locality Name (eg, city):` - `Varna` (or your town)
   - `Organization Name (eg, company) [Internet Widgits Pty Ltd]:` - `CCS3` (or the name of your organization)
   - `Organizational Unit Name (eg, section) []:` - `Development` (or any other organizational unit name)
-  - `Common Name (e.g. server FQDN or YOUR name) []:` - `CCS3 Certificate Authority` (or any other descriptiove name)
+  - `Common Name (e.g. server FQDN or YOUR name) []:` - `CCS3 Certificate Authority` (or any other descriptive name)
   - `Email Address []:` - you can provide email address or leave it blank by just pressing ENTER
 - Two files will be created with names `ccs3-ca.crt` and `ccs3-ca.key` - copy them in a safe place
 
@@ -124,7 +124,7 @@ sh create-cert-signed-by-ca.sh PC-1 PC-1 ccs3-ca.crt ccs3-ca.key /C=BG/ST=Varna/
 sh create-cert-signed-by-ca.sh localhost localhost-PC-1 ccs3-ca.crt ccs3-ca.key /C=BG/ST=Varna/O=CCS3/OU=Development/CN=localhost 'serverAuth'
 ```
 - Two set of files will be created with names `PC-1` and `localhost-PC-1`. Some of them must be installed on the customer computer
-  - Copy `ccs3-ca.crt`, `PC-1.pfx` and `localhost-PC-1.pfx` files to the customer computer
+  - Copy `ccs3-ca.crt`, `PC-1.pfx` and `localhost-PC-1.pfx` files to USB stick and put it in the customer computer and open the USB (you can also copy the 3 files to customer computer hard disk, but this is less secure)
   - Right click on `ccs3-ca.crt` and select `Install certificate`
   - Select `Local Machine` and click "Next"
   - Select `Place all certificates in the following store` and browse to `Trusted Root Certification Authorities`
@@ -133,7 +133,9 @@ sh create-cert-signed-by-ca.sh localhost localhost-PC-1 ccs3-ca.crt ccs3-ca.key 
   - Select `Local Machine` and click "Next" and "Next" again
   - Provide the "Export Password" password for `PC-1` certificate and click "Next"
   - Select `Place all certificates in the following store` and browse to `Personal`
-  - 
+  - Press "OK", "Next" and "Finish"
+  - Do the same with `localhost-PC-1.pfx` as `PC-1.pfx`
+  - Delete the certificate files from the customer computer
 
 ## Install
 ```bash
@@ -359,12 +361,12 @@ npm run apps/state-manager:build-image-racnher-nerdctl
 
 Building `state-manager` manually would look like this for Docker Desktop:
 ```bash
-docker build -t ccs3/state-manager:0.0.1 -f Dockerfile.state-manager ../apps/state-manager
+docker build -t ccs3/state-manager:latest -f Dockerfile.state-manager ../apps/state-manager
 ```
 
 Building `state-manager` manually would look like this for Rancher Desktop with `containerd` (`nerdctl`):
 ```bash
-nerdctl -n k8s.io build -t ccs3/state-manager:0.0.1 -f Dockerfile.state-manager ../apps/state-manager
+nerdctl -n k8s.io build -t ccs3/state-manager:latest -f Dockerfile.state-manager ../apps/state-manager
 ```
 
 Building all the images for Docker Desktop:

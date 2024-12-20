@@ -1,5 +1,5 @@
-# Build for Rancher with containerd: nerdctl -n k8s.io build -t ccs3/state-manager:0.0.1 -f Dockerfile.state-manager ../
-FROM node:20.11.0-alpine3.19 as build
+# Build for Rancher with containerd: nerdctl -n k8s.io build -t ccs3/state-manager:latest -f Dockerfile.state-manager ../
+FROM node:20.11.0-alpine3.19 AS build
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ COPY package.json .
 #       Need to investigate "npm install --install-links"
 RUN npm run apps/state-manager:build-include-deps
 
-FROM node:20.11.0-alpine3.19 as final
+FROM node:20.11.0-alpine3.19 AS final
 WORKDIR /app
 # TODO: Find out how can we install dependencies in node_modules and not use them as links so we can just copy node_modules
 # Because node_modules does not have the real code but just links to libs/.../dist

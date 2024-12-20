@@ -1,0 +1,27 @@
+CREATE TABLE system_setting
+(
+    name text primary key not null,
+    type text not null,
+    description text null,
+    value text null
+);
+
+
+INSERT INTO system_setting
+(
+    name,
+    type,
+    description,
+    value
+)
+VALUES
+(
+    'device_status_refresh_interval',
+    'integer',
+    'Interval in seconds at which to calculate device statuses',
+    '5'
+);
+
+UPDATE db_metadata
+SET value = '3'
+WHERE name = 'database-version';

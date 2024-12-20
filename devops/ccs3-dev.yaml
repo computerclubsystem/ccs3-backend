@@ -1,6 +1,50 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: ccs3-static-files-deployment
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ccs3
+  template:
+    metadata:
+      labels:
+        app: ccs3
+        pod: ccs3-static-files
+    spec:
+      containers:
+      - name: ccs3-static-files-container
+        image: ccs3/sfs:latest
+        imagePullPolicy: Never
+        volumeMounts:
+        - name: nginx-certs-volume
+          mountPath: /etc/ssl/nginx-certs
+        resources:
+          limits:
+            memory: 32Mi
+            cpu: "0.1"
+        livenessProbe:
+          httpGet:
+            scheme: HTTPS
+            path: /health-check.txt
+            port: 443
+          initialDelaySeconds: 10
+          periodSeconds: 20
+          failureThreshold: 3
+      volumes:
+      - name: nginx-certs-volume
+        secret:
+          secretName: nginx-certs
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: ccs3-valkey-deployment
   labels:
     app: ccs3
@@ -33,13 +77,34 @@ metadata:
   labels:
     app: ccs3
     service: ccs3-valkey-service
+    tier: backend
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   ports:
     - name: valkey-backend
       protocol: TCP
       port: 6379
-      # targetPort: 6379
+    #   targetPort: 6379
   selector:
     app: ccs3
     pod: valkey
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ccs3-static-files-service-load-balancer
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  type: LoadBalancer
+  ports:
+  - name: ccs3-static-files-service-port
+    protocol: TCP
+    port: 65500
+    targetPort: 443
+  selector:
+   app: ccs3
+   pod: ccs3-static-files
