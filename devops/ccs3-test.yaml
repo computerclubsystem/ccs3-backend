@@ -93,6 +93,12 @@ spec:
       - name: ccs3-state-manager-container
         image: ccs3/state-manager:latest
         imagePullPolicy: Never
+        env:
+        - name: CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING
+          valueFrom:
+            secretKeyRef:
+              name: storage-connection-string
+              key: conn-string
         resources:
           limits:
             memory: 128Mi
