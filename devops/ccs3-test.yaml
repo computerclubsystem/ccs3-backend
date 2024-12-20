@@ -104,6 +104,11 @@ spec:
             secretKeyRef:
               name: state-manager-storage-provider-database-migration-scripts-directory
               key: path
+        - name: CCS3_REDIS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: redis-host
+              key: host
         resources:
           limits:
             memory: 128Mi
