@@ -17,5 +17,5 @@ export interface StorageProviderConfig {
     /**
      * The path to the directory containing files for database migrations
      */
-    databaseMigrationsPath?: string;
+    databaseMigrationsPath: string;
 }

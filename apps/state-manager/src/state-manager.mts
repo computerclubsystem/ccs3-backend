@@ -262,13 +262,22 @@ export class StateManager {
 
     private async initializeDatabase(): Promise<boolean> {
         const storageProviderConnectionString = this.getEnvVarValue(envVars.CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING);
+        if (!storageProviderConnectionString?.trim()) {
+            this.logger.error('The environment variable', envVars.CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING, 'value is empty');
+            return false;
+        }
+        let databaseMigrationsPath = this.getEnvVarValue(envVars.CCS3_STATE_MANAGER_STORAGE_PROVIDER_DATABASE_MIGRATION_SCRIPTS_DIRECTORY);
+        if (!databaseMigrationsPath?.trim()) {
+            const defaultDatabaseMigrationsPathValue = './database-migrations';
+            this.logger.log('The environment variable', envVars.CCS3_STATE_MANAGER_STORAGE_PROVIDER_DATABASE_MIGRATION_SCRIPTS_DIRECTORY, 'is empty. Will use', defaultDatabaseMigrationsPathValue);
+            databaseMigrationsPath = defaultDatabaseMigrationsPathValue;
+        }
         this.storageProvider = this.getStorageProvider();
         const storageProviderConfig: StorageProviderConfig = {
             adminConnectionString: this.getEnvVarValue(envVars.CCS3_STATE_MANAGER_STORAGE_ADMIN_CONNECTION_STRING),
-            connectionString: storageProviderConnectionString!,
-            databaseMigrationsPath: this.getEnvVarValue(envVars.CCS3_STATE_MANAGER_STORAGE_PROVIDER_DATABASE_MIGRATION_SCRIPTS_DIRECTORY),
+            connectionString: storageProviderConnectionString,
+            databaseMigrationsPath: databaseMigrationsPath,
         };
-        // TODO: Try multiple times in case the database service is not yet running
         const initRes = await this.storageProvider.init(storageProviderConfig);
         return initRes.success;
     }

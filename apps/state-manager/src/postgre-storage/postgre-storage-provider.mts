@@ -141,7 +141,7 @@ export class PostgreStorageProvider implements StorageProvider {
             }
 
             this.logger.log('Database version', databaseVersion);
-            const migrationsScriptsPath = path.resolve(this.state.config.databaseMigrationsPath || './database-migrations');
+            const migrationsScriptsPath = path.resolve(this.state.config.databaseMigrationsPath);
             const dirEntries = await fs.readdir(migrationsScriptsPath, { withFileTypes: true });
             // Sort as file names are numbers
             const sortedDirEntries = [...dirEntries].sort((a, b) => parseInt(path.parse(a.name).name) - parseInt(path.parse(b.name).name));
