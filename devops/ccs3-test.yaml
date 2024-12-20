@@ -99,6 +99,11 @@ spec:
             secretKeyRef:
               name: storage-connection-string
               key: conn-string
+        - name: CCS3_STATE_MANAGER_STORAGE_PROVIDER_DATABASE_MIGRATION_SCRIPTS_DIRECTORY
+          valueFrom:
+            secretKeyRef:
+              name: state-manager-storage-provider-database-migration-scripts-directory
+              key: path
         resources:
           limits:
             memory: 128Mi
