@@ -179,9 +179,9 @@ export class OperatorConnector {
 
     processOperatorAuthRequestMessage(connectionId: number, message: OperatorAuthRequestMessage): void {
         if (!message?.body) {
-            // TODO: Send message to operator that body is required
             return;
         }
+        // todo: do we need token ?
         if (!message.body.username && !message.body.passwordHash && !message.body.token) {
             // TODO: Send message to operator that 
             return;
