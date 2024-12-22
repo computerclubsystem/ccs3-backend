@@ -12,7 +12,7 @@ import { ClientConnectedEventArgs, ConnectionClosedEventArgs, ConnectionErrorEve
 import { RoundTripData } from '@computerclubsystem/types/messages/declarations/round-trip-data.mjs';
 import { OperatorAuthRequestMessage, createOperatorAuthRequestMessage } from '@computerclubsystem/types/messages/operators/operator-auth-request.message.mjs';
 import { IStaticFilesServerConfig, StaticFilesServer } from './static-files-server.mjs';
-import { envVars } from './env-vars.mjs';
+import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -21,6 +21,7 @@ export class OperatorConnector {
     private logger = new Logger();
     private staticFilesServer?: StaticFilesServer;
     private webSocketPort = 65443;
+    private readonly envVars = new EnvironmentVariablesHelper().createEnvironmentVars();
 
     wssServer!: WssServer;
     wssEmitter!: EventEmitter;
@@ -34,9 +35,9 @@ export class OperatorConnector {
     }
 
     serveStaticFiles(): void {
-        const noStaticFilesServing = this.getEnvVarValue(envVars.CCS3_OPERATOR_CONNECTOR_NO_STATIC_FILES_SERVING);
-        if (noStaticFilesServing !== 'true' && noStaticFilesServing !== '1') {
-            const staticFilesPath = this.getEnvVarValue(envVars.CCS3_OPERATOR_CONNECTOR_STATIC_FILES_PATH) || './web-app';
+        const noStaticFilesServing = this.envVars.CCS3_OPERATOR_CONNECTOR_NO_STATIC_FILES_SERVING.value;
+        if (!noStaticFilesServing) {
+            const staticFilesPath = this.envVars.CCS3_OPERATOR_CONNECTOR_STATIC_FILES_PATH.value;
             const config = {
                 notFoundFile: './index.html',
                 path: staticFilesPath,
@@ -54,9 +55,8 @@ export class OperatorConnector {
     }
 
     private async joinMessageBus(): Promise<void> {
-        const redisHost = this.getEnvVarValue(envVars.CCS3_REDIS_HOST) || 'localhost';
-        const redisPortEnvVarVal = this.getEnvVarValue(envVars.CCS3_REDIS_PORT);
-        const redisPort = redisPortEnvVarVal ? parseInt(redisPortEnvVarVal) : 6379;
+        const redisHost = this.envVars.CCS3_REDIS_HOST.value;
+        const redisPort = this.envVars.CCS3_REDIS_PORT.value;
         this.logger.log('Using redis host', redisHost, 'and port', redisPort);
 
         let receivedMessagesCount = 0;
@@ -298,10 +298,6 @@ export class OperatorConnector {
     deserializeBusMessageToMessage(text: string): Message<any> | null {
         const json = JSON.parse(text);
         return json as Message<any>;
-    }
-
-    getEnvVarValue(envVarName: string, defaultValue?: string): string | undefined {
-        return process.env[envVarName] || defaultValue;
     }
 
     isOwnMessage<TBody>(message: Message<TBody>): boolean {

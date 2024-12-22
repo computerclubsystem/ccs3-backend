@@ -116,6 +116,52 @@ spec:
 
 ---
 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ccs3-pc-connector-deployment
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ccs3
+  template:
+    metadata:
+      labels:
+        app: ccs3
+        pod: pc-connector
+    spec:
+      containers:
+      - name: ccs3-pc-connector-container
+        image: ccs3/pc-connector:latest
+        imagePullPolicy: Never
+        volumeMounts:
+        - name: pc-connector-certs-volume
+          mountPath: /app/dist/certificates
+        env:
+        - name: CCS3_REDIS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: redis-host
+              key: host
+        - name: CCS3_CA_ISSUER_CERTIFICATE_SUBJECT
+          valueFrom:
+            secretKeyRef:
+              name: ccs3-ca-issuer-certificate-subject
+              key: subject
+        resources:
+          limits:
+            memory: 128Mi
+            cpu: "0.1"
+      volumes:
+      - name: pc-connector-certs-volume
+        secret:
+          secretName: pc-connector-certs
+---
+
 apiVersion: v1
 kind: Service
 metadata:
@@ -154,3 +200,22 @@ spec:
   selector:
    app: ccs3
    pod: ccs3-static-files
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ccs3-pc-connector-load-balancer
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  type: LoadBalancer
+  ports:
+  - name: ccs3-pc-connector-port
+    protocol: TCP
+    port: 65501
+  selector:
+   app: ccs3
+   pod: pc-connector

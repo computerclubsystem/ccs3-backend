@@ -1,13 +1,8 @@
-import { Certificate, DetailedPeerCertificate } from 'node:tls';
+import { DetailedPeerCertificate } from 'node:tls';
 import { EventEmitter } from 'node:events';
 import * as fs from 'node:fs';
 
-import {
-    ClientConnectedEventArgs, ConnectionClosedEventArgs, ConnectionErrorEventArgs,
-    WssServerEventName, MessageReceivedEventArgs, WssServer, WssServerConfig
-} from './wss-server.mjs';
 import { Message } from '@computerclubsystem/types/messages/declarations/message.mjs';
-import { Logger } from './logger.mjs';
 import { Device } from '@computerclubsystem/types/entities/device.mjs';
 import {
     CreateConnectedRedisClientOptions, RedisClientMessageCallback, RedisPubClient, RedisSubClient
@@ -21,10 +16,17 @@ import { RoundTripData } from '@computerclubsystem/types/messages/declarations/r
 import { BusDeviceStatusesMessage, DeviceStatus } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
 import { createDeviceSetStatusMessage } from '@computerclubsystem/types/messages/devices/device-set-status.message.mjs';
 import { ConnectionRoundTripData } from '@computerclubsystem/types/messages/declarations/connection-roundtrip-data.mjs';
-import { ExitProcessManager, ProcessExitCode } from './exit-process-manager.mjs';
 import { createDeviceConfigurationMessage } from '@computerclubsystem/types/messages/devices/device-configuration.message.mjs';
 import { createBusDeviceConnectionEventMessage } from '@computerclubsystem/types/messages/bus/bus-device-connection-event.message.mjs';
 import { DeviceConnectionEventType } from '@computerclubsystem/types/entities/device-connection-event-type.mjs';
+import {
+    ClientConnectedEventArgs, ConnectionClosedEventArgs, ConnectionErrorEventArgs,
+    WssServerEventName, MessageReceivedEventArgs, WssServer, WssServerConfig
+} from './wss-server.mjs';
+import { ExitProcessManager, ProcessExitCode } from './exit-process-manager.mjs';
+import { Logger } from './logger.mjs';
+import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
+import { CertificateHelper, CertificateIssuerSubjectInfo } from './certificate-helper.mjs';
 
 export class PcConnector {
     wssServer!: WssServer;
@@ -32,7 +34,7 @@ export class PcConnector {
     desktopSwitchCounter = 0;
     connectedClients = new Map<number, ConnectedClientData>();
 
-    private readonly envVars = this.createEnvironmentVars();
+    private readonly envVars = new EnvironmentVariablesHelper().createEnvironmentVars();
     private state = this.createDefaultState();
     private readonly subClient = new RedisSubClient();
     private readonly pubClient = new RedisPubClient();
@@ -40,9 +42,10 @@ export class PcConnector {
     private logger = new Logger();
     private exitProcessManager = new ExitProcessManager();
     private issuerSubjectInfo!: CertificateIssuerSubjectInfo;
+    private readonly certificateHelper = new CertificateHelper();
 
     async start(): Promise<void> {
-        this.issuerSubjectInfo = this.createIssuerSubjectInfo(this.envVars.CCS3_CA_ISSUER_CERTIFICATE_SUBJECT.value!);
+        this.issuerSubjectInfo = this.certificateHelper.createIssuerSubjectInfo(this.envVars.CCS3_CA_ISSUER_CERTIFICATE_SUBJECT.value!);
         this.exitProcessManager.setLogger(this.logger);
         this.exitProcessManager.init();
         await this.joinMessageBus();
@@ -67,7 +70,7 @@ export class PcConnector {
             return;
         }
         const clientCertificateIssuer = args.certificate.issuer;
-        const issuerMatches = this.issuerMatches(clientCertificateIssuer, this.issuerSubjectInfo);
+        const issuerMatches = this.certificateHelper.issuerMatches(clientCertificateIssuer, this.issuerSubjectInfo);
         if (!issuerMatches) {
             this.logger.warn('The client certificate issuer', clientCertificateIssuer, 'does not match the one configured in environment variable', this.envVars.CCS3_CA_ISSUER_CERTIFICATE_SUBJECT, this.issuerSubjectInfo);
             this.wssServer.closeConnection(args.connectionId);
@@ -235,7 +238,7 @@ export class PcConnector {
             this.wssServer.closeConnection(connectionId);
             return;
         }
-        
+
         this.publishDeviceConnectionEventMessage(device.id, roundTripData.ipAddress, DeviceConnectionEventType.connected);
 
         // Attach websocket server to connection so we receive events
@@ -422,8 +425,8 @@ export class PcConnector {
     private startWebSocketServer(): void {
         this.wssServer = new WssServer();
         const wssServerConfig: WssServerConfig = {
-            cert: fs.readFileSync(this.envVars.CCS3_PC_CONNECTOR_CRT_FILE_PATH.value!).toString(),
-            key: fs.readFileSync(this.envVars.CCS3_PC_CONNECTOR_KEY_FILE_PATH.value!).toString(),
+            cert: fs.readFileSync(this.envVars.CCS3_PC_CONNECTOR_CERTIFICATE_CRT_FILE_PATH.value!).toString(),
+            key: fs.readFileSync(this.envVars.CCS3_PC_CONNECTOR_CERTIFICATE_KEY_FILE_PATH.value!).toString(),
             port: this.envVars.CCS3_PC_CONNECTOR_PORT.value!,
         };
         this.wssServer.start(wssServerConfig);
@@ -474,100 +477,6 @@ export class PcConnector {
             this.removeClient(connectionId);
             this.wssServer.closeConnection(connectionId);
         }
-    }
-
-    getEnvVarValue(envVarName: string, defaultValue?: string): string | undefined {
-        return process.env[envVarName] || defaultValue;
-    }
-
-    createIssuerSubjectInfo(issuerSubjectString: string): CertificateIssuerSubjectInfo {
-        if (!issuerSubjectString?.trim()) {
-            return { keysCount: 0, issuerSubjectCertificate: {} } as CertificateIssuerSubjectInfo;
-        }
-
-        const parts = issuerSubjectString.split(',');
-        const trimmedPairs = parts.map(x => x.trim());
-        const cert = {} as Certificate;
-        for (const trimmedPair of trimmedPairs) {
-            const trimmedParts = trimmedPair.split('=', 2);
-            if (trimmedParts.length === 2) {
-                const key = trimmedParts[0].trim();
-                const value = trimmedParts[1].trim();
-                (cert as any)[key] = value;
-            }
-        }
-        const result: CertificateIssuerSubjectInfo = {
-            issuerSubjectCertificate: cert,
-            keysCount: Object.keys(cert).length,
-        };
-        return result;
-    }
-
-    issuerMatches(clientIssuer: Certificate, issuerSubjectInfo: CertificateIssuerSubjectInfo): boolean {
-        if (!clientIssuer || !issuerSubjectInfo) {
-            return false;
-        }
-
-        const clientIssuerCertKeys = Object.keys(clientIssuer);
-        const clientIssuerCertKeysCount = clientIssuerCertKeys.length;
-        if (clientIssuerCertKeysCount !== issuerSubjectInfo.keysCount) {
-            return false;
-        }
-        for (const key of clientIssuerCertKeys) {
-            const clientIssuerKey = key;
-            // The server receives the following object as "issuer":
-            // { C: string, CN: string, L: string, O: string, OU: string, ST: string }
-            // While the certificate subject as seen in certificate info has "S" instead of "ST":
-            // { C: string, CN: string, L: string, O: string, OU: string, S: string }
-            // We will substitute "ST" in the client issuer certificate (the one received by the server)
-            // with "S" in the provided issuer subject text in the environment variable
-            // Sample clientIssuer object obtained from connected client:
-            // Subject: C = BG, S = Varna, L = Varna, O = CCS3, OU = Development, CN = CCS3 Certificate Authority
-            // The subject value provided by openssl / Windows certificate manager
-            // Subject: C = BG, ST = Varna, L = Varna, O = CCS3, OU = Development, CN = CCS3 Certificate Authority
-            const issuerSubjectKey = clientIssuerKey === 'ST' ? 'S' : clientIssuerKey
-            const clientIssuerKeyValue = this.getObjectValueByKey(clientIssuer, clientIssuerKey);
-            const issuerSubjectKeyValue = this.getObjectValueByKey(issuerSubjectInfo.issuerSubjectCertificate, issuerSubjectKey);
-            if (clientIssuerKeyValue !== issuerSubjectKeyValue) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    getObjectValueByKey(obj: any, key: string): any {
-        return obj?.[key];
-    }
-
-    setObjectValueByKey(obj: any, key: string, value: any): void {
-        (obj as any)[key] = value;
-    }
-
-    createEnvironmentVars(): EnvironmentVarsData {
-        // The object keys must be the same as environment variable names
-        const result: EnvironmentVarsData = {
-            CCS3_CA_ISSUER_CERTIFICATE_SUBJECT: {},
-            CCS3_REDIS_HOST: {},
-            CCS3_REDIS_PORT: {},
-            CCS3_PC_CONNECTOR_CRT_FILE_PATH: {},
-            CCS3_PC_CONNECTOR_KEY_FILE_PATH: {},
-            CCS3_PC_CONNECTOR_PORT: {},
-        } as EnvironmentVarsData;
-        Object.keys(result).forEach(key => this.setObjectValueByKey(result, key, { name: key } as EnvironmentVariableNameWithValue<any>));
-        result.CCS3_CA_ISSUER_CERTIFICATE_SUBJECT.value = this.getEnvVarValue(result.CCS3_CA_ISSUER_CERTIFICATE_SUBJECT.name);
-        result.CCS3_REDIS_HOST.value = this.getEnvVarValue(result.CCS3_REDIS_HOST.name);
-        result.CCS3_REDIS_PORT.value = this.getEnvironmentVarValueAsNumber(result.CCS3_REDIS_PORT.name, 6379);
-        result.CCS3_PC_CONNECTOR_CRT_FILE_PATH.value = this.getEnvVarValue(result.CCS3_PC_CONNECTOR_CRT_FILE_PATH.name, './certificates/pc-connector.crt');
-        result.CCS3_PC_CONNECTOR_KEY_FILE_PATH.value = this.getEnvVarValue(result.CCS3_PC_CONNECTOR_KEY_FILE_PATH.name, './certificates/pc-connector.key');
-        result.CCS3_PC_CONNECTOR_PORT.value = this.getEnvironmentVarValueAsNumber(result.CCS3_PC_CONNECTOR_PORT.name, 65501);
-        return result;
-    }
-
-    getEnvironmentVarValueAsNumber(envVar: string, defaultValue: number): number {
-        const stringVal = this.getEnvVarValue(envVar);
-        const numberVal = stringVal && parseInt(stringVal) || defaultValue;
-        return numberVal;
     }
 
     private createDefaultState(): PcConnectorState {
@@ -632,23 +541,4 @@ interface PcConnectorState {
 
     pubClientPublishErrorsCount: number;
     maxAllowedPubClientPublishErrorsCount: number;
-}
-
-interface CertificateIssuerSubjectInfo {
-    keysCount: number;
-    issuerSubjectCertificate: Certificate;
-}
-
-interface EnvironmentVariableNameWithValue<TValue> {
-    name: string;
-    value?: TValue;
-}
-
-interface EnvironmentVarsData {
-    CCS3_CA_ISSUER_CERTIFICATE_SUBJECT: EnvironmentVariableNameWithValue<string>;
-    CCS3_REDIS_HOST: EnvironmentVariableNameWithValue<string>;
-    CCS3_REDIS_PORT: EnvironmentVariableNameWithValue<number>;
-    CCS3_PC_CONNECTOR_CRT_FILE_PATH: EnvironmentVariableNameWithValue<string>;
-    CCS3_PC_CONNECTOR_KEY_FILE_PATH: EnvironmentVariableNameWithValue<string>;
-    CCS3_PC_CONNECTOR_PORT: EnvironmentVariableNameWithValue<number>;
 }

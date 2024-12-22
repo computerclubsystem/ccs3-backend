@@ -1,5 +1,5 @@
 # Build for Rancher with containerd: nerdctl -n k8s.io build -t ccs3/pc-connector:latest -f Dockerfile.pc-connector ../
-FROM node:20.11.0-alpine3.19 AS build
+FROM node:22.12.0-alpine3.21 AS build
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ COPY package.json .
 #       Need to investigate "npm install --install-links"
 RUN npm run apps/pc-connector:build-include-deps
 
-FROM node:20.11.0-alpine3.19 AS final
+FROM node:22.12.0-alpine3.21 AS final
 WORKDIR /app
 # TODO: Find out how can we install dependencies in node_modules and not use them as links so we can just copy node_modules
 # Because node_modules does not have the real code but just links to libs/.../dist
@@ -25,5 +25,5 @@ COPY --from=build /app/libs/types/dist ./libs/types/dist
 COPY --from=build /app/libs/redis-client/package.json ./libs/redis-client/package.json
 COPY --from=build /app/libs/redis-client/dist ./libs/redis-client/dist
 COPY --from=build /app/apps/pc-connector/dist ./dist
-
-CMD ["node", "./dist/index.mjs"]
+WORKDIR /app/dist
+CMD ["node", "index.mjs"]
