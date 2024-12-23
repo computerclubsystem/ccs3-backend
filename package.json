@@ -22,7 +22,7 @@
         "apps/pc-connector:install-deps": "npm --workspace apps/pc-connector install",
         "apps/pc-connector:build": "npm --workspace apps/pc-connector run build",
         "apps/pc-connector:build-watch": "npm --workspace apps/pc-connector run build:watch",
-        "apps/pc-connector:build-include-deps": "npm run libs/types:install-deps && npm run libs/types:build && npm run libs/redis-client:install-deps && npm run libs/redis-client:build && npm run apps/pc-connector:install-deps && npm run apps/pc-connector:build",
+        "apps/pc-connector:build-include-deps": "npm run libs/types:install-deps && npm run libs/types:build && npm run libs/websocket-server:install-deps && npm run libs/websocket-server:build && npm run libs/redis-client:install-deps && npm run libs/redis-client:build && npm run apps/pc-connector:install-deps && npm run apps/pc-connector:build",
         "apps/pc-connector:build-image-docker": "docker build -t ccs3/pc-connector:latest -f devops/Dockerfile.pc-connector .",
         "apps/pc-connector:build-image-nerdctl": "nerdctl -n k8s.io build -t ccs3/pc-connector:latest -f devops/Dockerfile.pc-connector .",
         "apps/operator-connector:install-deps": "npm --workspace apps/operator-connector install",
