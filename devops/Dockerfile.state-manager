@@ -12,6 +12,9 @@ COPY package.json .
 #       Need to investigate "npm install --install-links"
 RUN npm run apps/state-manager:build-include-deps
 COPY apps/state-manager/src/postgre-storage/database-migrations ./apps/state-manager/dist/postgre-storage/database-migrations/ 
+# Delete devDependencies from node_modules and install again without them
+RUN rm -rf node_modules
+RUN npm run apps/state-manager:install-deps-omit-dev
 
 FROM node:22.12.0-alpine3.21 AS final
 WORKDIR /app
