@@ -25,6 +25,8 @@ COPY --from=build /app/libs/types/package.json ./libs/types/package.json
 COPY --from=build /app/libs/types/dist ./libs/types/dist
 COPY --from=build /app/libs/redis-client/package.json ./libs/redis-client/package.json
 COPY --from=build /app/libs/redis-client/dist ./libs/redis-client/dist
+COPY --from=build /app/libs/websocket-server/package.json ./libs/websocket-server/package.json
+COPY --from=build /app/libs/websocket-server/dist ./libs/websocket-server/dist
 COPY --from=build /app/apps/pc-connector/dist ./dist
 WORKDIR /app/dist
 CMD ["node", "index.mjs"]
