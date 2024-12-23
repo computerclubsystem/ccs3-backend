@@ -5,6 +5,7 @@ WORKDIR /app
 
 COPY libs/types ./libs/types
 COPY libs/redis-client ./libs/redis-client
+COPY libs/websocket-server ./libs/websocket-server
 COPY apps/opertor-connector ./apps/opertor-connector
 COPY package-lock.json .
 COPY package.json .
