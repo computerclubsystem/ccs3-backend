@@ -79,7 +79,7 @@ metadata:
     service: ccs3-valkey-service
     tier: backend
 spec:
-  type: ClusterIP
+  type: LoadBalancer
   ports:
     - name: valkey-backend
       protocol: TCP

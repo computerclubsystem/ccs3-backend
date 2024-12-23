@@ -22,7 +22,7 @@ import { DeviceConnectionEventType } from '@computerclubsystem/types/entities/de
 import {
     ClientConnectedEventArgs, ConnectionClosedEventArgs, ConnectionErrorEventArgs,
     WssServerEventName, MessageReceivedEventArgs, WssServer, WssServerConfig
-} from './wss-server.mjs';
+} from '@computerclubsystem/websocket-server';
 import { ExitProcessManager, ProcessExitCode } from './exit-process-manager.mjs';
 import { Logger } from './logger.mjs';
 import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
@@ -280,6 +280,11 @@ export class PcConnector {
         msg.header.roundTripData = roundTripData;
         msg.body.certificateThumbprint = certificateThumbprint;
         msg.body.ipAddress = ipAddress;
+        const data = this.getConnectedClientData(connectionId);
+        if (data?.certificate) {
+            msg.body.certificateSubject = this.certificateHelper.createStringFromCertificateSubject(data.certificate.subject);
+            msg.body.certificateCommonName = data.certificate.subject.CN;
+        }
         this.publishToDevicesChannel(msg);
     }
 

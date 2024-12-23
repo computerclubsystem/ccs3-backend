@@ -3,6 +3,8 @@ import { Message } from '../declarations/message.mjs';
 
 export interface BusDeviceUnknownDeviceConnectedRequestMessageBody {
     certificateThumbprint: string;
+    certificateSubject: string;
+    certificateCommonName: string;
     ipAddress: string;
 }
 

@@ -8,7 +8,10 @@ import { ChannelName } from '@computerclubsystem/types/channels/channel-name.mjs
 import { Message } from '@computerclubsystem/types/messages/declarations/message.mjs';
 import { MessageType } from '@computerclubsystem/types/messages/declarations/message-type.mjs';
 import { BusDeviceStatusesMessage, DeviceStatus } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
-import { ClientConnectedEventArgs, ConnectionClosedEventArgs, ConnectionErrorEventArgs, MessageReceivedEventArgs, WssServer, WssServerConfig, WssServerEventName } from './wss-server.mjs';
+import {
+    ClientConnectedEventArgs, ConnectionClosedEventArgs, ConnectionErrorEventArgs,
+    MessageReceivedEventArgs, WssServer, WssServerConfig, WssServerEventName
+} from '@computerclubsystem/websocket-server';
 import { RoundTripData } from '@computerclubsystem/types/messages/declarations/round-trip-data.mjs';
 import { OperatorAuthRequestMessage, createOperatorAuthRequestMessage } from '@computerclubsystem/types/messages/operators/operator-auth-request.message.mjs';
 import { IStaticFilesServerConfig, StaticFilesServer } from './static-files-server.mjs';
@@ -110,7 +113,6 @@ export class OperatorConnector {
             cert: fs.readFileSync('./certificates/ccs3.operator-connector.local.crt').toString(),
             key: fs.readFileSync('./certificates/ccs3.operator-connector.local.key').toString(),
             port: this.webSocketPort,
-            sendText: true,
         };
         this.wssServer.start(wssServerConfig);
         this.wssEmitter = this.wssServer.getEmitter();

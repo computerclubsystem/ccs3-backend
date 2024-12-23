@@ -186,6 +186,8 @@ export class StateManager {
             const device: IDevice = {
                 approved: false,
                 certificate_thumbprint: message.body.certificateThumbprint,
+                description: `Certificate: ${message.body.certificateSubject}`,
+                name: message.body.certificateCommonName,
                 ip_address: message.body.ipAddress,
                 created_at: this.getNowAsIsoString(),
                 enabled: false,
@@ -307,7 +309,9 @@ export class StateManager {
 
     private async loadSystemSettings(): Promise<void> {
         const deviceStatusRefreshIntervalSystemSetting = await this.storageProvider.getSystemSettingByName(SystemSettingsName.device_status_refresh_interval);
-        this.state.systemSettings.deviceStatusRefreshInterval = +deviceStatusRefreshIntervalSystemSetting!.value!;
+        if (deviceStatusRefreshIntervalSystemSetting?.value) {
+            this.state.systemSettings.deviceStatusRefreshInterval = +deviceStatusRefreshIntervalSystemSetting.value;
+        }
     }
 
     // // TODO: For testing only

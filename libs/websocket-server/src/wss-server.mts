@@ -1,5 +1,5 @@
 import EventEmitter from 'node:events';
-import { IncomingMessage, ServerResponse } from 'node:http';
+import { IncomingMessage } from 'node:http';
 import * as https from 'node:https';
 import { DetailedPeerCertificate, TLSSocket } from 'node:tls';
 import { TextEncoder } from 'node:util';
@@ -25,48 +25,35 @@ export class WssServer {
             // Accept invalid / self-signed certificates
             rejectUnauthorized: false,
         });
-        // this.httpsServer.listen(8899, '0.0.0.0');
-        // this.httpsServer.on('connection', aaa => {
-        //     console.log(aaa);
-        // });
-        // this.httpsServer.on('secureConnection', aaa => {
-        //     console.log(aaa);
-        // });
-        // this.httpsServer.on('connect', (req, socket, ref) => {
-        //     console.log(req, socket, ref);
-        // });
         this.wsServer = new WebSocketServer({
             server: this.httpsServer,
             // host: '0.0.0.0',
             // port: 65443,
-            // 5 MB
-            maxPayload: 5 * 1024 * 1024,
+            // 100 Kb
+            maxPayload: 100 * 1024,
             backlog: 50,
             // If set to true, keeps clients in .clients
             // clientTracking: false,
             // verifyClient: (info: any) => {
             //     const ggg = info.req.client.getPeerX509Certificate(true);
-            //     console.log(ggg);
-            //     console.log(info);
             // },
         });
 
         this.wsServer.on('connection', (webSocket, request) => this.clientConnected(webSocket, request));
+        this.wsServer.on('error', (error) => this.serverError(error));
         this.httpsServer.listen(config.port, '0.0.0.0', 50);
+    }
+
+    serverError(error: Error): void {
+        console.error('Server error', error);
     }
 
     closeConnection(connectionId: number): void {
         const webSocket = this.clientsByConnectionId.get(connectionId);
         if (webSocket) {
-            try {
-                webSocket.close();
-            } catch (err) { }
+            this.closeSocket(webSocket);
             this.removeClient(webSocket);
         }
-    }
-
-    getHttpsServer(): https.Server {
-        return this.httpsServer;
     }
 
     getConnectionIds(): number[] {
@@ -81,13 +68,13 @@ export class WssServer {
             return 0;
         }
 
-        const data = this.config.sendText ? JSON.stringify(message) : this.toBinary(message);
-        client.send(data, err => {
+        const array = this.toBinary(message);
+        client.send(array, err => {
             if (err) {
                 console.error('sendJSON error', connectionId, message, err);
             }
         });
-        return data.length;
+        return array.length;
     }
 
     sendJSONToAll(message: Record<string | number, any>): number {
@@ -100,6 +87,10 @@ export class WssServer {
 
     getEmitter(): EventEmitter {
         return this.emitter;
+    }
+
+    getHttpsServer(): https.Server {
+        return this.httpsServer;
     }
 
     private toBinary(obj: Record<string | number, any>): Uint8Array {
@@ -158,6 +149,7 @@ export class WssServer {
             this.removeClient(webSocket);
             const args: ConnectionClosedEventArgs = {
                 connectionId: connectionId,
+                code: code,
             };
             this.emitter.emit(WssServerEventName.connectionClosed, args);
         });
@@ -167,7 +159,14 @@ export class WssServer {
 
     private closeSocket(webSocket: WebSocket): void {
         try {
+            // close() does not close the connection immediatelly
+            // there is some timeout (about 30 seconds) before "close" event to be emitted after close() is called
+            // causing "connection closed" kind of logs to appear 30 seconds after the close() call
+            // The remote party receives "close" immediatelly and if the remote party closes the connection, then "close" event happens immediatelly
             webSocket?.close();
+            // terminate() will immediately close the socket but will cause error at the other party 
+            // "(0x80004005): The remote party closed the WebSocket connection without completing the close handshake"
+            // webSocket?.terminate();
         } catch (err) { }
     }
 
@@ -195,7 +194,6 @@ export interface WssServerConfig {
     cert: string;
     key: string;
     port: number;
-    sendText?: boolean;
 }
 
 export interface ConnectionEventArgs {
@@ -212,6 +210,7 @@ export interface MessageReceivedEventArgs extends ConnectionEventArgs {
 }
 
 export interface ConnectionClosedEventArgs extends ConnectionEventArgs {
+    code: number;
 }
 
 export interface ConnectionErrorEventArgs extends ConnectionEventArgs {

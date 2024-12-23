@@ -10,6 +10,9 @@
         "libs/redis-client:install-deps": "npm --workspace libs/redis-client install",
         "libs/redis-client:build": "npm --workspace libs/redis-client run build",
         "libs/redis-client:build-watch": "npm --workspace libs/redis-client run build:watch",
+        "libs/websocket-server:install-deps": "npm --workspace libs/websocket-server install",
+        "libs/websocket-server:build": "npm --workspace libs/websocket-server run build",
+        "libs/websocket-server:build-watch": "npm --workspace libs/websocket-server run build:watch",
         "apps/state-manager:install-deps": "npm --workspace apps/state-manager install",
         "apps/state-manager:build": "npm --workspace apps/state-manager run build",
         "apps/state-manager:build-watch": "npm --workspace apps/state-manager run build:watch",
@@ -29,8 +32,8 @@
         "apps/operator-connector:build-image-docker": "docker build -t ccs3/operator-connector:latest -f devops/Dockerfile.operator-connector .",
         "apps/operator-connector:build-image-nerdctl": "nerdctl -n k8s.io build -t ccs3/operator-connector:latest -f devops/Dockerfile.operator-connector .",
         "build-images-docker": "npm run apps/state-manager:build-image-docker && npm run apps/pc-connector:build-image-docker",
-        "build-images-nerdctl": "npm run apps/state-manager:build-image-nerdctl && npm run apps/pc-connector:build-image-nerdctl",
-        "build": "npm run libs/types:install-deps && npm run libs/types:build && npm run libs/redis-client:install-deps && npm run libs/redis-client:build && npm run apps/state-manager:install-deps && npm run apps/state-manager:build && npm run apps/pc-connector:install-deps && npm run apps/pc-connector:build && npm run apps/operator-connector:install-deps && npm run apps/operator-connector:build"
+        "build-images-nerdctl": "npm run apps/state-manager:build-image-nerdctl && npm run apps/pc-connector:build-image-nerdctl && npm run apps/operator-connector:build-image-nerdctl",
+        "build": "npm run libs/types:install-deps && npm run libs/types:build && npm run libs/websocket-server:install-deps && npm run libs/websocket-server:build && npm run libs/redis-client:install-deps && npm run libs/redis-client:build && npm run apps/state-manager:install-deps && npm run apps/state-manager:build && npm run apps/pc-connector:install-deps && npm run apps/pc-connector:build && npm run apps/operator-connector:install-deps && npm run apps/operator-connector:build"
     },
     "author": "",
     "license": "MIT",
@@ -39,7 +42,7 @@
         "libs/*"
     ],
     "engines": {
-        "node": ">=20.11.0",
+        "node": ">=22.12.0",
         "npm": ">=10.2.4"
     }
 }

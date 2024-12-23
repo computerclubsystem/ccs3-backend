@@ -152,6 +152,8 @@ Building individual apps require certain order - first build the dependencies an
 ```bash
 npm run libs/types:install-deps
 npm run libs/types:build
+npm run libs/websocket-server:install-deps
+npm run libs/websocket-server:build
 npm run libs/redis-client:install-deps
 npm run libs/redis-client:build
 npm run apps/state-manager:install-deps
@@ -164,11 +166,12 @@ npm run apps/operator-connector:build
 The results can be found in the `dist` folder in the corresponding app (like `state-manager/dist` for the `state-manager` app).
 
 ## Debug
-Debugging is configured for VSCode in `.vscode/launch.json` file. To debug the app, first build it (preferrably in `watch` mode) and then select the appropriate VSCode launch configuration. Applications have dependencies (like `apps/state-manager` depends on `libs/redis-client`) so these dependencies should also be build. To ensure a change in any component (application or library) will be reflected in the debugged application, execute all of these in their own terminals in the following order:
+Debugging is configured for VSCode in `.vscode/launch.json` file. To debug the app, first build it (preferrably in `watch` mode) and then select the appropriate VSCode launch configuration. Applications have dependencies (like `apps/state-manager` depends on `libs/redis-client`) so these dependencies should also be build. To ensure a change in any component (application or library) will be reflected in the debugged application, execute these in their own terminals in the following order (you can skip some of them if you don't expect to make changes to like `npm run libs/redis-client:build-watch` and `npm run libs/websocket-server:build-watch` - these are pretty static and if there is some change, you can run one-time non-watch `...:build` version):
 
 ```bash
 npm run libs/types:build-watch
 npm run libs/redis-client:build-watch
+npm run libs/websocket-server:build-watch
 npm run apps/state-manager:build-watch
 npm run apps/pc-connector:build-watch
 npm run apps/operator-connector:build-watch

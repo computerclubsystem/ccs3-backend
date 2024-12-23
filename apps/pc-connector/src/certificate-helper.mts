@@ -1,7 +1,7 @@
 import { Certificate } from 'node:tls';
 
 export class CertificateHelper {
-createIssuerSubjectInfo(issuerSubjectString: string): CertificateIssuerSubjectInfo {
+    createIssuerSubjectInfo(issuerSubjectString: string): CertificateIssuerSubjectInfo {
         if (!issuerSubjectString?.trim()) {
             return { keysCount: 0, issuerSubjectCertificate: {} } as CertificateIssuerSubjectInfo;
         }
@@ -60,6 +60,12 @@ createIssuerSubjectInfo(issuerSubjectString: string): CertificateIssuerSubjectIn
         }
 
         return true;
+    }
+
+    createStringFromCertificateSubject(subject: Certificate): string {
+        const parts: string[] = [];
+        Object.keys(subject).map(key => parts.push(`${key}=${this.getObjectValueByKey(subject, key)}`));
+        return parts.join(',');
     }
 
     getObjectValueByKey(obj: any, key: string): any {
