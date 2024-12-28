@@ -34,7 +34,7 @@
         "apps/operator-connector:install-deps-omit-dev": "npm --workspace apps/operator-connector install --omit=dev",
         "apps/operator-connector:build": "npm --workspace apps/operator-connector run build",
         "apps/operator-connector:build-watch": "npm --workspace apps/operator-connector run build:watch",
-        "apps/operator-connector:build-include-deps": "npm run libs/types:install-deps && npm run libs/types:build && npm run libs/redis-client:install-deps && npm run libs/redis-client:build && npm run apps/operator-connector:install-deps && npm run apps/operator-connector:build",
+        "apps/operator-connector:build-include-deps": "npm run libs/types:install-deps && npm run libs/types:build && npm run libs/redis-client:install-deps && npm run libs/redis-client:build && npm run libs/websocket-server:install-deps && npm run libs/websocket-server:build && npm run apps/operator-connector:install-deps && npm run apps/operator-connector:build",
         "apps/operator-connector:build-image-docker": "docker build -t ccs3/operator-connector:latest -f devops/Dockerfile.operator-connector .",
         "apps/operator-connector:build-image-nerdctl": "nerdctl -n k8s.io build -t ccs3/operator-connector:latest -f devops/Dockerfile.operator-connector .",
         "build-images-docker": "npm run apps/state-manager:build-image-docker && npm run apps/pc-connector:build-image-docker",
