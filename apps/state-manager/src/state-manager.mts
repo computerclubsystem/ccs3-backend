@@ -31,6 +31,8 @@ import { ISystemSetting } from './storage/entities/system-setting.mjs';
 import { CacheHelper } from './cache-helper.mjs';
 import { SystemSettingType } from './storage/entities/constants/system-setting-type.mjs';
 import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
+import { BusOperatorConnectionEventMessage } from '@computerclubsystem/types/messages/bus/bus-operator-connection-event.message.mjs';
+import { IOperatorConnectionEvent } from './storage/entities/operator-connection-event.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -160,6 +162,9 @@ export class StateManager {
             case MessageType.busOperatorAuthRequest:
                 this.processOperatorAuthRequest(message as BusOperatorAuthRequestMessage);
                 break;
+            case MessageType.busOperatorConnectionEvent:
+                this.processOperatorConnectionEvent(message as BusOperatorConnectionEventMessage);
+                break;
         }
     }
 
@@ -222,6 +227,21 @@ export class StateManager {
         return replyMsg;
     }
 
+    async processOperatorConnectionEvent(message: BusOperatorConnectionEventMessage): Promise<void> {
+        try {
+            const operatorConnectionEvent: IOperatorConnectionEvent = {
+                operator_id: message.body.operatorId,
+                ip_address: message.body.ipAddress,
+                note: message.body.note,
+                timestamp: this.getNowAsIsoString(),
+                type: this.entityConverter.operatorConnectionEventTypeToOperatorConnectionEventStorage(message.body.type),
+            } as IOperatorConnectionEvent;
+            await this.storageProvider.addOperatorConnectionEvent(operatorConnectionEvent);
+        } catch (err) {
+            this.logger.warn(`Can't process BusOperatorConnectionEventMessage`, message, err);
+        }
+    }
+
     async processOperatorAuthRequest(message: BusOperatorAuthRequestMessage): Promise<void> {
         try {
             const body = message.body;
@@ -233,16 +253,16 @@ export class StateManager {
             //     // }
             //     this.publishToOperatorsChannel(replyMsg, message);
             // } else {
-                // If token is not provided - use username and passwords
-                if (this.isWhiteSpace(body.username) || this.isWhiteSpace(body.passwordHash)) {
-                    this.logger.warn('Username or password not provided', message);
-                    return;
-                }
-                const replyMsg = await this.getBusOperatorReplyMessageForUsernameAndPasswordHash(body.username!, body.passwordHash!);
-                // if (replyMsg.body.success) {
-                //     await this.maintainUserAuthDataTokenCacheItem(replyMsg.body.userId!, replyMsg.body.permissions!, replyMsg.body.token!, rtData);
-                // }
-                this.publishToOperatorsChannel(replyMsg, message);
+            // If token is not provided - use username and passwords
+            if (this.isWhiteSpace(body.username) || this.isWhiteSpace(body.passwordHash)) {
+                this.logger.warn('Username or password not provided', message);
+                return;
+            }
+            const replyMsg = await this.getBusOperatorReplyMessageForUsernameAndPasswordHash(body.username!, body.passwordHash!);
+            // if (replyMsg.body.success) {
+            //     await this.maintainUserAuthDataTokenCacheItem(replyMsg.body.userId!, replyMsg.body.permissions!, replyMsg.body.token!, rtData);
+            // }
+            this.publishToOperatorsChannel(replyMsg, message);
             // }
         } catch (err) {
             this.logger.warn(`Can't process BusOperatorAuthRequestMessage`, message, err);
@@ -273,7 +293,7 @@ export class StateManager {
             } as IDeviceConnectionEvent;
             await this.storageProvider.addDeviceConnectionEvent(deviceConnectionEvent);
         } catch (err) {
-            this.logger.warn(`Can't process BusDeviceConnectedMessage message`, message, err);
+            this.logger.warn(`Can't process BusDeviceConnectionEventMessage message`, message, err);
         }
     }
 

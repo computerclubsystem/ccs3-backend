@@ -14,6 +14,7 @@ export class EnvironmentVariablesHelper {
             CCS3_OPERATOR_CONNECTOR_STATIC_FILES_PATH: {} as EnvironmentVariableNameWithValue<string | undefined>,
             CCS3_OPERATOR_CONNECTOR_CERTIFICATE_CRT_FILE_PATH: {} as EnvironmentVariableNameWithValue<string>,
             CCS3_OPERATOR_CONNECTOR_CERTIFICATE_KEY_FILE_PATH: {} as EnvironmentVariableNameWithValue<string>,
+            CCS3_OPERATOR_CONNECTOR_ISSUER_CERTIFICATE_CRT_FILE_PATH: {} as EnvironmentVariableNameWithValue<string>,
             CCS3_OPERATOR_CONNECTOR_PORT: {} as EnvironmentVariableNameWithValue<number>,
             CCS3_REDIS_HOST: {} as EnvironmentVariableNameWithValue<string>,
             CCS3_REDIS_PORT: {} as EnvironmentVariableNameWithValue<number>,
@@ -23,6 +24,7 @@ export class EnvironmentVariablesHelper {
         result.CCS3_OPERATOR_CONNECTOR_STATIC_FILES_PATH.value = this.getEnvVarValue(result.CCS3_OPERATOR_CONNECTOR_STATIC_FILES_PATH.name, './operator-web-app');
         result.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_CRT_FILE_PATH.value = this.getEnvVarValue(result.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_CRT_FILE_PATH.name, './certificates/ccs3-operator-connector.crt')!;
         result.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_KEY_FILE_PATH.value = this.getEnvVarValue(result.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_KEY_FILE_PATH.name, './certificates/ccs3-operator-connector.key')!;
+        result.CCS3_OPERATOR_CONNECTOR_ISSUER_CERTIFICATE_CRT_FILE_PATH.value = this.getEnvVarValue(result.CCS3_OPERATOR_CONNECTOR_ISSUER_CERTIFICATE_CRT_FILE_PATH.name, './certificates/ccs3-ca.crt')!;
         result.CCS3_OPERATOR_CONNECTOR_PORT.value = this.getEnvironmentVarValueAsNumber(result.CCS3_OPERATOR_CONNECTOR_PORT.name, 65502);
         result.CCS3_REDIS_HOST.value = this.getEnvVarValue(result.CCS3_REDIS_HOST.name, 'ccs3-valkey-service')!;
         result.CCS3_REDIS_PORT.value = this.getEnvironmentVarValueAsNumber(result.CCS3_REDIS_PORT.name, 6379);
@@ -62,5 +64,6 @@ export interface EnvironmentVarsData {
     CCS3_OPERATOR_CONNECTOR_NO_STATIC_FILES_SERVING: EnvironmentVariableNameWithValue<boolean>;
     CCS3_OPERATOR_CONNECTOR_CERTIFICATE_CRT_FILE_PATH: EnvironmentVariableNameWithValue<string>;
     CCS3_OPERATOR_CONNECTOR_CERTIFICATE_KEY_FILE_PATH: EnvironmentVariableNameWithValue<string>;
+    CCS3_OPERATOR_CONNECTOR_ISSUER_CERTIFICATE_CRT_FILE_PATH: EnvironmentVariableNameWithValue<string>;
     CCS3_OPERATOR_CONNECTOR_PORT: EnvironmentVariableNameWithValue<number>;
 }

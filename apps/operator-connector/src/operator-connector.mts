@@ -119,7 +119,7 @@ export class OperatorConnector {
      * 
      * @param clientData 
      * @param message 
-     * @returns true if sucess
+     * @returns true if success
      */
     async processOperatorAuthRequestWithToken(clientData: ConnectedClientData, message: OperatorAuthRequestMessage): Promise<boolean> {
         const requestToken = message.body.token!;
@@ -132,6 +132,15 @@ export class OperatorConnector {
             }
             authReplyMsg.body.success = false;
             this.sendMessageToOperator(authReplyMsg, clientData);
+            if (isTokenActiveResult.authTokenCacheValue) {
+                const operatorId = clientData.operatorId || isTokenActiveResult.authTokenCacheValue.userId;
+                const note = JSON.stringify({
+                    requestToken: requestToken,
+                    clientData: clientData,
+                    authTokenCacheValue: isTokenActiveResult.authTokenCacheValue,
+                });
+                this.publishOperatorConnectionEventMessage(operatorId, clientData.ipAddress, OperatorConnectionEventType.usedExpiredToken, note);
+            }
             return false;
         }
         // The token is active - generate new one and remove the old one
@@ -160,10 +169,17 @@ export class OperatorConnector {
         await this.cacheHelper.setUserAuthData(authTokenCacheValue);
         // Mark operator as authenticated
         clientData.isAuthenticated = true;
+        const operatorId = clientData.operatorId || authTokenCacheValue.userId;
+        clientData.operatorId = operatorId;
         // Send messages back to the operator
         this.sendMessageToOperator(authReplyMsg, clientData);
         const configurationMsg = this.createOperatorConfigurationMessage();
         this.sendMessageToOperator(configurationMsg, clientData);
+        const note = JSON.stringify({
+            clientData: clientData,
+            authReplyMsg: authReplyMsg,
+        });
+        this.publishOperatorConnectionEventMessage(operatorId!, clientData.ipAddress, OperatorConnectionEventType.tokenAuthSuccess, note);
         return true;
     }
 
@@ -200,6 +216,9 @@ export class OperatorConnector {
             case MessageType.busOperatorAuthReply:
                 this.processBusOperatorAuthReplyMessage(message as BusOperatorAuthReplyMessage)
                 break;
+            default:
+                this.logger.log(`Unknown message received`, message);
+                break;
         }
     }
 
@@ -224,6 +243,12 @@ export class OperatorConnector {
             // TODO: Get configuration from the database
             const configurationMsg = this.createOperatorConfigurationMessage();
             this.sendMessageToOperator(configurationMsg, clientData);
+
+            const note = JSON.stringify({
+                messageBody: message.body,
+                clientData: clientData,
+            });
+            this.publishOperatorConnectionEventMessage(clientData.operatorId!, clientData.ipAddress, OperatorConnectionEventType.passwordAuthSuccess, note);
         }
     }
 
@@ -294,8 +319,11 @@ export class OperatorConnector {
         // Check if we still have this connection before saving connection event - it might be already removed because of timeout
         const clientData = this.getConnectedClientData(args.connectionId);
         if (clientData?.operatorId) {
-            const note = `Code: ${args.code}, connection id: ${args.connectionId}, received messages count: ${clientData?.receivedMessagesCount}`;
-            this.publishOperatorConnectionEventMessage(clientData.operatorId, clientData.ipAddress!, OperatorConnectionEventType.disconnected, note);
+            const note = JSON.stringify({
+                args: args,
+                clientData: clientData,
+            });
+            this.publishOperatorConnectionEventMessage(clientData.operatorId!, clientData.ipAddress!, OperatorConnectionEventType.disconnected, note);
         }
         this.removeClient(args.connectionId);
     }
@@ -336,6 +364,10 @@ export class OperatorConnector {
     }
 
     publishOperatorConnectionEventMessage(operatorId: number, ipAddress: string | null, eventType: OperatorConnectionEventType, note?: string): void {
+        if (!operatorId) {
+            this.logger.warn(`Can't publish operator connection event message. Specified operatorId is null`, ipAddress, eventType, note);
+            return;
+        }
         const deviceConnectionEventMsg = createBusOperatorConnectionEventMessage();
         deviceConnectionEventMsg.body.operatorId = operatorId;
         deviceConnectionEventMsg.body.ipAddress = ipAddress;
@@ -555,6 +587,7 @@ export class OperatorConnector {
         const wssServerConfig: WssServerConfig = {
             cert: fs.readFileSync(this.envVars.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_CRT_FILE_PATH.value).toString(),
             key: fs.readFileSync(this.envVars.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_KEY_FILE_PATH.value).toString(),
+            caCert: fs.readFileSync(this.envVars.CCS3_OPERATOR_CONNECTOR_ISSUER_CERTIFICATE_CRT_FILE_PATH.value).toString(),
             port: this.envVars.CCS3_OPERATOR_CONNECTOR_PORT.value,
         };
         this.wssServer.start(wssServerConfig);
@@ -594,10 +627,15 @@ export class OperatorConnector {
 
         for (const entry of connectionIdsWithCleanUpReason.entries()) {
             const connectionId = entry[0];
-            const data = this.getConnectedClientData(connectionId);
-            this.logger.warn('Disconnecting client', connectionId, entry[1], data);
-            if (data?.operatorId) {
-                this.publishOperatorConnectionEventMessage(data.operatorId, data.ipAddress, OperatorConnectionEventType.idleTimeout, entry[1].toString());
+            const clientData = this.getConnectedClientData(connectionId);
+            this.logger.warn('Disconnecting client', connectionId, entry[1], clientData);
+            if (clientData?.operatorId) {
+                const note = JSON.stringify({
+                    connectionId: entry[0],
+                    connectionCleanUpReason: entry[1],
+                    clientData: clientData,
+                });
+                this.publishOperatorConnectionEventMessage(clientData.operatorId, clientData.ipAddress, OperatorConnectionEventType.idleTimeout, note);
             }
             this.removeClient(connectionId);
             this.wssServer.closeConnection(connectionId);

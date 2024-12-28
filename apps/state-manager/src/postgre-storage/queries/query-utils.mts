@@ -3,15 +3,26 @@ import { SystemSettingQueryUtils } from './system-setting-query-utils.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
 import { IDeviceConnectionEvent } from 'src/storage/entities/device-connection-event.mjs';
 import { DeviceConnectionQueryHelper } from './device-connection-event-query-helper.mjs';
+import { IOperatorConnectionEvent } from 'src/storage/entities/operator-connection-event.mjs';
+import { OperatorConnectionQueryHelper } from './operator-connection-event-query-helper.mjs';
 
 export class QueryUtils {
     private readonly helpers = {
         systemSettings: new SystemSettingQueryUtils(),
         deviceConnection: new DeviceConnectionQueryHelper(),
+        operatorConnection: new OperatorConnectionQueryHelper(),
     };
 
-    addDeviceConnectionEventQueryData(deviceConnection: IDeviceConnectionEvent): IQueryTextWithParamsResult {
-        const queryData = this.helpers.deviceConnection.addDeviceConnectionQueryData(deviceConnection);
+    addOperatorConnectionEventQueryData(operatorConnectionEvent: IOperatorConnectionEvent): IQueryTextWithParamsResult {
+        const queryData = this.helpers.operatorConnection.addOperatorConnectionQueryData(operatorConnectionEvent);
+        return {
+            query: queryData.query,
+            params: queryData.params,
+        };
+    }
+
+    addDeviceConnectionEventQueryData(deviceConnectionEvent: IDeviceConnectionEvent): IQueryTextWithParamsResult {
+        const queryData = this.helpers.deviceConnection.addDeviceConnectionQueryData(deviceConnectionEvent);
         return {
             query: queryData.query,
             params: queryData.params,

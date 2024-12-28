@@ -5,6 +5,7 @@ import { ISystemSetting } from './entities/system-setting.mjs';
 import { IUser } from './entities/user.mjs';
 import { StorageProviderConfig } from './storage-provider-config.mjs';
 import { StorageProviderInitResult } from './storage-provider-init-result.mjs';
+import { IOperatorConnectionEvent } from './entities/operator-connection-event.mjs';
 
 export interface StorageProvider {
     init(config: StorageProviderConfig): Promise<StorageProviderInitResult>;
@@ -17,4 +18,5 @@ export interface StorageProvider {
     getAllSystemSettings(): Promise<ISystemSetting[]>;
     getSystemSettingByName(name: string): Promise<ISystemSetting | undefined>;
     addDeviceConnectionEvent(deviceConnectionEvent: IDeviceConnectionEvent): Promise<IDeviceConnectionEvent | undefined>;
+    addOperatorConnectionEvent(addOperatorConnectionEvent: IOperatorConnectionEvent): Promise<IOperatorConnectionEvent | undefined>;
 }

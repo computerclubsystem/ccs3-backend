@@ -435,6 +435,7 @@ export class PcConnector {
         const wssServerConfig: WssServerConfig = {
             cert: fs.readFileSync(this.envVars.CCS3_PC_CONNECTOR_CERTIFICATE_CRT_FILE_PATH.value!).toString(),
             key: fs.readFileSync(this.envVars.CCS3_PC_CONNECTOR_CERTIFICATE_KEY_FILE_PATH.value!).toString(),
+            caCert: fs.readFileSync(this.envVars.CCS3_PC_CONNECTOR_ISSUER_CERTIFICATE_CRT_FILE_PATH.value!).toString(),
             port: this.envVars.CCS3_PC_CONNECTOR_PORT.value!,
         };
         this.wssServer.start(wssServerConfig);

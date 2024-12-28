@@ -20,6 +20,7 @@ export class WssServer {
         this.httpsServer = https.createServer({
             cert: config.cert,
             key: config.key,
+            ca: config.caCert,
             // requestCert is needed so the clients send their certificates
             requestCert: true,
             // Accept invalid / self-signed certificates
@@ -221,6 +222,7 @@ export class WssServer {
 export interface WssServerConfig {
     cert: string;
     key: string;
+    caCert: string;
     port: number;
 }
 

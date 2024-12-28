@@ -16,13 +16,13 @@ The following secrets must be provided to the Kubernetes namespace `ccs3` create
 ```bash
 kubectl create secret generic nginx-certs --from-file=ccs3-static-files-service.crt --from-file=ccs3-static-files-service.key
 ```
-- `pc-connector-certs` - this is a secret containing the two .crt and .key files for the pc-connector service to operate. Create certificate files as described in `certificates/README.md` and provide them as secret in the Kubernetes `ccs3` namespace:
+- `pc-connector-certs` - this is a secret containing the two .crt and one .key files for the pc-connector service to operate. These are the .crt and .key files of the pc-connector and the .crt file of the certificate issuer. Create certificate files as described in `certificates/README.md` and provide them as secret in the Kubernetes `ccs3` namespace:
 ```bash
-kubectl create secret generic pc-connector-certs --from-file=ccs3-pc-connector.crt --from-file=ccs3-pc-connector.key
+kubectl create secret generic pc-connector-certs --from-file=ccs3-pc-connector.crt --from-file=ccs3-pc-connector.key  --from-file=ccs3-ca.crt
 ```
-- `operator-connector-certs` - this is a secret containing the two .crt and .key files for the operator-connector service to operate. Create certificate files as described in `certificates/README.md` and provide them as secret in the Kubernetes `ccs3` namespace:
+- `operator-connector-certs` - this is a secret containing the two .crt and one .key files for the operator-connector service to operate. These are the .crt and .key files of the operator-connector and the .crt file of the certificate issuer. Create certificate files as described in `certificates/README.md` and provide them as secret in the Kubernetes `ccs3` namespace:
 ```bash
-kubectl create secret generic operator-connector-certs --from-file=ccs3-operator-connector.crt --from-file=ccs3-operator-connector.key
+kubectl create secret generic operator-connector-certs --from-file=ccs3-operator-connector.crt --from-file=ccs3-operator-connector.key --from-file=ccs3-ca.crt
 ```
 - `ccs3-ca-issuer-certificate-subject` - this secret must contain the CCS3 CA certificate subject in key `subject`. Sample:
 ```bash

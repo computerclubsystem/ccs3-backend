@@ -13,6 +13,7 @@ import { IDeviceStatus } from 'src/storage/entities/device-status.mjs';
 import { QueryUtils } from './queries/query-utils.mjs';
 import { ISystemSetting } from 'src/storage/entities/system-setting.mjs';
 import { IDeviceConnectionEvent } from 'src/storage/entities/device-connection-event.mjs';
+import { IOperatorConnectionEvent } from 'src/storage/entities/operator-connection-event.mjs';
 
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
@@ -42,8 +43,14 @@ export class PostgreStorageProvider implements StorageProvider {
         return result;
     }
 
-    async addDeviceConnectionEvent(deviceConnection: IDeviceConnectionEvent): Promise<IDeviceConnectionEvent | undefined> {
-        const queryData = this.queryHelper.addDeviceConnectionEventQueryData(deviceConnection);
+    async addOperatorConnectionEvent(operatorConnectionEvent: IOperatorConnectionEvent): Promise<IOperatorConnectionEvent | undefined> {
+        const queryData = this.queryHelper.addOperatorConnectionEventQueryData(operatorConnectionEvent);
+        const res = await this.execQuery(queryData.query, queryData.params);
+        return res.rows[0] as IOperatorConnectionEvent | undefined;
+    }
+
+    async addDeviceConnectionEvent(deviceConnectionEvent: IDeviceConnectionEvent): Promise<IDeviceConnectionEvent | undefined> {
+        const queryData = this.queryHelper.addDeviceConnectionEventQueryData(deviceConnectionEvent);
         const res = await this.execQuery(queryData.query, queryData.params);
         return res.rows[0] as IDeviceConnectionEvent | undefined;
     }
