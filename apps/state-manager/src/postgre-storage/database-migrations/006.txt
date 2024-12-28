@@ -1,0 +1,16 @@
+CREATE TABLE operator_connection_event
+(
+    id SERIAL PRIMARY KEY NOT NULL,
+    operator_id integer NOT NULL,
+    ip_address text,
+    type integer NOT NULL,
+    note text,
+    timestamp timestamp without time zone NOT NULL,
+    CONSTRAINT fk_operator_connection_operator_id_user_id 
+        FOREIGN KEY (operator_id)
+        REFERENCES "user" (id)
+);
+
+UPDATE db_metadata
+SET value = '6'
+WHERE name = 'database-version';

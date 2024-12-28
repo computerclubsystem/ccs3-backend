@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: ccs3-static-files-container
-        image: ccs3/sfs:latest
+        image: ccs3/static-files-service:latest
         imagePullPolicy: Never
         volumeMounts:
         - name: nginx-certs-volume

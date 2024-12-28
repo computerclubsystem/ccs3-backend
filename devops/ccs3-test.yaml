@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: ccs3-static-files-container
-        image: ccs3/sfs:latest
+        image: ccs3/static-files-service:latest
         imagePullPolicy: Never
         volumeMounts:
         - name: nginx-certs-volume
@@ -160,6 +160,92 @@ spec:
       - name: pc-connector-certs-volume
         secret:
           secretName: pc-connector-certs
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ccs3-pc-connector-load-balancer
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  type: LoadBalancer
+  ports:
+  - name: ccs3-pc-connector-port
+    protocol: TCP
+    port: 65501
+  selector:
+   app: ccs3
+   pod: pc-connector
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ccs3-operator-connector-deployment
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ccs3
+  template:
+    metadata:
+      labels:
+        app: ccs3
+        pod: operator-connector
+    spec:
+      containers:
+      - name: ccs3-operator-connector-container
+        image: ccs3/operator-connector:latest
+        imagePullPolicy: Never
+        volumeMounts:
+        - name: operator-connector-certs-volume
+          mountPath: /app/dist/certificates
+        env:
+        - name: CCS3_REDIS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: redis-host
+              key: host
+        - name: CCS3_CA_ISSUER_CERTIFICATE_SUBJECT
+          valueFrom:
+            secretKeyRef:
+              name: ccs3-ca-issuer-certificate-subject
+              key: subject
+        resources:
+          limits:
+            memory: 128Mi
+            cpu: "0.1"
+      volumes:
+      - name: operator-connector-certs-volume
+        secret:
+          secretName: operator-connector-certs
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ccs3-operator-connector-load-balancer
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  type: LoadBalancer
+  ports:
+  - name: ccs3-operator-connector-port
+    protocol: TCP
+    port: 65502
+  selector:
+   app: ccs3
+   pod: operator-connector
+
 ---
 
 apiVersion: v1
@@ -200,22 +286,3 @@ spec:
   selector:
    app: ccs3
    pod: ccs3-static-files
-
----
-
-apiVersion: v1
-kind: Service
-metadata:
-  name: ccs3-pc-connector-load-balancer
-  labels:
-    app: ccs3
-    tier: backend
-spec:
-  type: LoadBalancer
-  ports:
-  - name: ccs3-pc-connector-port
-    protocol: TCP
-    port: 65501
-  selector:
-   app: ccs3
-   pod: pc-connector

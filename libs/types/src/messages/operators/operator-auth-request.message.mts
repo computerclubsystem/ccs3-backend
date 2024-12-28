@@ -1,5 +1,4 @@
-import { MessageType } from '../declarations/message-type.mjs';
-import { Message } from '../declarations/message.mjs';
+import { OperatorMessage } from './declarations/operator.message.mjs';
 
 export interface OperatorAuthRequestMessageBody {
     username?: string;
@@ -7,13 +6,5 @@ export interface OperatorAuthRequestMessageBody {
     token?: string;
 }
 
-export interface OperatorAuthRequestMessage extends Message<OperatorAuthRequestMessageBody> {
+export interface OperatorAuthRequestMessage extends OperatorMessage<OperatorAuthRequestMessageBody> {
 }
-
-export function createOperatorAuthRequestMessage(): OperatorAuthRequestMessage {
-    const msg: OperatorAuthRequestMessage = {
-        header: { type: MessageType.operatorAuthRequest },
-        body: {} as OperatorAuthRequestMessageBody,
-    };
-    return msg;
-};

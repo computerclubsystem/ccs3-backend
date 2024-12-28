@@ -72,6 +72,18 @@ export class PostgreStorageProvider implements StorageProvider {
         return res.rows[0] as IUser | undefined;
     }
 
+    async getUserById(userId: number): Promise<IUser | undefined> {
+        const queryData = this.queryHelper.getUserByIdQueryData(userId);
+        const res = await this.execQuery(queryData.query, queryData.params);
+        return res.rows[0] as IUser | undefined;
+    }
+
+    async getUserPermissions(userId: number): Promise<string[] | undefined> {
+        const queryData = this.queryHelper.getUserPermissionsQueryData(userId);
+        const res = await this.execQuery(queryData.query, queryData.params);
+        return (res.rows as { name: string }[]).map(x => x.name);
+    }
+
     async createDevice(device: IDevice): Promise<IDevice> {
         const queryData = this.queryHelper.createDeviceQueryData(device);
         const res = await this.execQuery(queryData.query, queryData.params);

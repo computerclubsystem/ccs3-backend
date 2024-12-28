@@ -59,6 +59,16 @@ export class QueryUtils {
         }
     }
 
+    getUserByIdQueryData(userId: number): IQueryTextWithParamsResult {
+        const params: [number] = [
+            userId,
+        ];
+        return {
+            query: this.getUserByIdQueryText,
+            params,
+        };
+    }
+
     getUserQueryData(username: string, passwordHash: string): IQueryTextWithParamsResult {
         const params: unknown[] = [
             username,
@@ -68,6 +78,16 @@ export class QueryUtils {
             query: this.getUserQueryText,
             params,
         };
+    }
+
+    getUserPermissionsQueryData(userId: number): IQueryTextWithParamsResult {
+        const params: [number] = [
+            userId,
+        ];
+        return {
+            query: this.getUserPermissionsQueryText,
+            params,
+        }
     }
 
     getAllDeviceStatusesQuery(): string {
@@ -85,6 +105,16 @@ export class QueryUtils {
         FROM device_status
     `;
 
+    private readonly getUserPermissionsQueryText = `
+        SELECT p.name 
+        FROM permission_in_role AS pir
+        INNER JOIN role AS r ON r.id = pir.role_id
+        INNER JOIN permission AS p ON p.id = pir.permission_id
+        INNER JOIN user_in_role AS uir ON uir.role_id = r.id
+        INNER JOIN "user" AS u ON u.id = pir.role_id
+        WHERE u.id = $1
+    `;
+
     private readonly getUserQueryText = `
         SELECT 
             id,
@@ -94,6 +124,16 @@ export class QueryUtils {
         WHERE username = $1 AND password_hash = $2
         LIMIT 1
     `;
+
+    private readonly getUserByIdQueryText = `
+    SELECT 
+        id,
+        username,
+        enabled
+    FROM "user"
+    WHERE id = $1
+    LIMIT 1
+`;
 
     private readonly createDeviceQueryText = `
         INSERT INTO device

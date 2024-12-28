@@ -1,7 +1,7 @@
 import { RedisClient } from './declarations.mjs';
 import { CreateConnectedRedisClientOptions, createConnectedRedisClient } from './client-utils.mjs';
 
-export class RedisStoreClient {
+export class RedisCacheClient {
     #client!: RedisClient;
 
     async connect(options: CreateConnectedRedisClientOptions): Promise<void> {
@@ -9,14 +9,22 @@ export class RedisStoreClient {
     }
 
     async setValue(key: string, value: any): Promise<any> {
-        return await this.#client.set(key, value);
+        return this.#client.set(key, JSON.stringify(value));
+    }
+
+    async deleteItem(key: string): Promise<number> {
+        return this.#client.del(key);
     }
 
     async getValue(key: string): Promise<any> {
-        return await this.#client.get(key);
+        const value = await this.#client.get(key);
+        if (value === null) {
+            return null;
+        }
+        return JSON.parse(value);
     }
 
     async disconnect(): Promise<void> {
-        return await this.#client.disconnect();
+        return this.#client.disconnect();
     }
 }

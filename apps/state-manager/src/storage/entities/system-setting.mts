@@ -6,4 +6,5 @@ export interface ISystemSetting {
     type: SystemSettingType;
     description?: string;
     value?: string;
+    allowedValues?: string;
 }

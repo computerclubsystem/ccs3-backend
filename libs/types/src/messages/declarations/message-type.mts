@@ -9,11 +9,15 @@ export const enum MessageType {
     busDeviceStatuses = 'bus-device-statuses',
     busDeviceConnectionEvent = 'bus-device-connection-event',
     busOperatorAuthRequest = 'bus-operator-auth-request',
+    busOperatorAuthReply = 'bus-operator-auth-reply',
+    busOperatorConnectionEvent = 'bus-operator-connection-event',
 
     busDeviceUnknownDeviceConnectedRequest = 'bus-device-unknown-device-connected-request',
     busDeviceUnknownDeviceConnectedReply = 'bus-device-unknown-device-connected-reply',
     
 
-    // Operators
-    operatorAuthRequest = 'operator-auth-request',
+    // // Operators
+    // operatorAuthRequest = 'auth-request',
+    // operatorAuthReply = 'auth-reply',
+    // operatorConfiguration = 'configuration'
 }

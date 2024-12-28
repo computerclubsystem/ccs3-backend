@@ -3,7 +3,8 @@ CREATE TABLE system_setting
     name text primary key not null,
     type text not null,
     description text null,
-    value text null
+    value text null,
+    allowed_values text null
 );
 
 
@@ -20,6 +21,12 @@ VALUES
     'integer',
     'Interval in seconds at which to calculate device statuses',
     '5'
+),
+(
+    'token_duration',
+    'integer',
+    'Token duration in seconds',
+    '1800'
 );
 
 UPDATE db_metadata

@@ -17,7 +17,7 @@ import { BusDeviceStatusesMessage, DeviceStatus } from '@computerclubsystem/type
 import { createDeviceSetStatusMessage } from '@computerclubsystem/types/messages/devices/device-set-status.message.mjs';
 import { ConnectionRoundTripData } from '@computerclubsystem/types/messages/declarations/connection-roundtrip-data.mjs';
 import { createDeviceConfigurationMessage } from '@computerclubsystem/types/messages/devices/device-configuration.message.mjs';
-import { createBusDeviceConnectionEventMessage } from '@computerclubsystem/types/messages/bus/bus-device-connection-event.message.mjs';
+import { BusDeviceConnectionEventMessageBody, createBusDeviceConnectionEventMessage } from '@computerclubsystem/types/messages/bus/bus-device-connection-event.message.mjs';
 import { DeviceConnectionEventType } from '@computerclubsystem/types/entities/device-connection-event-type.mjs';
 import {
     ClientConnectedEventArgs, ConnectionClosedEventArgs, ConnectionErrorEventArgs,
@@ -257,10 +257,13 @@ export class PcConnector {
 
     private publishDeviceConnectionEventMessage(deviceId: number, ipAddress: string, eventType: DeviceConnectionEventType, note?: string): void {
         const deviceConnectionEventMsg = createBusDeviceConnectionEventMessage();
-        deviceConnectionEventMsg.body.deviceId = deviceId;
-        deviceConnectionEventMsg.body.ipAddress = ipAddress;
-        deviceConnectionEventMsg.body.type = eventType;
-        deviceConnectionEventMsg.body.note = note;
+        deviceConnectionEventMsg.body = {
+            ...deviceConnectionEventMsg.body,
+            deviceId: deviceId,
+            ipAddress: ipAddress,
+            note: note,
+            type: eventType,
+        };
         this.publishToDevicesChannel(deviceConnectionEventMsg);
     }
 

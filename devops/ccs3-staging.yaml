@@ -151,7 +151,7 @@ spec:
   ports:
     - name: pc-connector-backend
       protocol: TCP
-      port: 65443
+      port: 65502
       # targetPort: 6379
   selector:
     app: ccs3

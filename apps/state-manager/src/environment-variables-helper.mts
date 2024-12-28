@@ -10,20 +10,14 @@ export class EnvironmentVariablesHelper {
     createEnvironmentVars(): EnvironmentVarsData {
         // The object keys must be the same as environment variable names
         const result: EnvironmentVarsData = {
-            CCS3_OPERATOR_CONNECTOR_NO_STATIC_FILES_SERVING: {} as EnvironmentVariableNameWithValue<boolean>,
-            CCS3_OPERATOR_CONNECTOR_STATIC_FILES_PATH: {} as EnvironmentVariableNameWithValue<string | undefined>,
-            CCS3_OPERATOR_CONNECTOR_CERTIFICATE_CRT_FILE_PATH: {} as EnvironmentVariableNameWithValue<string>,
-            CCS3_OPERATOR_CONNECTOR_CERTIFICATE_KEY_FILE_PATH: {} as EnvironmentVariableNameWithValue<string>,
-            CCS3_OPERATOR_CONNECTOR_PORT: {} as EnvironmentVariableNameWithValue<number>,
+            CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING: {} as EnvironmentVariableNameWithValue<string>,
+            CCS3_STATE_MANAGER_STORAGE_PROVIDER_DATABASE_MIGRATION_SCRIPTS_DIRECTORY: {} as EnvironmentVariableNameWithValue<string>,
             CCS3_REDIS_HOST: {} as EnvironmentVariableNameWithValue<string>,
             CCS3_REDIS_PORT: {} as EnvironmentVariableNameWithValue<number>,
         };
         Object.keys(result).forEach(key => this.setObjectValueByKey(result, key, { name: key } as EnvironmentVariableNameWithValue<any>));
-        result.CCS3_OPERATOR_CONNECTOR_NO_STATIC_FILES_SERVING.value = this.getEnvironmentVarValueAsBoolean(result.CCS3_OPERATOR_CONNECTOR_NO_STATIC_FILES_SERVING.name, false);
-        result.CCS3_OPERATOR_CONNECTOR_STATIC_FILES_PATH.value = this.getEnvVarValue(result.CCS3_OPERATOR_CONNECTOR_STATIC_FILES_PATH.name, './operator-web-app');
-        result.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_CRT_FILE_PATH.value = this.getEnvVarValue(result.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_CRT_FILE_PATH.name, './certificates/ccs3-operator-connector.crt')!;
-        result.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_KEY_FILE_PATH.value = this.getEnvVarValue(result.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_KEY_FILE_PATH.name, './certificates/ccs3-operator-connector.key')!;
-        result.CCS3_OPERATOR_CONNECTOR_PORT.value = this.getEnvironmentVarValueAsNumber(result.CCS3_OPERATOR_CONNECTOR_PORT.name, 65502);
+        result.CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING.value = this.getEnvVarValue(result.CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING.name)!;
+        result.CCS3_STATE_MANAGER_STORAGE_PROVIDER_DATABASE_MIGRATION_SCRIPTS_DIRECTORY.value = this.getEnvVarValue(result.CCS3_STATE_MANAGER_STORAGE_PROVIDER_DATABASE_MIGRATION_SCRIPTS_DIRECTORY.name, './postgre-storage/database-migrations')!;
         result.CCS3_REDIS_HOST.value = this.getEnvVarValue(result.CCS3_REDIS_HOST.name, 'ccs3-valkey-service')!;
         result.CCS3_REDIS_PORT.value = this.getEnvironmentVarValueAsNumber(result.CCS3_REDIS_PORT.name, 6379);
         return result;
@@ -56,11 +50,18 @@ export interface EnvironmentVariableNameWithValue<TValue> {
 }
 
 export interface EnvironmentVarsData {
+    /**
+     * Database connection string. Must point to the application database and contain its owner credentials
+     */
+    CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING: EnvironmentVariableNameWithValue<string>,
+    /**
+     * Reserved for future use. Database connection with admin credentials. Can be used in the future to create the application database and its user automatically
+     */
+    // CCS3_STATE_MANAGER_STORAGE_ADMIN_CONNECTION_STRING: EnvironmentVariableNameWithValue<string>,
+    /**
+     * The path to the directory that contains database migration scripts used to update the database schema if needed.
+     */
+    CCS3_STATE_MANAGER_STORAGE_PROVIDER_DATABASE_MIGRATION_SCRIPTS_DIRECTORY: EnvironmentVariableNameWithValue<string>,
     CCS3_REDIS_HOST: EnvironmentVariableNameWithValue<string>;
     CCS3_REDIS_PORT: EnvironmentVariableNameWithValue<number>;
-    CCS3_OPERATOR_CONNECTOR_STATIC_FILES_PATH: EnvironmentVariableNameWithValue<string | undefined>;
-    CCS3_OPERATOR_CONNECTOR_NO_STATIC_FILES_SERVING: EnvironmentVariableNameWithValue<boolean>;
-    CCS3_OPERATOR_CONNECTOR_CERTIFICATE_CRT_FILE_PATH: EnvironmentVariableNameWithValue<string>;
-    CCS3_OPERATOR_CONNECTOR_CERTIFICATE_KEY_FILE_PATH: EnvironmentVariableNameWithValue<string>;
-    CCS3_OPERATOR_CONNECTOR_PORT: EnvironmentVariableNameWithValue<number>;
 }

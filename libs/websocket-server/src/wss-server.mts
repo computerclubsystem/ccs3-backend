@@ -1,8 +1,8 @@
 import EventEmitter from 'node:events';
 import { IncomingMessage } from 'node:http';
+import { IncomingHttpHeaders } from 'node:http2';
 import * as https from 'node:https';
 import { DetailedPeerCertificate, TLSSocket } from 'node:tls';
-import { TextEncoder } from 'node:util';
 import { RawData, WebSocket, WebSocketServer } from 'ws';
 
 export class WssServer {
@@ -28,7 +28,7 @@ export class WssServer {
         this.wsServer = new WebSocketServer({
             server: this.httpsServer,
             // host: '0.0.0.0',
-            // port: 65443,
+            // port: 65502,
             // 100 Kb
             maxPayload: 100 * 1024,
             backlog: 50,
@@ -39,13 +39,11 @@ export class WssServer {
             // },
         });
 
+        this.wsServer.on('listening', () => this.serverListening());
+        // this.wsServer.on('headers', (headers: string[], request: IncomingMessage) => this.clientHeaders(headers, request));
         this.wsServer.on('connection', (webSocket, request) => this.clientConnected(webSocket, request));
         this.wsServer.on('error', (error) => this.serverError(error));
         this.httpsServer.listen(config.port, '0.0.0.0', 50);
-    }
-
-    serverError(error: Error): void {
-        console.error('Server error', error);
     }
 
     closeConnection(connectionId: number): void {
@@ -68,13 +66,19 @@ export class WssServer {
             return 0;
         }
 
-        const array = this.toBinary(message);
-        client.send(array, err => {
+        // const data = this.toBinary(message);
+        const data = JSON.stringify(message);
+        client.send(data, err => {
             if (err) {
-                console.error('sendJSON error', connectionId, message, err);
+                const sendErrorArgs: SendErrorEventArgs = {
+                    connectionId: connectionId,
+                    err: err,
+                    message: message,
+                };
+                this.emitter.emit(WssServerEventName.sendError, sendErrorArgs);
             }
         });
-        return array.length;
+        return data.length;
     }
 
     sendJSONToAll(message: Record<string | number, any>): number {
@@ -93,11 +97,34 @@ export class WssServer {
         return this.httpsServer;
     }
 
-    private toBinary(obj: Record<string | number, any>): Uint8Array {
-        const string = JSON.stringify(obj);
-        const te = new TextEncoder();
-        const array = te.encode(string);
-        return array;
+    getWebSocketServer(): WebSocketServer {
+        return this.wsServer;
+    }
+
+    getWebSocketByConnectionId(connectionId: number): WebSocket | undefined {
+        return this.clientsByConnectionId.get(connectionId);
+    }
+
+    // private toBinary(obj: Record<string | number, any>): Uint8Array {
+    //     const string = JSON.stringify(obj);
+    //     const te = new TextEncoder();
+    //     const array = te.encode(string);
+    //     return array;
+    // }
+
+    // private clientHeaders(headers: string[], request: IncomingMessage): void {
+    //     // TODO: Happens before ".on('connect', ...)"
+    // }
+
+    private serverListening(): void {
+        this.emitter.emit(WssServerEventName.serverListening);
+    }
+
+    private serverError(error: Error): void {
+        const serverErrorEventArgs: ServerErrorEventArgs = {
+            err: error,
+        };
+        this.emitter.emit(WssServerEventName.serverError, serverErrorEventArgs);
     }
 
     private clientConnected(webSocket: WebSocket, request: IncomingMessage): void {
@@ -111,6 +138,7 @@ export class WssServer {
             connectionId: socketConnectionId,
             certificate: peerCert,
             ipAddress: request.socket.remoteAddress ?? null,
+            headers: request.headers,
         };
         this.emitter.emit(WssServerEventName.clientConnected, clientConnectedEventArgs);
     }
@@ -202,6 +230,7 @@ export interface ConnectionEventArgs {
 
 export interface ClientConnectedEventArgs extends ConnectionEventArgs {
     certificate: DetailedPeerCertificate;
+    headers: IncomingHttpHeaders;
     ipAddress: string | null;
 }
 
@@ -217,9 +246,21 @@ export interface ConnectionErrorEventArgs extends ConnectionEventArgs {
     err: Error;
 }
 
+export interface ServerErrorEventArgs {
+    err: Error;
+}
+
+export interface SendErrorEventArgs extends ConnectionEventArgs {
+    err: Error;
+    message: Record<string | number, any>;
+}
+
 export const enum WssServerEventName {
+    serverError = 'server-error',
+    serverListening = 'server-listening',
     clientConnected = 'client-connected',
     messageReceived = 'message-received',
     connectionClosed = 'connection-closed',
     connectionError = 'connection-error',
+    sendError = 'send-error',
 }

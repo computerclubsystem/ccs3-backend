@@ -4,6 +4,8 @@ export {
     ConnectionClosedEventArgs,
     ConnectionErrorEventArgs,
     ConnectionEventArgs,
+    SendErrorEventArgs,
+    ServerErrorEventArgs,
     MessageReceivedEventArgs,
     WssServerConfig,
     WssServerEventName,

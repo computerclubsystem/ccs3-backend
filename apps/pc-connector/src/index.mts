@@ -1,4 +1,4 @@
 import { PcConnector } from './pc-connector.mjs';
 
-const deviceConnector = new PcConnector();
-await deviceConnector.start();
+const pcConnector = new PcConnector();
+await pcConnector.start();

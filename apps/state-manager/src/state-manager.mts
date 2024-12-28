@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto';
+
 import {
-    RedisSubClient, RedisPubClient, RedisStoreClient, CreateConnectedRedisClientOptions,
+    RedisSubClient, RedisPubClient, RedisCacheClient, CreateConnectedRedisClientOptions,
     RedisClientMessageCallback
 } from '@computerclubsystem/redis-client';
 import { ChannelName } from '@computerclubsystem/types/channels/channel-name.mjs';
@@ -17,23 +19,34 @@ import { StorageProvider } from './storage/storage-provider.mjs';
 import { PostgreStorageProvider } from './postgre-storage/postgre-storage-provider.mjs';
 import { BusDeviceUnknownDeviceConnectedRequestMessage } from '@computerclubsystem/types/messages/bus/bus-device-unknown-device-connected-request.message.mjs';
 import { IDevice } from './storage/entities/device.mjs';
-import { ConnectionRoundTripData } from '@computerclubsystem/types/messages/declarations/connection-roundtrip-data.mjs';
-import { SystemSettingsName } from './storage/entities/constants/system-setting-names.mjs';
+import { SystemSettingsName as SystemSettingName } from './storage/entities/constants/system-setting-names.mjs';
 import { EntityConverter } from './entity-converter.mjs';
 import { BusDeviceConnectionEventMessage } from '@computerclubsystem/types/messages/bus/bus-device-connection-event.message.mjs';
 import { IDeviceConnectionEvent } from './storage/entities/device-connection-event.mjs';
+import { BusOperatorAuthRequestMessage, BusOperatorAuthRequestMessageBody } from '@computerclubsystem/types/messages/bus/bus-operator-auth-request.message.mjs';
+import { BusOperatorAuthReplyMessage, createBusOperatorAuthReplyMessage } from '@computerclubsystem/types/messages/bus/bus-operator-auth-reply.message.mjs';
+import { transferSharedMessageDataToReplyMessage } from '@computerclubsystem/types/messages/utils.mjs';
+import { OperatorConnectionRoundTripData } from '@computerclubsystem/types/messages/operators/declarations/operator-connection-roundtrip-data.mjs';
+import { ISystemSetting } from './storage/entities/system-setting.mjs';
+import { CacheHelper } from './cache-helper.mjs';
+import { SystemSettingType } from './storage/entities/constants/system-setting-type.mjs';
+import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
     private readonly messageBusIdentifier = 'ccs3/state-manager';
     private readonly subClient = new RedisSubClient();
     private readonly pubClient = new RedisPubClient();
+    private readonly cacheClient = new RedisCacheClient();
+    private readonly cacheHelper = new CacheHelper();
     private readonly logger = new Logger();
     private storageProvider!: StorageProvider;
     private state = this.createDefaultState();
     private readonly entityConverter = new EntityConverter();
+    private readonly envVars = new EnvironmentVariablesHelper().createEnvironmentVars();
 
     async start(): Promise<boolean> {
+        this.cacheHelper.initialize(this.cacheClient);
         this.logger.setPrefix(this.className);
         const databaseInitialized = await this.initializeDatabase();
         if (!databaseInitialized) {
@@ -45,12 +58,10 @@ export class StateManager {
 
         setInterval(() => this.mainTimerCallback(), 1000);
 
-        const redisHost = this.getEnvVarValue('CCS3_REDIS_HOST');
-        const redisPortEnvVarVal = this.getEnvVarValue('CCS3_REDIS_PORT');
-        const redisPort = redisPortEnvVarVal ? parseInt(redisPortEnvVarVal) : 6379;
+        const redisHost = this.envVars.CCS3_REDIS_HOST.value;
+        const redisPort = this.envVars.CCS3_REDIS_PORT.value;
         this.logger.log('Using Redis host', redisHost, 'and port', redisPort);
 
-        let receivedMessagesCount = 0;
         const subClientOptions: CreateConnectedRedisClientOptions = {
             host: redisHost,
             port: redisPort,
@@ -61,7 +72,6 @@ export class StateManager {
             },
         };
         const subClientMessageCallback: RedisClientMessageCallback = (channelName, message) => {
-            receivedMessagesCount++;
             try {
                 const messageJson = this.deserializeToMessage(message);
                 if (messageJson) {
@@ -77,7 +87,7 @@ export class StateManager {
         this.logger.log('SubClient connected');
         await this.subClient.subscribe(ChannelName.shared);
         await this.subClient.subscribe(ChannelName.devices);
-
+        await this.subClient.subscribe(ChannelName.operators);
 
         const pubClientOptions: CreateConnectedRedisClientOptions = {
             host: redisHost,
@@ -92,15 +102,19 @@ export class StateManager {
         await this.pubClient.connect(pubClientOptions);
         this.logger.log('PubClient connected');
 
-        // const storeClient = new RedisStoreClient();
-        // const keyClientOptions: CreateConnectedRedisClientOptions = {
-        //     errorCallback: err => console.error('StoreClient error', err),
-        //     reconnectStrategyCallback: (retries: number, err: Error) => {
-        //         console.error('StoreClient reconnect strategy error', retries, err);
-        //         return 5000;
-        //     },
-        // };
-        // await storeClient.connect(keyClientOptions);
+        const redisCacheClientOptions: CreateConnectedRedisClientOptions = {
+            host: redisHost,
+            port: redisPort,
+            errorCallback: err => console.error('CacheClient error', err),
+            reconnectStrategyCallback: (retries: number, err: Error) => {
+                console.error('CacheClient reconnect strategy error', retries, err);
+                return 5000;
+            },
+        };
+        this.logger.log('CacheClient connecting');
+        await this.cacheClient.connect(redisCacheClientOptions);
+        this.logger.log('CacheClient connected');
+
         // setInterval(async () => {
         //     try {
         //         console.log('StoreClient writing key/value pair');
@@ -132,7 +146,19 @@ export class StateManager {
             case ChannelName.devices:
                 this.processDevicesMessage(message);
                 break;
+            case ChannelName.operators:
+                this.processOperatorsMessage(message);
+                break;
             case ChannelName.shared:
+                break;
+        }
+    }
+
+    processOperatorsMessage<TBody>(message: Message<TBody>): void {
+        const type = message.header?.type;
+        switch (type) {
+            case MessageType.busOperatorAuthRequest:
+                this.processOperatorAuthRequest(message as BusOperatorAuthRequestMessage);
                 break;
         }
     }
@@ -149,6 +175,77 @@ export class StateManager {
             case MessageType.busDeviceConnectionEvent:
                 this.processDeviceConnectionEventMessage(message as BusDeviceConnectionEventMessage);
                 break;
+        }
+    }
+
+    // async getBusOperatorAuthReplyMessageForToken(token: string): Promise<BusOperatorAuthReplyMessage> {
+    //     const replyMsg = createBusOperatorAuthReplyMessage();
+    //     const cachedItem: UserAuthDataCacheValue = await this.cacheHelper.getAuthTokenValue(token);
+    //     if (cachedItem) {
+    //         const now = this.getNowAsNumber();
+    //         const isTokenExpired = now > cachedItem.tokenExpiresAt;
+    //         if (!isTokenExpired) {
+    //             // Token is not expired - get user data
+    //             const user = await this.storageProvider.getUserById(cachedItem.userId);
+    //             if (user) {
+    //                 if (user.enabled) {
+    //                     replyMsg.body.permissions = await this.storageProvider.getUserPermissions(user.id);
+    //                     replyMsg.body.success = true;
+    //                     replyMsg.body.userId = user.id;
+    //                 } else {
+    //                     // TODO: Set "User is not enabled"
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     return replyMsg;
+    // }
+
+    async getBusOperatorReplyMessageForUsernameAndPasswordHash(username: string, passwordHash: string): Promise<BusOperatorAuthReplyMessage> {
+        const replyMsg = createBusOperatorAuthReplyMessage();
+        const user = await this.storageProvider.getUser(username, passwordHash);
+        if (!user) {
+            // TODO: Send "credentials are invalid"
+            replyMsg.body.success = false;
+        } else if (!user.enabled) {
+            // TODO: Send "User not enabled"
+            const replyMsg = createBusOperatorAuthReplyMessage();
+            replyMsg.body.success = false;
+            replyMsg.body.userId = user.id;
+        } else {
+            // User with such username and password is found and is enabled
+            const permissions = await this.storageProvider.getUserPermissions(user.id);
+            replyMsg.body.success = true;
+            replyMsg.body.userId = user.id;
+            replyMsg.body.permissions = permissions;
+        }
+        return replyMsg;
+    }
+
+    async processOperatorAuthRequest(message: BusOperatorAuthRequestMessage): Promise<void> {
+        try {
+            const body = message.body;
+            // const rtData = message.header.roundTripData as OperatorConnectionRoundTripData;
+            // if (body.token) {
+            //     const replyMsg = await this.getBusOperatorAuthReplyMessageForToken(body.token);
+            //     // if (replyMsg.body.success) {
+            //     //     await this.maintainUserAuthDataTokenCacheItem(replyMsg.body.userId!, replyMsg.body.permissions!, replyMsg.body.token!, rtData)
+            //     // }
+            //     this.publishToOperatorsChannel(replyMsg, message);
+            // } else {
+                // If token is not provided - use username and passwords
+                if (this.isWhiteSpace(body.username) || this.isWhiteSpace(body.passwordHash)) {
+                    this.logger.warn('Username or password not provided', message);
+                    return;
+                }
+                const replyMsg = await this.getBusOperatorReplyMessageForUsernameAndPasswordHash(body.username!, body.passwordHash!);
+                // if (replyMsg.body.success) {
+                //     await this.maintainUserAuthDataTokenCacheItem(replyMsg.body.userId!, replyMsg.body.permissions!, replyMsg.body.token!, rtData);
+                // }
+                this.publishToOperatorsChannel(replyMsg, message);
+            // }
+        } catch (err) {
+            this.logger.warn(`Can't process BusOperatorAuthRequestMessage`, message, err);
         }
     }
 
@@ -217,6 +314,14 @@ export class StateManager {
         return (message.header?.source === this.messageBusIdentifier);
     }
 
+    async publishToOperatorsChannel<TBody>(message: Message<TBody>, sourceMessage?: Message<any>): Promise<number> {
+        if (sourceMessage) {
+            // Transfer source message common data (like round trip data) to destination message
+            transferSharedMessageDataToReplyMessage(message, sourceMessage);
+        }
+        return this.publishMessage(ChannelName.operators, message);
+    }
+
     async publishMessage<TBody>(channelName: ChannelName, message: Message<TBody>): Promise<number> {
         try {
             this.logger.log('Publishing message', channelName, message.header.type, message);
@@ -228,10 +333,6 @@ export class StateManager {
         }
     };
 
-    getEnvVarValue(envVarName: string, defaultValue?: string): string | undefined {
-        return process.env[envVarName] || defaultValue;
-    }
-
     private mainTimerCallback(): void {
         const now = this.getNowAsNumber();
         this.checkForRefreshDeviceStatuses(now);
@@ -241,7 +342,8 @@ export class StateManager {
         if (this.state.deviceStatusRefreshInProgress) {
             return;
         }
-        if ((now - this.state.lastDeviceStatusRefreshAt) > this.state.systemSettings.deviceStatusRefreshInterval * 1000) {
+        const diff = now - this.state.lastDeviceStatusRefreshAt;
+        if (diff > this.state.systemSettings[SystemSettingName.device_status_refresh_interval]) {
             this.state.lastDeviceStatusRefreshAt = now;
             this.refreshDeviceStatuses();
         }
@@ -262,23 +364,21 @@ export class StateManager {
         }
     }
 
+    private isWhiteSpace(string?: string): boolean {
+        return !(string?.trim());
+    }
+
     private async initializeDatabase(): Promise<boolean> {
-        const storageProviderConnectionString = this.getEnvVarValue(envVars.CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING);
+        const storageProviderConnectionString = this.envVars.CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING.value;
         if (!storageProviderConnectionString?.trim()) {
-            this.logger.error('The environment variable', envVars.CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING, 'value is empty');
+            this.logger.error('The environment variable', this.envVars.CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING.name, 'value is empty');
             return false;
-        }
-        let databaseMigrationsPath = this.getEnvVarValue(envVars.CCS3_STATE_MANAGER_STORAGE_PROVIDER_DATABASE_MIGRATION_SCRIPTS_DIRECTORY);
-        if (!databaseMigrationsPath?.trim()) {
-            const defaultDatabaseMigrationsPathValue = './database-migrations';
-            this.logger.log('The environment variable', envVars.CCS3_STATE_MANAGER_STORAGE_PROVIDER_DATABASE_MIGRATION_SCRIPTS_DIRECTORY, 'is empty. Will use', defaultDatabaseMigrationsPathValue);
-            databaseMigrationsPath = defaultDatabaseMigrationsPathValue;
         }
         this.storageProvider = this.getStorageProvider();
         const storageProviderConfig: StorageProviderConfig = {
-            adminConnectionString: this.getEnvVarValue(envVars.CCS3_STATE_MANAGER_STORAGE_ADMIN_CONNECTION_STRING),
+            // adminConnectionString: undefined,
             connectionString: storageProviderConnectionString,
-            databaseMigrationsPath: databaseMigrationsPath,
+            databaseMigrationsPath: this.envVars.CCS3_STATE_MANAGER_STORAGE_PROVIDER_DATABASE_MIGRATION_SCRIPTS_DIRECTORY.value,
         };
         const initRes = await this.storageProvider.init(storageProviderConfig);
         return initRes.success;
@@ -296,10 +396,12 @@ export class StateManager {
         return new Date().toISOString();
     }
 
-    private createDefaultState(): IStateManagerState {
-        const state: IStateManagerState = {
+    private createDefaultState(): StateManagerState {
+        const state: StateManagerState = {
             systemSettings: {
-                deviceStatusRefreshInterval: 10,
+                device_status_refresh_interval: 10 * 1000,
+                // 1800 seconds = 30 minutes
+                token_duration: 1800 * 1000
             },
             lastDeviceStatusRefreshAt: this.getNowAsNumber(),
             deviceStatusRefreshInProgress: false,
@@ -308,10 +410,17 @@ export class StateManager {
     }
 
     private async loadSystemSettings(): Promise<void> {
-        const deviceStatusRefreshIntervalSystemSetting = await this.storageProvider.getSystemSettingByName(SystemSettingsName.device_status_refresh_interval);
-        if (deviceStatusRefreshIntervalSystemSetting?.value) {
-            this.state.systemSettings.deviceStatusRefreshInterval = +deviceStatusRefreshIntervalSystemSetting.value;
-        }
+        const allSystemSettings = await this.storageProvider.getAllSystemSettings();
+        const settingsMap = new Map<string, ISystemSetting>();
+        allSystemSettings.forEach(x => settingsMap.set(x.name, x));
+        const getAsNumber = (name: SystemSettingName) => +settingsMap.get(name)?.value!;
+
+        this.state.systemSettings[SystemSettingName.device_status_refresh_interval] = 1000 * getAsNumber(SystemSettingName.device_status_refresh_interval);
+        this.state.systemSettings[SystemSettingName.token_duration] = 1000 * getAsNumber(SystemSettingName.token_duration);
+    }
+
+    createUUIDString(): string {
+        return randomUUID().toString();
     }
 
     // // TODO: For testing only
@@ -363,12 +472,22 @@ export class StateManager {
     // }
 }
 
-interface IStateManagerState {
-    systemSettings: IStateManagerSystemSettings;
+interface StateManagerState {
+    systemSettings: StateManagerStateSystemSettings;
     lastDeviceStatusRefreshAt: number;
     deviceStatusRefreshInProgress: boolean;
 }
 
-interface IStateManagerSystemSettings {
-    deviceStatusRefreshInterval: number;
+interface StateManagerStateSystemSettings {
+    [SystemSettingName.device_status_refresh_interval]: number;
+    [SystemSettingName.token_duration]: number;
+}
+
+interface UserAuthDataCacheValue {
+    userId: number;
+    roundtripData: OperatorConnectionRoundTripData;
+    permissions: string[];
+    setAt: number;
+    token: string;
+    tokenExpiresAt: number;
 }

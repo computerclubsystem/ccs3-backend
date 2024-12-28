@@ -11,6 +11,8 @@ export interface StorageProvider {
     getDeviceByCertificateThumbprint(certificateThumbprint: string): Promise<IDevice | undefined>;
     createDevice(device: IDevice): Promise<IDevice>;
     getUser(username: string, passwordHash: string): Promise<IUser | undefined>;
+    getUserById(userId: number): Promise<IUser | undefined>;
+    getUserPermissions(userId: number): Promise<string[] | undefined>;
     getAllDeviceStatuses(): Promise<IDeviceStatus[]>;
     getAllSystemSettings(): Promise<ISystemSetting[]>;
     getSystemSettingByName(name: string): Promise<ISystemSetting | undefined>;

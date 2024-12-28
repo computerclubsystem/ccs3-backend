@@ -12,9 +12,10 @@
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}/apps/state-manager/src/index.mts",
-            "outFiles": [
-                "${workspaceFolder}/apps/state-manager/dist/**/*.mjs"
-            ]
+            // TODO: Either do not use "outFiles" or specify build folder of every library that is used by this application
+            // "outFiles": [
+            //     "${workspaceFolder}/apps/state-manager/dist/**/*.mjs"
+            // ]
         },
         {
             "type": "node",
@@ -24,9 +25,10 @@
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}/apps/pc-connector/src/index.mts",
-            "outFiles": [
-                "${workspaceFolder}/apps/pc-connector/dist/**/*.mjs"
-            ]
+            // TODO: Either do not use "outFiles" or specify build folder of every library that is used by this application
+            // "outFiles": [
+            //     "${workspaceFolder}/apps/pc-connector/dist/**/*.mjs"
+            // ]
         },
         {
             "type": "node",
@@ -36,9 +38,10 @@
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}/apps/operator-connector/src/index.mts",
-            "outFiles": [
-                "${workspaceFolder}/apps/operator-connector/dist/**/*.mjs"
-            ]
+            // TODO: Either do not use "outFiles" or specify build folder of every library that is used by this application
+            // "outFiles": [
+            //     "${workspaceFolder}/apps/operator-connector/dist/**/*.mjs"
+            // ]
         }
     ]
 }

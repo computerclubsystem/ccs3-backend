@@ -18,9 +18,9 @@ Files to serve must be put in `/usr/share/nginx/html`
 - Build the Docker image:
   - Using `nerdctl`
 ```bash
-nerdctl --namespace k8s.io build -f Dockerfile.static-files-service -t ccs3/sfs:latest ./static-files-service
+nerdctl --namespace k8s.io build -f Dockerfile.static-files-service -t ccs3/static-files-service:latest ./static-files-service
 ```
   - Using `docker`
 ```bash
-docker buildx build -f Dockerfile.static-files-service -t ccs3/sfs:latest ./static-files-service
+docker buildx build -f Dockerfile.static-files-service -t ccs3/static-files-service:latest ./static-files-service
 ```

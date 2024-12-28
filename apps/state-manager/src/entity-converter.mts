@@ -1,7 +1,7 @@
 import { Device } from '@computerclubsystem/types/entities/device.mjs';
-import { IDevice } from './storage/entities/device.mjs';
 import { DeviceConnectionEventType } from '@computerclubsystem/types/entities/device-connection-event-type.mjs';
 import { DeviceConnectionEventType as DeviceConnectionEventTypeStorage } from './storage/entities/constants/device-connection-event-type.mjs';
+import { IDevice } from './storage/entities/device.mjs';
 
 export class EntityConverter {
     deviceConnectionEventTypeToDeviceConnectionEventStorage(deviceConnectionEventType: DeviceConnectionEventType): DeviceConnectionEventTypeStorage {

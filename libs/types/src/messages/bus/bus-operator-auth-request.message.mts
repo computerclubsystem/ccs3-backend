@@ -4,7 +4,7 @@ import { Message } from '../declarations/message.mjs';
 export interface BusOperatorAuthRequestMessageBody {
     username?: string;
     passwordHash?: string;
-    token?: string;
+    // token?: string;
 }
 
 export interface BusOperatorAuthRequestMessage extends Message<BusOperatorAuthRequestMessageBody> {
