@@ -57,7 +57,15 @@ export interface IsTokenActiveResult {
     authTokenCacheValue?: UserAuthDataCacheValue;
 }
 
+export enum CanProcessOperatorMessageResultErrorReason {
+    tokenExpired = 'token-expired',
+    messageTypeIsMissing = 'message-type-is-missing',
+    messageRequiresAuthentication = 'message-requires-authentication',
+    tokenNotProvided = 'token-not-provided',
+    tokenNotFound = 'token-not-found',
+}
+
 export interface CanProcessOperatorMessageResult {
     canProcess: boolean;
-    errorReason?: string;
+    errorReason?: CanProcessOperatorMessageResultErrorReason;
 }

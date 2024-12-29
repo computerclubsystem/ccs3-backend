@@ -1,5 +1,3 @@
-import { DetailedPeerCertificate } from 'node:tls';
-import { IncomingHttpHeaders } from 'node:http2';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
@@ -29,7 +27,10 @@ import { OperatorConnectionRoundTripData } from '@computerclubsystem/types/messa
 import { createOperatorConfigurationMessage, OperatorConfigurationMessage } from '@computerclubsystem/types/messages/operators/operator-configuration.message.mjs';
 import { OperatorPingRequestMessage } from '@computerclubsystem/types/messages/operators/operator-ping-request.message.mjs';
 import { CacheHelper, UserAuthDataCacheValue } from './cache-helper.mjs';
-import { CanProcessOperatorMessageResult, ConnectedClientData, ConnectionCleanUpReason, IsTokenActiveResult, OperatorConnectorState } from './declarations.mjs';
+import { CanProcessOperatorMessageResult, CanProcessOperatorMessageResultErrorReason, ConnectedClientData, ConnectionCleanUpReason, IsTokenActiveResult, OperatorConnectorState } from './declarations.mjs';
+import { OperatorRefreshTokenRequestMessage } from '@computerclubsystem/types/messages/operators/operator-refresh-token-request.message.mjs';
+import { createOperatorRefreshTokenReplyMessage } from '@computerclubsystem/types/messages/operators/operator-refresh-token-reply.message.mjs';
+import { createOperatorNotAuthenticatedMessage } from '@computerclubsystem/types/messages/operators/operator-not-authenticated.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -73,6 +74,16 @@ export class OperatorConnector {
         const canProcessOperatorMessageResult = await this.canProcessOperatorMessage(clientData, message);
         if (!canProcessOperatorMessageResult.canProcess) {
             this.logger.log(`Can't process operator message`, canProcessOperatorMessageResult, message, clientData);
+            if (canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.tokenExpired
+                || canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.tokenNotFound
+                || canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.tokenNotProvided
+                || canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.messageRequiresAuthentication) {
+                // Send not authenticated
+                const notAuthenticatedMsg = createOperatorNotAuthenticatedMessage();
+                notAuthenticatedMsg.header.correlationId = message.header?.correlationId;
+                notAuthenticatedMsg.body.requestedMessageType = message.header?.type;
+                this.sendMessageToOperator(notAuthenticatedMsg, clientData);
+            }
             return;
         }
 
@@ -83,10 +94,71 @@ export class OperatorConnector {
             case OperatorMessageType.authRequest:
                 this.processOperatorAuthRequestMessage(clientData, message as OperatorAuthRequestMessage);
                 break;
+            case OperatorMessageType.refreshTokenRequest:
+                this.processOperatorRefreshTokenRequestMessage(clientData, message as OperatorRefreshTokenRequestMessage);
+                break;
             case OperatorMessageType.pingRequest:
                 this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    async processOperatorRefreshTokenRequestMessage(clientData: ConnectedClientData, message: OperatorRefreshTokenRequestMessage): Promise<void> {
+        // TODO: This is almost the same as processOperatorAuthRequestWithToken()
+        const requestToken = message.body.currentToken;
+        const refreshTokenReplyMsg = createOperatorRefreshTokenReplyMessage();
+        const isTokenActiveResult = await this.isTokenActive(requestToken);
+        if (!isTokenActiveResult.isActive) {
+            // Token is provided but is not active
+            if (isTokenActiveResult.authTokenCacheValue?.token) {
+                await this.cacheHelper.deleteAuthTokenKey(isTokenActiveResult.authTokenCacheValue?.token);
+            }
+            refreshTokenReplyMsg.body.success = false;
+            this.sendMessageToOperator(refreshTokenReplyMsg, clientData);
+            if (isTokenActiveResult.authTokenCacheValue) {
+                const operatorId = clientData.operatorId || isTokenActiveResult.authTokenCacheValue.userId;
+                const note = JSON.stringify({
+                    requestToken: requestToken,
+                    clientData: clientData,
+                    authTokenCacheValue: isTokenActiveResult.authTokenCacheValue,
+                });
+                this.publishOperatorConnectionEventMessage(operatorId, clientData.ipAddress, OperatorConnectionEventType.refreshTokenFailed, note);
+            }
+            return;
+        }
+        // The token is active - generate new one and remove the old one
+        refreshTokenReplyMsg.body.success = true;
+        const newToken = this.createUUIDString();
+        refreshTokenReplyMsg.body.token = newToken;
+        const authTokenCacheValue = isTokenActiveResult.authTokenCacheValue!;
+        const prevConnectionInstanceId = authTokenCacheValue.roundtripData.connectionInstanceId;
+        authTokenCacheValue.token = newToken;
+        const now = this.getNowAsNumber();
+        authTokenCacheValue.setAt = now;
+        const mergedRoundTripData: OperatorConnectionRoundTripData = {
+            ...authTokenCacheValue.roundtripData,
+            ...this.createRoundTripDataFromConnectedClientData(clientData),
+        }
+        authTokenCacheValue.roundtripData = mergedRoundTripData;
+        authTokenCacheValue.tokenExpiresAt = authTokenCacheValue.setAt + this.getTokenExpirationMilliseconds();
+        refreshTokenReplyMsg.body.tokenExpiresAt = authTokenCacheValue.tokenExpiresAt;
+        // Delete cache for previous token
+        await this.cacheHelper.deleteAuthTokenKey(requestToken);
+        await this.cacheHelper.deleteUserAuthDataKey(authTokenCacheValue.userId, prevConnectionInstanceId);
+        // Set the new cache items
+        await this.cacheHelper.setAuthTokenValue(authTokenCacheValue);
+        await this.cacheHelper.setUserAuthData(authTokenCacheValue);
+        // Mark operator as authenticated
+        clientData.isAuthenticated = true;
+        const operatorId = clientData.operatorId || authTokenCacheValue.userId;
+        clientData.operatorId = operatorId;
+        // Send messages back to the operator
+        this.sendMessageToOperator(refreshTokenReplyMsg, clientData);
+        const note = JSON.stringify({
+            clientData: clientData,
+            authReplyMsg: refreshTokenReplyMsg,
+        });
+        this.publishOperatorConnectionEventMessage(operatorId!, clientData.ipAddress, OperatorConnectionEventType.tokenRefreshed, note);
     }
 
     async processOperatorAuthRequestMessage(clientData: ConnectedClientData, message: OperatorAuthRequestMessage): Promise<void> {
@@ -190,6 +262,7 @@ export class OperatorConnector {
         };
         return roundTripData;
     }
+
     processOperatorPingRequestMessage(clientData: ConnectedClientData, message: OperatorPingRequestMessage): void {
         // TODO: Do we need to do something on ping ? The lastMessageReceivedAt is already set
     }
@@ -235,6 +308,7 @@ export class OperatorConnector {
         replyMsg.body.success = message.body.success;
         if (replyMsg.body.success) {
             replyMsg.body.token = this.createUUIDString();
+            replyMsg.body.tokenExpiresAt = this.getNowAsNumber() + this.getTokenExpirationMilliseconds();
             this.maintainUserAuthDataTokenCacheItem(clientData.operatorId!, replyMsg.body.permissions!, replyMsg.body.token, rtData);
         }
         this.sendMessageToOperator(replyMsg, clientData);
@@ -255,12 +329,11 @@ export class OperatorConnector {
     async canProcessOperatorMessage<TBody>(clientData: ConnectedClientData, message: OperatorMessage<TBody>): Promise<CanProcessOperatorMessageResult> {
         const result: CanProcessOperatorMessageResult = {
             canProcess: false,
-            errorReason: '',
-        };
+        } as CanProcessOperatorMessageResult;
         const type = message.header?.type;
         if (this.isWhiteSpace(type)) {
             result.canProcess = false;
-            result.errorReason = 'message-type-is-missing';
+            result.errorReason = CanProcessOperatorMessageResultErrorReason.messageTypeIsMissing;
             return result;
         }
 
@@ -269,7 +342,7 @@ export class OperatorConnector {
         if (!isAnonymousMessage && !clientData.isAuthenticated) {
             // The message can't be processed anonymously and the client is not authenticated
             result.canProcess = false;
-            result.errorReason = 'message-requires-authentication';
+            result.errorReason = CanProcessOperatorMessageResultErrorReason.messageRequiresAuthentication;
             return result;
         }
 
@@ -279,21 +352,21 @@ export class OperatorConnector {
             if (this.isWhiteSpace(token)) {
                 // Token is not provided
                 result.canProcess = false;
-                result.errorReason = 'token-not-provided';
+                result.errorReason = CanProcessOperatorMessageResultErrorReason.tokenNotProvided;
                 return result;
             }
             const authTokenCacheValue = await this.cacheHelper.getAuthTokenValue(token!);
             if (!authTokenCacheValue) {
                 // There is no such token in the cache
                 result.canProcess = false;
-                result.errorReason = 'token-not-found';
+                result.errorReason = CanProcessOperatorMessageResultErrorReason.tokenNotFound;
                 return result;
             }
             if (this.getNowAsNumber() > authTokenCacheValue.tokenExpiresAt) {
                 // The token expired
                 await this.cacheHelper.deleteAuthTokenKey(token!);
                 result.canProcess = false;
-                result.errorReason = 'token-expired';
+                result.errorReason = CanProcessOperatorMessageResultErrorReason.tokenExpired;
                 return result;
             }
         }
@@ -470,7 +543,7 @@ export class OperatorConnector {
             setAt: now,
             token: token,
             // TODO: Get token expiration from configuration
-            tokenExpiresAt: now + 30 * 60 * 1000, // this.state.systemSettings[SystemSettingName.token_duration],
+            tokenExpiresAt: now + this.getTokenExpirationMilliseconds(),
             userId: userId,
         };
         const userAuthDataCacheKey = this.cacheHelper.getUserAuthDataKey(userId, roundtripData.connectionInstanceId);

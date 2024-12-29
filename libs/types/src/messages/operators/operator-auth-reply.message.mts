@@ -1,4 +1,3 @@
-import { MessageType } from '../declarations/message-type.mjs';
 import { OperatorMessageType } from './declarations/operator-message-type.mjs';
 import { OperatorMessage } from './declarations/operator.message.mjs';
 

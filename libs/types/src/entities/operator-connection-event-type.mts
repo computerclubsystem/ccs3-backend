@@ -5,4 +5,6 @@ export const enum OperatorConnectionEventType {
     idleTimeout = 4,
     tokenAuthSuccess = 5,
     usedExpiredToken = 6,
+    tokenRefreshed = 7,
+    refreshTokenFailed = 8,
 }
