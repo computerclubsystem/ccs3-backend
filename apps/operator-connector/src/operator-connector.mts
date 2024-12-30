@@ -31,6 +31,8 @@ import { CanProcessOperatorMessageResult, CanProcessOperatorMessageResultErrorRe
 import { OperatorRefreshTokenRequestMessage } from '@computerclubsystem/types/messages/operators/operator-refresh-token-request.message.mjs';
 import { createOperatorRefreshTokenReplyMessage } from '@computerclubsystem/types/messages/operators/operator-refresh-token-reply.message.mjs';
 import { createOperatorNotAuthenticatedMessage } from '@computerclubsystem/types/messages/operators/operator-not-authenticated.message.mjs';
+import { OperatorSignOutRequestMessage } from '@computerclubsystem/types/messages/operators/operator-sign-out-request.message.mjs';
+import { createOperatorSignOutReplyMessage } from '@computerclubsystem/types/messages/operators/operator-sign-out-reply.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -58,6 +60,8 @@ export class OperatorConnector {
             ipAddress: args.ipAddress,
             lastMessageReceivedAt: null,
             receivedMessagesCount: 0,
+            receivedPingMessagesCount: 0,
+            sentMessagesCount: 0,
             isAuthenticated: false,
             headers: args.headers,
         };
@@ -97,10 +101,36 @@ export class OperatorConnector {
             case OperatorMessageType.refreshTokenRequest:
                 this.processOperatorRefreshTokenRequestMessage(clientData, message as OperatorRefreshTokenRequestMessage);
                 break;
+            case OperatorMessageType.signOutRequest:
+                this.processOperatorSignOutRequestMessage(clientData, message as OperatorSignOutRequestMessage);
+                break;
             case OperatorMessageType.pingRequest:
+                clientData.receivedPingMessagesCount++;
                 this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    async processOperatorSignOutRequestMessage(clientData: ConnectedClientData, message: OperatorSignOutRequestMessage): Promise<void> {
+        const token = message.header.token!;
+        if (this.isWhiteSpace(token)) {
+            return;
+        }
+        const cachedTokenValue = await this.cacheHelper.getAuthTokenValue(token);
+        if (!cachedTokenValue) {
+            return;
+        }
+        await this.cacheHelper.deleteAuthTokenKey(cachedTokenValue.token);
+        await this.cacheHelper.deleteUserAuthDataKey(cachedTokenValue.userId, cachedTokenValue.roundtripData.connectionInstanceId);
+        const replyMsg = createOperatorSignOutReplyMessage();
+        // Received and sent is the opposite for the client and the server
+        // Recevied for the client are sent by the server
+        replyMsg.body.receivedMessagesCount = clientData.sentMessagesCount;
+        replyMsg.body.sentMessagesCount = clientData.receivedMessagesCount;
+        replyMsg.body.sentPingMessagesCount = clientData.receivedPingMessagesCount;
+        replyMsg.body.sessionStart = clientData.connectedAt;
+        replyMsg.body.sessionEnd = this.getNowAsNumber();
+        this.sendMessageToOperator(replyMsg, clientData, message);
     }
 
     async processOperatorRefreshTokenRequestMessage(clientData: ConnectedClientData, message: OperatorRefreshTokenRequestMessage): Promise<void> {
@@ -114,7 +144,7 @@ export class OperatorConnector {
                 await this.cacheHelper.deleteAuthTokenKey(isTokenActiveResult.authTokenCacheValue?.token);
             }
             refreshTokenReplyMsg.body.success = false;
-            this.sendMessageToOperator(refreshTokenReplyMsg, clientData);
+            this.sendMessageToOperator(refreshTokenReplyMsg, clientData, message);
             if (isTokenActiveResult.authTokenCacheValue) {
                 const operatorId = clientData.operatorId || isTokenActiveResult.authTokenCacheValue.userId;
                 const note = JSON.stringify({
@@ -153,7 +183,7 @@ export class OperatorConnector {
         const operatorId = clientData.operatorId || authTokenCacheValue.userId;
         clientData.operatorId = operatorId;
         // Send messages back to the operator
-        this.sendMessageToOperator(refreshTokenReplyMsg, clientData);
+        this.sendMessageToOperator(refreshTokenReplyMsg, clientData, message);
         const note = JSON.stringify({
             clientData: clientData,
             authReplyMsg: refreshTokenReplyMsg,
@@ -520,7 +550,11 @@ export class OperatorConnector {
         return Array.from(this.connectedClients.entries());
     }
 
-    sendMessageToOperator<TBody>(message: OperatorMessage<TBody>, clientData: ConnectedClientData): void {
+    sendMessageToOperator<TBody>(message: OperatorMessage<TBody>, clientData: ConnectedClientData, requestMessage?: OperatorMessage<any>): void {
+        if (requestMessage) {
+            message.header.correlationId = requestMessage.header.correlationId;
+        }
+        clientData.sentMessagesCount++;
         this.logger.log('Sending message to operator connection', clientData.connectionId, message.header.type, message);
         this.wssServer.sendJSON(message, clientData.connectionId);
     }
@@ -716,6 +750,8 @@ export class OperatorConnector {
     }
 
     serveStaticFiles(): void {
+        // TODO: The static files server must add "charset=utf-8" to all text-based responses like "text/html;charset=utf-8"
+        // TODO: The static files server must return "cache-control" response header. Supporting caching is desirable
         const noStaticFilesServing = this.envVars.CCS3_OPERATOR_CONNECTOR_NO_STATIC_FILES_SERVING.value;
         if (!noStaticFilesServing) {
             const staticFilesPath = this.envVars.CCS3_OPERATOR_CONNECTOR_STATIC_FILES_PATH.value;

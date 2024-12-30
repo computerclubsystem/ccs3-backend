@@ -21,6 +21,8 @@ export interface ConnectedClientData {
     ipAddress: string | null;
     lastMessageReceivedAt: number | null;
     receivedMessagesCount: number;
+    receivedPingMessagesCount: number;
+    sentMessagesCount: number;
     /**
      * Whether the client is authenticated to use the system
      * While the system checks the client, it will not send messages to the client or process messages from it

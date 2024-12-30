@@ -6,4 +6,6 @@ export enum OperatorMessageType {
     refreshTokenRequest = 'refresh-token-request',
     refreshTokenReply = 'refresh-token-reply',
     notAuthenticated = 'not-authenticated',
+    signOutRequest = 'sign-out-request',
+    signOutReply = 'sign-out-reply',
 }
