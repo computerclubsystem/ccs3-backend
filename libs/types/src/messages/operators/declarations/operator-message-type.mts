@@ -8,4 +8,6 @@ export enum OperatorMessageType {
     notAuthenticated = 'not-authenticated',
     signOutRequest = 'sign-out-request',
     signOutReply = 'sign-out-reply',
+    getAllDevicesRequest = 'get-all-devices-request',
+    getAllDevicesReply = 'get-all-devices-reply',
 }

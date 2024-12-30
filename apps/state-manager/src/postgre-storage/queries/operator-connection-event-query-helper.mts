@@ -18,7 +18,7 @@ export class OperatorConnectionQueryHelper {
                 operatorConnectionEvent.timestamp,
             ];
         return {
-            query: this.addOperatorConnectionQueryText,
+            text: this.addOperatorConnectionQueryText,
             params,
         };
     }

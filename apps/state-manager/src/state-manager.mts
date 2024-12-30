@@ -33,6 +33,8 @@ import { SystemSettingType } from './storage/entities/constants/system-setting-t
 import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
 import { BusOperatorConnectionEventMessage } from '@computerclubsystem/types/messages/bus/bus-operator-connection-event.message.mjs';
 import { IOperatorConnectionEvent } from './storage/entities/operator-connection-event.mjs';
+import { BusOperatorGetAllDevicesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-operator-get-all-devices-request.message.mjs';
+import { createBusOperatorGetAllDevicesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-operator-get-all-devices-reply.message.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -159,6 +161,9 @@ export class StateManager {
     processOperatorsMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busOperatorGetAllDevicesRequest:
+                this.processOperatorGetAllDevicesRequest(message as BusOperatorGetAllDevicesRequestMessage);
+                break;
             case MessageType.busOperatorAuthRequest:
                 this.processOperatorAuthRequest(message as BusOperatorAuthRequestMessage);
                 break;
@@ -226,6 +231,14 @@ export class StateManager {
         }
         return replyMsg;
     }
+
+    async processOperatorGetAllDevicesRequest(message: BusOperatorGetAllDevicesRequestMessage): Promise<void> {
+        const storageDevices = await this.storageProvider.getAllDevices();
+        const replyMsg = createBusOperatorGetAllDevicesReplyMessage(message);
+        replyMsg.body.devices = storageDevices.map(storageDevice => this.entityConverter.storageDeviceToDevice(storageDevice));
+        this.publishToOperatorsChannel(replyMsg, message);
+    }
+
 
     async processOperatorConnectionEvent(message: BusOperatorConnectionEventMessage): Promise<void> {
         try {
@@ -377,7 +390,7 @@ export class StateManager {
             //       with devices statuses for use by other services
         } catch (err) {
             // TODO: Count database errors and eventually send system notification
-            this.logger.error('Cannot get all device statuses', err);
+            this.logger.error(`Can't get all device statuses`, err);
         } finally {
             this.state.deviceStatusRefreshInProgress = false;
             this.state.lastDeviceStatusRefreshAt = this.getNowAsNumber();

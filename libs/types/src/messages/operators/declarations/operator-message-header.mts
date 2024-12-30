@@ -1,4 +1,3 @@
-import { MessageError } from '../../declarations/message-error.mjs';
 import { OperatorMessageType } from './operator-message-type.mjs';
 import { OperatorRoundTripData } from './operator-round-trip-data.mjs';
 

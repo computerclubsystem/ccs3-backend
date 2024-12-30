@@ -27,12 +27,19 @@ import { OperatorConnectionRoundTripData } from '@computerclubsystem/types/messa
 import { createOperatorConfigurationMessage, OperatorConfigurationMessage } from '@computerclubsystem/types/messages/operators/operator-configuration.message.mjs';
 import { OperatorPingRequestMessage } from '@computerclubsystem/types/messages/operators/operator-ping-request.message.mjs';
 import { CacheHelper, UserAuthDataCacheValue } from './cache-helper.mjs';
-import { CanProcessOperatorMessageResult, CanProcessOperatorMessageResultErrorReason, ConnectedClientData, ConnectionCleanUpReason, IsTokenActiveResult, OperatorConnectorState } from './declarations.mjs';
+import { CanProcessOperatorMessageResult, CanProcessOperatorMessageResultErrorReason, ConnectedClientData, ConnectionCleanUpReason, IsAuthorizedResult, IsAuthorizedResultReason, IsTokenActiveResult, MessageStatItem, OperatorConnectorState } from './declarations.mjs';
 import { OperatorRefreshTokenRequestMessage } from '@computerclubsystem/types/messages/operators/operator-refresh-token-request.message.mjs';
 import { createOperatorRefreshTokenReplyMessage } from '@computerclubsystem/types/messages/operators/operator-refresh-token-reply.message.mjs';
 import { createOperatorNotAuthenticatedMessage } from '@computerclubsystem/types/messages/operators/operator-not-authenticated.message.mjs';
 import { OperatorSignOutRequestMessage } from '@computerclubsystem/types/messages/operators/operator-sign-out-request.message.mjs';
 import { createOperatorSignOutReplyMessage } from '@computerclubsystem/types/messages/operators/operator-sign-out-reply.message.mjs';
+import { AuthorizationHelper } from './authorization-helper.mjs';
+import { OperatorGetAllDevicesRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-devices-request.message.mjs';
+import { createBusOperatorGetAllDevicesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-operator-get-all-devices-request.message.mjs';
+import { SubjectsService } from './subjects.service.mjs';
+import { catchError, EMPTY, filter, finalize, first, NEVER, Observable, of, throwError, timeout } from 'rxjs';
+import { createOperatorGetAllDevicesReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-devices-reply.message.mjs';
+import { BusOperatorGetAllDevicesReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-operator-get-all-devices-reply.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -44,6 +51,9 @@ export class OperatorConnector {
     private readonly state = this.createState();
     private readonly cacheClient = new RedisCacheClient();
     private readonly cacheHelper = new CacheHelper();
+    private readonly authorizationHelper = new AuthorizationHelper();
+    private readonly subjectsService = new SubjectsService();
+
     private wssServer!: WssServer;
     private wssEmitter!: EventEmitter;
     private connectedClients = new Map<number, ConnectedClientData>();
@@ -64,6 +74,8 @@ export class OperatorConnector {
             sentMessagesCount: 0,
             isAuthenticated: false,
             headers: args.headers,
+            permissions: new Set<string>(),
+            unauthorizedMessageRequestsCount: 0,
         };
         this.setConnectedClientData(data);
         this.wssServer.attachToConnection(args.connectionId);
@@ -75,13 +87,22 @@ export class OperatorConnector {
             return;
         }
 
+        // TODO: Check counters like clientData.unauthorizedMessageRequestsCount and close the connection if maximum is reached
+        if (clientData.unauthorizedMessageRequestsCount > 100) {
+            return;
+        }
+
         const canProcessOperatorMessageResult = await this.canProcessOperatorMessage(clientData, message);
         if (!canProcessOperatorMessageResult.canProcess) {
+            if (canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.notAuthorized) {
+                clientData.unauthorizedMessageRequestsCount++;
+            }
             this.logger.log(`Can't process operator message`, canProcessOperatorMessageResult, message, clientData);
             if (canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.tokenExpired
                 || canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.tokenNotFound
                 || canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.tokenNotProvided
-                || canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.messageRequiresAuthentication) {
+                || canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.messageRequiresAuthentication
+                || canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.notAuthorized) {
                 // Send not authenticated
                 const notAuthenticatedMsg = createOperatorNotAuthenticatedMessage();
                 notAuthenticatedMsg.header.correlationId = message.header?.correlationId;
@@ -95,6 +116,9 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorMessageType.getAllDevicesRequest:
+                this.processOperatorGetAllDevicesRequest(clientData, message as OperatorGetAllDevicesRequestMessage);
+                break;
             case OperatorMessageType.authRequest:
                 this.processOperatorAuthRequestMessage(clientData, message as OperatorAuthRequestMessage);
                 break;
@@ -109,6 +133,44 @@ export class OperatorConnector {
                 this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    async processOperatorGetAllDevicesRequest(clientData: ConnectedClientData, message: OperatorGetAllDevicesRequestMessage): Promise<void> {
+        const busRequestMsg = createBusOperatorGetAllDevicesRequestMessage(message);
+        busRequestMsg.header.roundTripData = {
+            connectionId: clientData.connectionId,
+            connectionInstanceId: clientData.connectionInstanceId,
+        } as OperatorConnectionRoundTripData;
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusOperatorGetAllDevicesReplyMessageBody>(busRequestMsg, MessageType.busOperatorGetAllDevicesReply, clientData)
+            .subscribe(busReplyMessage => {
+                const operatorReplyMsg = createOperatorGetAllDevicesReplyMessage();
+                operatorReplyMsg.body.devices = busReplyMessage.body.devices;
+                this.sendMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    publishToOperatorsChannelAndWaitForReplyByType<TReplyBody>(busMessage: Message<any>, expectedReplyType: MessageType, clientData: ConnectedClientData): Observable<Message<TReplyBody>> {
+        const messageStatItem: MessageStatItem = {
+            sentAt: this.getNowAsNumber(),
+            replyType: expectedReplyType,
+            type: busMessage.header.type,
+            completedAt: 0,
+            operatorId: clientData.operatorId,
+        };
+        return this.publishToOperatorsChannel(busMessage).pipe(
+            filter(msg => msg.header.type === expectedReplyType),
+            first(),
+            timeout(this.state.messageBusReplyTimeout),
+            catchError(err => {
+                messageStatItem.error = err;
+                // TODO: This will complete the observable. The subscriber will not know about the error/timeout
+                return of();
+            }),
+            finalize(() => {
+                messageStatItem.completedAt = this.getNowAsNumber();
+                this.subjectsService.setOperatorsChannelMessageStat(messageStatItem);
+            }),
+        );
     }
 
     async processOperatorSignOutRequestMessage(clientData: ConnectedClientData, message: OperatorSignOutRequestMessage): Promise<void> {
@@ -180,6 +242,7 @@ export class OperatorConnector {
         await this.cacheHelper.setUserAuthData(authTokenCacheValue);
         // Mark operator as authenticated
         clientData.isAuthenticated = true;
+        clientData.permissions = new Set<string>(authTokenCacheValue.permissions);
         const operatorId = clientData.operatorId || authTokenCacheValue.userId;
         clientData.operatorId = operatorId;
         // Send messages back to the operator
@@ -271,6 +334,7 @@ export class OperatorConnector {
         await this.cacheHelper.setUserAuthData(authTokenCacheValue);
         // Mark operator as authenticated
         clientData.isAuthenticated = true;
+        clientData.permissions = new Set<string>(authTokenCacheValue.permissions);
         const operatorId = clientData.operatorId || authTokenCacheValue.userId;
         clientData.operatorId = operatorId;
         // Send messages back to the operator
@@ -314,13 +378,14 @@ export class OperatorConnector {
     }
 
     processOperatorsBusMessage<TBody>(message: Message<TBody>): void {
+        this.subjectsService.setOperatorsChannelBusMessageReceived(message);
         const type = message.header.type;
         switch (type) {
             case MessageType.busOperatorAuthReply:
                 this.processBusOperatorAuthReplyMessage(message as BusOperatorAuthReplyMessage)
                 break;
             default:
-                this.logger.log(`Unknown message received`, message);
+                // this.logger.log(`Unknown message received`, message);
                 break;
         }
     }
@@ -332,6 +397,7 @@ export class OperatorConnector {
             return;
         }
         clientData.isAuthenticated = message.body.success;
+        clientData.permissions = new Set<string>(message.body.permissions);
         clientData.operatorId = message.body.userId;
         const replyMsg = createOperatorAuthReplyMessage();
         replyMsg.body.permissions = message.body.permissions;
@@ -397,6 +463,13 @@ export class OperatorConnector {
                 await this.cacheHelper.deleteAuthTokenKey(token!);
                 result.canProcess = false;
                 result.errorReason = CanProcessOperatorMessageResultErrorReason.tokenExpired;
+                return result;
+            }
+            // Check permissions
+            const isAuthorizedResult = this.authorizationHelper.isAuthorized(clientData.permissions, message);
+            if (!isAuthorizedResult.authorized) {
+                result.canProcess = false;
+                result.errorReason = CanProcessOperatorMessageResultErrorReason.notAuthorized;
                 return result;
             }
         }
@@ -479,10 +552,11 @@ export class OperatorConnector {
         this.publishToOperatorsChannel(deviceConnectionEventMsg);
     }
 
-    publishToOperatorsChannel<TBody>(message: Message<TBody>): void {
+    publishToOperatorsChannel<TBody>(message: Message<TBody>): Observable<Message<any>> {
         message.header.source = this.messageBusIdentifier;
         this.logger.log('Publishing message', ChannelName.operators, message.header.type, message);
         this.pubClient.publish(ChannelName.operators, JSON.stringify(message));
+        return this.subjectsService.getOperatorsChannelBusMessageReceived();
     }
 
     getConnectedClientsDataByOperatorId(operatorId: number): [number, ConnectedClientData][] {
@@ -618,6 +692,10 @@ export class OperatorConnector {
             pingInterval: 10 * 1000,
             // Each 10 seconds the operator-connector will check operator connections and will close timed-out
             cleanUpClientConnectionsInterval: 10 * 1000,
+            // The timeout for message bus messages to reply
+            messageBusReplyTimeout: 5 * 1000,
+            // Message statistics for operator channel
+            operatorChannelMessageStatItems: [],
         };
         return state;
     }
@@ -651,10 +729,21 @@ export class OperatorConnector {
 
     async start(): Promise<void> {
         this.cacheHelper.initialize(this.cacheClient);
+        this.subscribeToSubjects();
         await this.joinMessageBus();
         this.startWebSocketServer();
         this.startClientConnectionsMonitor();
         this.serveStaticFiles();
+    }
+
+    subscribeToSubjects(): void {
+        this.subjectsService.getOperatorsChannelMessageStat().subscribe(messageStatItem => {
+            if (this.state.operatorChannelMessageStatItems.length > 1000) {
+                // TODO: Implement ring buffer
+                this.state.operatorChannelMessageStatItems.shift();
+            }
+            this.state.operatorChannelMessageStatItems.push(messageStatItem);
+        });
     }
 
     processOperatorMessageReceived(args: MessageReceivedEventArgs): void {

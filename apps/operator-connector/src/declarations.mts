@@ -1,6 +1,7 @@
 import { DetailedPeerCertificate } from 'node:tls';
 import { IncomingHttpHeaders } from 'node:http2';
 import { UserAuthDataCacheValue } from './cache-helper.mjs';
+import { Permission } from '@computerclubsystem/types/entities/permission.mjs';
 
 export interface ConnectedClientData {
     connectionId: number;
@@ -35,6 +36,14 @@ export interface ConnectedClientData {
      * This will be used to match the ConnectedClientData along with connectionId
      */
     connectionInstanceId: string;
+    /**
+     * Permissions of the operator
+     */
+    permissions: Set<string>;
+    /**
+     * The count of unauthorized messages received by the client. Can be used to close the connection if specific limit is reached
+     */
+    unauthorizedMessageRequestsCount: number;
 }
 
 // interface ConnectionRoundTripData extends RoundTripData {
@@ -52,6 +61,8 @@ export interface OperatorConnectorState {
     authenticationTimeout: number;
     pingInterval: number;
     cleanUpClientConnectionsInterval: number;
+    messageBusReplyTimeout: number;
+    operatorChannelMessageStatItems: MessageStatItem[];
 }
 
 export interface IsTokenActiveResult {
@@ -65,9 +76,48 @@ export enum CanProcessOperatorMessageResultErrorReason {
     messageRequiresAuthentication = 'message-requires-authentication',
     tokenNotProvided = 'token-not-provided',
     tokenNotFound = 'token-not-found',
+    notAuthorized = 'not-authorized',
 }
 
 export interface CanProcessOperatorMessageResult {
     canProcess: boolean;
     errorReason?: CanProcessOperatorMessageResultErrorReason;
+}
+
+export enum IsAuthorizedResultReason {
+    /**
+     * When the permissions include "all"
+     */
+    hasAllPermissions = 'has-all-permissions',
+    /**
+     * When required permission is found
+     */
+    hasRequiredPermissions = 'has-required-permissions',
+    /**
+     * When permissions does not include one or more required permissions
+     */
+    missingPermission = 'missing-permission',
+    /**
+     * It is unknown what permissions are needed to check. Will happen only if the message type is unknown for the permission check logic
+     */
+    unknownPermissionsRequired = 'unknown-permissions-required',
+    /**
+     * When the message does not need permissions (like the message for authenticating, refreshing the token, pinging etc. (the last 2 are authorized by the presence of valid token only, permission is not needed))
+     */
+    permissionIsNotRequired = 'permission-is-not-required',
+}
+
+export interface IsAuthorizedResult {
+    authorized: boolean;
+    reason: IsAuthorizedResultReason;
+    missingPermissions?: Permission[];
+}
+
+export interface MessageStatItem {
+    type: string;
+    replyType: string;
+    sentAt: number;
+    completedAt: number;
+    error?: any;
+    operatorId?: number | null;
 }

@@ -18,7 +18,7 @@ export class DeviceConnectionQueryHelper {
                 deviceConnection.timestamp,
             ];
         return {
-            query: this.addDeviceConnectionQueryText,
+            text: this.addDeviceConnectionQueryText,
             params,
         };
     }

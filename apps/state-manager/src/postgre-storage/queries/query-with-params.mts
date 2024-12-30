@@ -1,4 +1,4 @@
 export interface IQueryTextWithParamsResult {
-    query: string;
-    params: unknown[];
+    text: string;
+    params?: unknown[];
 }

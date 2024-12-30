@@ -11,9 +11,11 @@ export interface StorageProvider {
     init(config: StorageProviderConfig): Promise<StorageProviderInitResult>;
     getDeviceByCertificateThumbprint(certificateThumbprint: string): Promise<IDevice | undefined>;
     createDevice(device: IDevice): Promise<IDevice>;
+    getAllDevices(): Promise<IDevice[]>;
     getUser(username: string, passwordHash: string): Promise<IUser | undefined>;
     getUserById(userId: number): Promise<IUser | undefined>;
     getUserPermissions(userId: number): Promise<string[] | undefined>;
+    getDeviceStatus(deviceId: number): Promise<IDeviceStatus | undefined>;
     getAllDeviceStatuses(): Promise<IDeviceStatus[]>;
     getAllSystemSettings(): Promise<ISystemSetting[]>;
     getSystemSettingByName(name: string): Promise<ISystemSetting | undefined>;

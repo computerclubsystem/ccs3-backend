@@ -5,18 +5,22 @@ import { IDeviceConnectionEvent } from 'src/storage/entities/device-connection-e
 import { DeviceConnectionQueryHelper } from './device-connection-event-query-helper.mjs';
 import { IOperatorConnectionEvent } from 'src/storage/entities/operator-connection-event.mjs';
 import { OperatorConnectionQueryHelper } from './operator-connection-event-query-helper.mjs';
+import { DeviceStatusQueryHelper } from './device-status-query-helper.mjs';
+import { DeviceQueryHelper } from './device-query-helper.mjs';
 
 export class QueryUtils {
     private readonly helpers = {
         systemSettings: new SystemSettingQueryUtils(),
         deviceConnection: new DeviceConnectionQueryHelper(),
         operatorConnection: new OperatorConnectionQueryHelper(),
+        deviceStatus: new DeviceStatusQueryHelper(),
+        device: new DeviceQueryHelper(),
     };
 
     addOperatorConnectionEventQueryData(operatorConnectionEvent: IOperatorConnectionEvent): IQueryTextWithParamsResult {
         const queryData = this.helpers.operatorConnection.addOperatorConnectionQueryData(operatorConnectionEvent);
         return {
-            query: queryData.query,
+            text: queryData.text,
             params: queryData.params,
         };
     }
@@ -24,7 +28,7 @@ export class QueryUtils {
     addDeviceConnectionEventQueryData(deviceConnectionEvent: IDeviceConnectionEvent): IQueryTextWithParamsResult {
         const queryData = this.helpers.deviceConnection.addDeviceConnectionQueryData(deviceConnectionEvent);
         return {
-            query: queryData.query,
+            text: queryData.text,
             params: queryData.params,
         };
     }
@@ -34,9 +38,13 @@ export class QueryUtils {
             certificateThumbprint,
         ];
         return {
-            query: this.getDeviceByCertificateThumbprintQueryText,
+            text: this.getDeviceByCertificateThumbprintQueryText,
             params,
         };
+    }
+
+    getAllDevicesQueryText(): string {
+        return this.helpers.device.getAllDevicesQueryText;
     }
 
     getSystemSettingByNameQueryData(name: string): IQueryTextWithParamsResult {
@@ -44,7 +52,7 @@ export class QueryUtils {
             name,
         ];
         return {
-            query: this.helpers.systemSettings.getSystemSettingByNameQueryText,
+            text: this.helpers.systemSettings.getSystemSettingByNameQueryText,
             params,
         };
     }
@@ -65,7 +73,7 @@ export class QueryUtils {
             device.device_group_id,
         ];
         return {
-            query: this.createDeviceQueryText,
+            text: this.createDeviceQueryText,
             params,
         }
     }
@@ -75,7 +83,7 @@ export class QueryUtils {
             userId,
         ];
         return {
-            query: this.getUserByIdQueryText,
+            text: this.getUserByIdQueryText,
             params,
         };
     }
@@ -86,7 +94,7 @@ export class QueryUtils {
             passwordHash,
         ];
         return {
-            query: this.getUserQueryText,
+            text: this.getUserQueryText,
             params,
         };
     }
@@ -96,25 +104,18 @@ export class QueryUtils {
             userId,
         ];
         return {
-            query: this.getUserPermissionsQueryText,
+            text: this.getUserPermissionsQueryText,
             params,
         }
     }
 
-    getAllDeviceStatusesQuery(): string {
-        return this.getAllDeviceStatusesQueryText;
+    getDeviceStatusQuery(deviceId: number): IQueryTextWithParamsResult {
+        return this.helpers.deviceStatus.getDeviceStatusQuery(deviceId);
     }
 
-    private readonly getAllDeviceStatusesQueryText = `
-        SELECT
-            device_id,
-            started,
-            start_reason,
-            started_at,
-            stopped_at,
-            total
-        FROM device_status
-    `;
+    getAllDeviceStatusesQueryText(): string {
+        return this.helpers.deviceStatus.getAllDeviceStatusesQueryText;
+    }
 
     private readonly getUserPermissionsQueryText = `
         SELECT p.name 
