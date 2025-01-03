@@ -7,6 +7,9 @@ import { IOperatorConnectionEvent } from 'src/storage/entities/operator-connecti
 import { OperatorConnectionQueryHelper } from './operator-connection-event-query-helper.mjs';
 import { DeviceStatusQueryHelper } from './device-status-query-helper.mjs';
 import { DeviceQueryHelper } from './device-query-helper.mjs';
+import { IDeviceStatus } from 'src/storage/entities/device-status.mjs';
+import { TariffQueryHelper } from './tariff-query-helper.mjs';
+import { ITariff } from 'src/storage/entities/tariff.mjs';
 
 export class QueryUtils {
     private readonly helpers = {
@@ -15,7 +18,20 @@ export class QueryUtils {
         operatorConnection: new OperatorConnectionQueryHelper(),
         deviceStatus: new DeviceStatusQueryHelper(),
         device: new DeviceQueryHelper(),
+        tariff: new TariffQueryHelper(),
     };
+
+    getAllTariffsQueryText(): string {
+        return this.helpers.tariff.getAllTariffsQueryText;
+    }
+
+    createTariffQueryData(tariff: ITariff): IQueryTextWithParamsResult {
+        return this.helpers.tariff.createTariffQueryData(tariff);
+    }
+
+    updateTariffQueryData(tariff: ITariff): IQueryTextWithParamsResult {
+        return this.helpers.tariff.updateTariffQueryData(tariff);
+    }
 
     addOperatorConnectionEventQueryData(operatorConnectionEvent: IOperatorConnectionEvent): IQueryTextWithParamsResult {
         const queryData = this.helpers.operatorConnection.addOperatorConnectionQueryData(operatorConnectionEvent);
@@ -47,6 +63,10 @@ export class QueryUtils {
         return this.helpers.device.getAllDevicesQueryText;
     }
 
+    getDeviceQueryData(deviceId: number): IQueryTextWithParamsResult {
+        return this.helpers.device.getDeviceStatusQuery(deviceId);
+    }
+
     getSystemSettingByNameQueryData(name: string): IQueryTextWithParamsResult {
         const params: string[] = [
             name,
@@ -59,6 +79,10 @@ export class QueryUtils {
 
     getAllSystemSettingsQuery(): string {
         return this.helpers.systemSettings.getAllSystemSettingsQueryText;
+    }
+
+    updateDeviceQueryData(device: IDevice): IQueryTextWithParamsResult {
+        return this.helpers.device.updateDeviceQueryData(device);
     }
 
     createDeviceQueryData(device: IDevice): IQueryTextWithParamsResult {
@@ -113,6 +137,18 @@ export class QueryUtils {
         return this.helpers.deviceStatus.getDeviceStatusQuery(deviceId);
     }
 
+    addOrUpdateDeviceStatusEnabledQuery(deviceStatus: IDeviceStatus): IQueryTextWithParamsResult {
+        return this.helpers.deviceStatus.addOrUpdateDeviceStatusEnabledQuery(deviceStatus);
+    }
+
+    updateDeviceStatusQuery(deviceStatus: IDeviceStatus): IQueryTextWithParamsResult {
+        return this.helpers.deviceStatus.updateDeviceStatusQuery(deviceStatus);
+    }
+
+    // setDeviceStatusEnabledFlag(deviceId: number, enabled: boolean): IQueryTextWithParamsResult {
+    //     return this.helpers.deviceStatus.setDeviceStatusEnabledFlagQuery(deviceId, enabled);
+    // }
+
     getAllDeviceStatusesQueryText(): string {
         return this.helpers.deviceStatus.getAllDeviceStatusesQueryText;
     }
@@ -138,14 +174,14 @@ export class QueryUtils {
     `;
 
     private readonly getUserByIdQueryText = `
-    SELECT 
-        id,
-        username,
-        enabled
-    FROM "user"
-    WHERE id = $1
-    LIMIT 1
-`;
+        SELECT 
+            id,
+            username,
+            enabled
+        FROM "user"
+        WHERE id = $1
+        LIMIT 1
+    `;
 
     private readonly createDeviceQueryText = `
         INSERT INTO device

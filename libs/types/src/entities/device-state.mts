@@ -1,4 +1,4 @@
-export const enum DeviceState {
-    enabled = 'enabled',
-    disabled = 'disabled',
-}
+// export const enum DeviceState {
+//     enabled = 'enabled',
+//     disabled = 'disabled',
+// }

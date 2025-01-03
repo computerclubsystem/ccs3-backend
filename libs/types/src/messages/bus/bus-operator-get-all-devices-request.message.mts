@@ -1,7 +1,7 @@
 import { MessageType } from '../declarations/message-type.mjs';
 import { Message } from '../declarations/message.mjs';
 import { OperatorMessage } from '../operators/declarations/operator.message.mjs';
-import { transferSharedMessageDataToReplyOperatorMessage } from '../utils.mjs';
+import { transferSharedMessageDataToReplyOperatorMessage as transferSharedMessageDataToOperatorMessage } from '../utils.mjs';
 
 export interface BusOperatorGetAllDevicesRequestMessageBody {
 }
@@ -14,6 +14,7 @@ export function createBusOperatorGetAllDevicesRequestMessage<TBody>(sourceMessag
         header: { type: MessageType.busOperatorGetAllDevicesRequest },
         body: {} as BusOperatorGetAllDevicesRequestMessageBody,
     };
-    transferSharedMessageDataToReplyOperatorMessage(msg, sourceMessage);
+    // TODO: This is not reply message
+    transferSharedMessageDataToOperatorMessage(msg, sourceMessage);
     return msg;
 };

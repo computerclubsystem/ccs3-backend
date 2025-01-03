@@ -6,7 +6,7 @@ import { CreateConnectedRedisClientOptions, RedisCacheClient, RedisClientMessage
 import { ChannelName } from '@computerclubsystem/types/channels/channel-name.mjs';
 import { Message } from '@computerclubsystem/types/messages/declarations/message.mjs';
 import { MessageType } from '@computerclubsystem/types/messages/declarations/message-type.mjs';
-import { BusDeviceStatusesMessage, DeviceStatus } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
+import { BusDeviceStatusesMessage } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
 import {
     ClientConnectedEventArgs, ConnectionClosedEventArgs, ConnectionErrorEventArgs,
     MessageReceivedEventArgs, WssServer, WssServerConfig, WssServerEventName, SendErrorEventArgs,
@@ -21,13 +21,13 @@ import { createOperatorAuthReplyMessage } from '@computerclubsystem/types/messag
 import { Logger } from './logger.mjs';
 import { IStaticFilesServerConfig, StaticFilesServer } from './static-files-server.mjs';
 import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
-import { OperatorMessage } from '@computerclubsystem/types/messages/operators/declarations/operator.message.mjs';
-import { OperatorMessageType } from '@computerclubsystem/types/messages/operators/declarations/operator-message-type.mjs';
+import { OperatorMessage, OperatorNotificationMessage, OperatorReplyMessage } from '@computerclubsystem/types/messages/operators/declarations/operator.message.mjs';
+import { OperatorMessageType, OperatorNotificationMessageType, OperatorReplyMessageType } from '@computerclubsystem/types/messages/operators/declarations/operator-message-type.mjs';
 import { OperatorConnectionRoundTripData } from '@computerclubsystem/types/messages/operators/declarations/operator-connection-roundtrip-data.mjs';
 import { createOperatorConfigurationMessage, OperatorConfigurationMessage } from '@computerclubsystem/types/messages/operators/operator-configuration.message.mjs';
 import { OperatorPingRequestMessage } from '@computerclubsystem/types/messages/operators/operator-ping-request.message.mjs';
 import { CacheHelper, UserAuthDataCacheValue } from './cache-helper.mjs';
-import { CanProcessOperatorMessageResult, CanProcessOperatorMessageResultErrorReason, ConnectedClientData, ConnectionCleanUpReason, IsAuthorizedResult, IsAuthorizedResultReason, IsTokenActiveResult, MessageStatItem, OperatorConnectorState } from './declarations.mjs';
+import { CanProcessOperatorMessageResult, CanProcessOperatorMessageResultErrorReason, ConnectedClientData, ConnectionCleanUpReason, IsAuthorizedResult, IsAuthorizedResultReason, IsTokenActiveResult, MessageStatItem, OperatorConnectorState, OperatorConnectorValidators } from './declarations.mjs';
 import { OperatorRefreshTokenRequestMessage } from '@computerclubsystem/types/messages/operators/operator-refresh-token-request.message.mjs';
 import { createOperatorRefreshTokenReplyMessage } from '@computerclubsystem/types/messages/operators/operator-refresh-token-reply.message.mjs';
 import { createOperatorNotAuthenticatedMessage } from '@computerclubsystem/types/messages/operators/operator-not-authenticated.message.mjs';
@@ -40,7 +40,32 @@ import { SubjectsService } from './subjects.service.mjs';
 import { catchError, EMPTY, filter, finalize, first, NEVER, Observable, of, throwError, timeout } from 'rxjs';
 import { createOperatorGetAllDevicesReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-devices-reply.message.mjs';
 import { BusOperatorGetAllDevicesReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-operator-get-all-devices-reply.message.mjs';
-
+import { OperatorGetDeviceByIdRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-device-by-id-request.message.mjs';
+import { createBusDeviceGetByIdRequestMessage } from '@computerclubsystem/types/messages/bus/bus-device-get-by-id-request.message.mjs';
+import { BusDeviceGetByIdReplyMessage, BusDeviceGetByIdReplyMessageBody, createBusDeviceGetByIdReplyMessage } from '@computerclubsystem/types/messages/bus/bus-device-get-by-id-reply.message.mjs';
+import { createOperatorGetDeviceByIdReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-device-by-id-reply.message.mjs';
+import { OperatorUpdateDeviceRequestMessage } from '@computerclubsystem/types/messages/operators/operator-update-device-request.message.mjs';
+import { createOperatorUpdateDeviceReplyMessage } from '@computerclubsystem/types/messages/operators/operator-update-device-reply.message.mjs';
+import { createBusUpdateDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-device-request.message.mjs';
+import { BusUpdateDeviceReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-update-device-reply.message.mjs';
+import { OperatorGetAllTariffsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-tariffs-request.message.mjs';
+import { BusGetAllTariffsReplyMessageBody, createBusGetAllTariffsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-tariffs-reply.message.mjs';
+import { createBusGetAllTariffsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-tariffs-request.message.mjs';
+import { createOperatorGetAllTariffsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-tariffs-reply.message.mjs';
+import { OperatorCreateTariffRequestMessage } from '@computerclubsystem/types/messages/operators/operator-create-tariff-request.message.mjs';
+import { createOperatorCreateTariffReplyMessage } from '@computerclubsystem/types/messages/operators/operator-create-tariff-reply.message.mjs';
+import { createBusCreateTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-tariff-request.message.mjs';
+import { BusCreateTariffReplyMessage, BusCreateTariffReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-create-tariff-reply.message.mjs';
+import { MessageError } from '@computerclubsystem/types/messages/declarations/message-error.mjs';
+import { OperatorReplyMessageErrorCode } from '@computerclubsystem/types/messages/operators/declarations/error-code.mjs';
+import { Tariff } from '@computerclubsystem/types/entities/tariff.mjs';
+import { TariffValidator } from './tariff-validator.mjs';
+import { error } from 'node:console';
+import { createOperatorDeviceStatusesNotificationMessage } from '@computerclubsystem/types/messages/operators/operator-device-statuses-notification.message.mjs';
+import { OperatorDeviceStatus } from '@computerclubsystem/types/entities/operator-device-status.mjs';
+import { OperatorStartDeviceRequestMessage } from '@computerclubsystem/types/messages/operators/operator-start-device-request.message.mjs';
+import { createBusStartDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-request.message.mjs';
+import { createOperatorStartDeviceReplyMessage } from '@computerclubsystem/types/messages/operators/operator-start-device-reply.message.mjs';
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
     private readonly pubClient = new RedisPubClient();
@@ -49,6 +74,7 @@ export class OperatorConnector {
     private staticFilesServer?: StaticFilesServer;
     private readonly envVars = new EnvironmentVariablesHelper().createEnvironmentVars();
     private readonly state = this.createState();
+    private readonly validators = this.createValidators();
     private readonly cacheClient = new RedisCacheClient();
     private readonly cacheHelper = new CacheHelper();
     private readonly authorizationHelper = new AuthorizationHelper();
@@ -116,8 +142,23 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorMessageType.startDeviceRequest:
+                this.processOperatorStartDeviceRequest(clientData, message as OperatorStartDeviceRequestMessage);
+                break;
+            case OperatorMessageType.createTariffRequest:
+                this.processOperatorCreateTariffRequest(clientData, message as OperatorCreateTariffRequestMessage);
+                break;
+            case OperatorMessageType.getAllTariffsRequest:
+                this.processOperatorGetAllTariffsRequest(clientData, message as OperatorGetAllTariffsRequestMessage);
+                break;
+            case OperatorMessageType.updateDeviceRequest:
+                this.processOperatorUpdateDeviceRequest(clientData, message as OperatorUpdateDeviceRequestMessage);
+                break;
             case OperatorMessageType.getAllDevicesRequest:
                 this.processOperatorGetAllDevicesRequest(clientData, message as OperatorGetAllDevicesRequestMessage);
+                break;
+            case OperatorMessageType.getDeviceByIdRequest:
+                this.processOperatorGetDeviceByIdRequest(clientData, message as OperatorGetDeviceByIdRequestMessage);
                 break;
             case OperatorMessageType.authRequest:
                 this.processOperatorAuthRequestMessage(clientData, message as OperatorAuthRequestMessage);
@@ -133,6 +174,113 @@ export class OperatorConnector {
                 this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    processOperatorStartDeviceRequest(clientData: ConnectedClientData, message: OperatorStartDeviceRequestMessage): void {
+        // Validate
+        const busRequestMsg = createBusStartDeviceRequestMessage();
+        busRequestMsg.body.deviceId = message.body.deviceId;
+        busRequestMsg.body.tariffId = message.body.tariffId;
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusCreateTariffReplyMessageBody>(busRequestMsg, MessageType.busStartDeviceReply, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorStartDeviceReplyMessage();
+                if (busReplyMsg.header.failure) {
+                    operatorReplyMsg.header.failure = true;
+                    if (busReplyMsg.header.errors?.find(x => x.code === 'device-already-started')) {
+                        operatorReplyMsg.header.errors = [{
+                            code: OperatorReplyMessageErrorCode.deviceAlreadyStarted,
+                            description: `Can't start the device. Check if it is already started`,
+                        }] as MessageError[];
+                    } else {
+                        operatorReplyMsg.header.errors = [{
+                            code: OperatorReplyMessageErrorCode.cantStartDevice,
+                            description: `Can't start the device. Check if it is already started`,
+                        }] as MessageError[];
+                    }
+                    // TODO: Set error in the response header. For this to work we need to have different request and reply headers
+                }
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    processOperatorCreateTariffRequest(clientData: ConnectedClientData, message: OperatorCreateTariffRequestMessage): void {
+        const errorReplyMsg = this.validators.tariff.validateTariff(message.body.tariff);
+        if (errorReplyMsg?.body.tariff.idmnj) {
+            this.sendReplyMessageToOperator(errorReplyMsg, clientData, message);
+            return;
+        }
+        const requestedTariff: Tariff = message.body.tariff;
+        requestedTariff.description = requestedTariff.description?.trim();
+        requestedTariff.name = requestedTariff.name.trim();
+
+        const busRequestMsg = createBusCreateTariffRequestMessage();
+        busRequestMsg.body.tariff = requestedTariff;
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusCreateTariffReplyMessageBody>(busRequestMsg, MessageType.busCreateTariffReply, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorCreateTariffReplyMessage();
+                operatorReplyMsg.body.tariff = busReplyMsg.body.tariff;
+                if (busReplyMsg.header.failure) {
+                    operatorReplyMsg.header.failure = true;
+                    operatorReplyMsg.header.errors = [{
+                        code: OperatorReplyMessageErrorCode.tariffCreationError,
+                        description: `Can't create tariff. Check if tariff with the same name already exist`,
+                    }] as MessageError[];
+                    // TODO: Set error in the response header. For this to work we need to have different request and reply headers
+                }
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    processOperatorGetAllTariffsRequest(clientData: ConnectedClientData, message: OperatorGetAllTariffsRequestMessage): void {
+        // TODO: Remove "as any"
+        const busRequestMsg = createBusGetAllTariffsRequestMessage(message as any);
+        busRequestMsg.header.roundTripData = {
+            connectionId: clientData.connectionId,
+            connectionInstanceId: clientData.connectionInstanceId,
+        } as OperatorConnectionRoundTripData;
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetAllTariffsReplyMessageBody>(busRequestMsg, MessageType.busGetAllTariffsReply, clientData)
+            .subscribe(busReplyMessage => {
+                const operatorReplyMsg = createOperatorGetAllTariffsReplyMessage();
+                operatorReplyMsg.body.tariffs = busReplyMessage.body.tariffs;
+                if (busReplyMessage.header.failure) {
+                    // TODO: Set error in the response header. For this to work we need to have different request and reply headers
+                }
+                this.sendMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    processOperatorUpdateDeviceRequest(clientData: ConnectedClientData, message: OperatorUpdateDeviceRequestMessage): void {
+        const busRequestMsg = createBusUpdateDeviceRequestMessage();
+        busRequestMsg.body.device = message.body.device;
+        busRequestMsg.header.roundTripData = {
+            connectionId: clientData.connectionId,
+            connectionInstanceId: clientData.connectionInstanceId,
+        } as OperatorConnectionRoundTripData;
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusUpdateDeviceReplyMessageBody>(busRequestMsg, MessageType.busUpdateDeviceReply, clientData)
+            .subscribe(busReplyMessage => {
+                const operatorReplyMsg = createOperatorUpdateDeviceReplyMessage();
+                operatorReplyMsg.body.device = busReplyMessage.body.device;
+                if (busReplyMessage.header.failure) {
+                    // TODO: Set error in the response header. For this to work we need to have different request and reply headers
+                }
+                this.sendMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    async processOperatorGetDeviceByIdRequest(clientData: ConnectedClientData, message: OperatorGetDeviceByIdRequestMessage): Promise<void> {
+        const busRequestMsg = createBusDeviceGetByIdRequestMessage();
+        busRequestMsg.body.deviceId = message.body.deviceId;
+        // TODO: Do we need this roundTripData ? We are now waiting for reply by type
+        busRequestMsg.header.roundTripData = {
+            connectionId: clientData.connectionId,
+            connectionInstanceId: clientData.connectionInstanceId,
+        } as OperatorConnectionRoundTripData;
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusDeviceGetByIdReplyMessageBody>(busRequestMsg, MessageType.busOperatorGetDeviceByIdReply, clientData)
+            .subscribe(busReplyMessage => {
+                const operatorReplyMsg = createOperatorGetDeviceByIdReplyMessage();
+                operatorReplyMsg.body.device = busReplyMessage.body.device;
+                this.sendMessageToOperator(operatorReplyMsg, clientData, message);
+            });
     }
 
     async processOperatorGetAllDevicesRequest(clientData: ConnectedClientData, message: OperatorGetAllDevicesRequestMessage): Promise<void> {
@@ -426,15 +574,15 @@ export class OperatorConnector {
         const result: CanProcessOperatorMessageResult = {
             canProcess: false,
         } as CanProcessOperatorMessageResult;
-        const type = message.header?.type;
-        if (this.isWhiteSpace(type)) {
+        const msgType = message.header?.type;
+        if (this.isWhiteSpace(msgType)) {
             result.canProcess = false;
             result.errorReason = CanProcessOperatorMessageResultErrorReason.messageTypeIsMissing;
             return result;
         }
 
         // Check if the message can be send anonymously
-        const isAnonymousMessage = type === OperatorMessageType.authRequest;
+        const isAnonymousMessage = msgType === OperatorMessageType.authRequest;
         if (!isAnonymousMessage && !clientData.isAuthenticated) {
             // The message can't be processed anonymously and the client is not authenticated
             result.canProcess = false;
@@ -466,7 +614,7 @@ export class OperatorConnector {
                 return result;
             }
             // Check permissions
-            const isAuthorizedResult = this.authorizationHelper.isAuthorized(clientData.permissions, message);
+            const isAuthorizedResult = this.authorizationHelper.isAuthorized(clientData.permissions, msgType);
             if (!isAuthorizedResult.authorized) {
                 result.canProcess = false;
                 result.errorReason = CanProcessOperatorMessageResultErrorReason.notAuthorized;
@@ -487,7 +635,43 @@ export class OperatorConnector {
     }
 
     processDeviceStatusesMessage(message: BusDeviceStatusesMessage): void {
-        this.sendDeviceStatusesToOperators(message.body.deviceStatuses);
+        // Send device statuses message to all connected operators that can read this information
+        const clientDataToSendTo: ConnectedClientData[] = [];
+        const connections = this.getAllConnectedClientsData();
+        for (const connection of connections) {
+            const clientData = connection[1];
+            const isAuthorized = this.authorizationHelper.isAuthorized(clientData.permissions, OperatorNotificationMessageType.deviceStatusesNotification);
+            if (isAuthorized) {
+                clientDataToSendTo.push(clientData);
+            }
+        }
+
+        if (clientDataToSendTo.length > 0) {
+            const deviceStatuses = message.body.deviceStatuses;
+            const deviceStatusesNotificationMsg = createOperatorDeviceStatusesNotificationMessage();
+            deviceStatusesNotificationMsg.body.deviceStatuses = deviceStatuses.map(x => {
+                const opDeviceStatus: OperatorDeviceStatus = {
+                    deviceId: x.deviceId,
+                    enabled: x.enabled,
+                    expectedEndAt: x.expectedEndAt,
+                    remainingSeconds: x.remainingSeconds,
+                    started: x.started,
+                    startedAt: x.startedAt,
+                    stoppedAt: x.stoppedAt,
+                    tariff: x.tariff,
+                    totalSum: x.totalSum,
+                    totalTime: x.totalTime,
+                };
+                return opDeviceStatus;
+            });
+            for (const clientData of clientDataToSendTo) {
+                try {
+                    this.sendNotificationMessageToOperator(deviceStatusesNotificationMsg, clientData);
+                } catch (err) {
+                    this.logger.warn(`Can't send to operator`, clientData, deviceStatusesNotificationMsg, err);
+                }
+            }
+        }
     }
 
     processOperatorConnectionClosed(args: ConnectionClosedEventArgs): void {
@@ -511,32 +695,6 @@ export class OperatorConnector {
 
     removeClient(connectionId: number): void {
         this.connectedClients.delete(connectionId);
-    }
-
-    sendDeviceStatusesToOperators(deviceStatuses: DeviceStatus[]): void {
-        // Send device statuses message to all connected operators that can read this information
-        // for (const status of deviceStatuses) {
-        //     const connections = this.getConnectedClientsDataByDeviceId(status.deviceId);
-        //     if (connections.length > 0) {
-        //         for (const connection of connections) {
-        //             const connectionId = connection[0];
-        //             const msg = createDeviceSetStatusMessage();
-        //             msg.body.state = status.state;
-        //             msg.body.amounts = {
-        //                 expectedEndAt: status.expectedEndAt,
-        //                 remainingSeconds: status.remainingSeconds,
-        //                 startedAt: status.startedAt,
-        //                 totalSum: status.totalSum,
-        //                 totalTime: status.totalTime,
-        //             };
-        //             try {
-        //                 this.sendToDevice(msg, connectionId);
-        //             } catch (err) {
-        //                 this.logger.warn(`Can't send to device`, connectionId, msg, err);
-        //             }
-        //         }
-        //     }
-        // }
     }
 
     publishOperatorConnectionEventMessage(operatorId: number, ipAddress: string | null, eventType: OperatorConnectionEventType, note?: string): void {
@@ -624,6 +782,15 @@ export class OperatorConnector {
         return Array.from(this.connectedClients.entries());
     }
 
+    sendReplyMessageToOperator<TBody>(message: OperatorReplyMessage<TBody>, clientData: ConnectedClientData, requestMessage?: OperatorMessage<any>): void {
+        if (requestMessage) {
+            message.header.correlationId = requestMessage.header.correlationId;
+        }
+        clientData.sentMessagesCount++;
+        this.logger.log('Sending reply message to operator connection', clientData.connectionId, message.header.type, message);
+        this.wssServer.sendJSON(message, clientData.connectionId);
+    }
+
     sendMessageToOperator<TBody>(message: OperatorMessage<TBody>, clientData: ConnectedClientData, requestMessage?: OperatorMessage<any>): void {
         if (requestMessage) {
             message.header.correlationId = requestMessage.header.correlationId;
@@ -633,8 +800,14 @@ export class OperatorConnector {
         this.wssServer.sendJSON(message, clientData.connectionId);
     }
 
+    sendNotificationMessageToOperator<TBody>(message: OperatorNotificationMessage<TBody>, clientData: ConnectedClientData): void {
+        clientData.sentMessagesCount++;
+        this.logger.log('Sending notification message to operator', clientData, message.header.type, message);
+        this.wssServer.sendJSON(message, clientData.connectionId);
+    }
+
     startClientConnectionsMonitor(): void {
-        setInterval(() => this.cleanUpClientConnections(), this.state.cleanUpClientConnectionsInterval);
+        this.state.clientConnectionsMonitorTimerHandle = setInterval(() => this.cleanUpClientConnections(), this.state.cleanUpClientConnectionsInterval);
     }
 
     async maintainUserAuthDataTokenCacheItem(
@@ -682,6 +855,13 @@ export class OperatorConnector {
         return new Date().toISOString();
     }
 
+    createValidators(): OperatorConnectorValidators {
+        const validators: OperatorConnectorValidators = {
+            tariff: new TariffValidator(),
+        };
+        return validators;
+    }
+
     createState(): OperatorConnectorState {
         const state: OperatorConnectorState = {
             // Operator apps must send at least one message each 2 minutes or will be disconnected
@@ -696,6 +876,7 @@ export class OperatorConnector {
             messageBusReplyTimeout: 5 * 1000,
             // Message statistics for operator channel
             operatorChannelMessageStatItems: [],
+            clientConnectionsMonitorTimerHandle: undefined,
         };
         return state;
     }
@@ -864,7 +1045,7 @@ export class OperatorConnector {
         const subClientOptions: CreateConnectedRedisClientOptions = {
             host: redisHost,
             port: redisPort,
-            errorCallback: err => console.error('SubClient error', err),
+            errorCallback: err => this.logger.error('SubClient error', err),
             reconnectStrategyCallback: (retries: number, err: Error) => {
                 this.logger.error('SubClient reconnect strategy error', retries, err);
                 return 5000;
@@ -910,14 +1091,24 @@ export class OperatorConnector {
         const redisCacheClientOptions: CreateConnectedRedisClientOptions = {
             host: redisHost,
             port: redisPort,
-            errorCallback: err => console.error('CacheClient error', err),
+            errorCallback: err => this.logger.error('CacheClient error', err),
             reconnectStrategyCallback: (retries: number, err: Error) => {
-                console.error('CacheClient reconnect strategy error', retries, err);
+                this.logger.error('CacheClient reconnect strategy error', retries, err);
                 return 5000;
             },
         };
         this.logger.log('CacheClient connecting');
         await this.cacheClient.connect(redisCacheClientOptions);
         this.logger.log('CacheClient connected');
+    }
+
+    async terminate(): Promise<void> {
+        this.logger.warn('Terminating');
+        clearInterval(this.state.clientConnectionsMonitorTimerHandle);
+        this.staticFilesServer?.stop();
+        this.wssServer.stop();
+        await this.subClient.disconnect();
+        await this.pubClient.disconnect();
+        await this.cacheClient.disconnect();
     }
 }

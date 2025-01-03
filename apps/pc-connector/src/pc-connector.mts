@@ -97,7 +97,6 @@ export class PcConnector {
         };
         msg.header.roundTripData = roundTripData;
         msg.body.certificateThumbprint = data.certificateThumbprint;
-        msg.body.ipAddress = args.ipAddress;
         this.publishToDevicesChannel(msg);
     }
 
@@ -198,28 +197,28 @@ export class PcConnector {
     }
 
     sendStatusToDevices(deviceStatuses: DeviceStatus[]): void {
-        for (const status of deviceStatuses) {
-            const connections = this.getConnectedClientsDataByDeviceId(status.deviceId);
-            if (connections.length > 0) {
-                for (const connection of connections) {
-                    const connectionId = connection[0];
-                    const msg = createDeviceSetStatusMessage();
-                    msg.body.state = status.state;
-                    msg.body.amounts = {
-                        expectedEndAt: status.expectedEndAt,
-                        remainingSeconds: status.remainingSeconds,
-                        startedAt: status.startedAt,
-                        totalSum: status.totalSum,
-                        totalTime: status.totalTime,
-                    };
-                    try {
-                        this.sendToDevice(msg, connectionId);
-                    } catch (err) {
-                        this.logger.warn(`Can't send to device`, connectionId, msg, err);
-                    }
-                }
-            }
-        }
+        // for (const status of deviceStatuses) {
+        //     const connections = this.getConnectedClientsDataByDeviceId(status.deviceId);
+        //     if (connections.length > 0) {
+        //         for (const connection of connections) {
+        //             const connectionId = connection[0];
+        //             const msg = createDeviceSetStatusMessage();
+        //             msg.body.state = status.state;
+        //             msg.body.amounts = {
+        //                 expectedEndAt: status.expectedEndAt,
+        //                 remainingSeconds: status.remainingSeconds,
+        //                 startedAt: status.startedAt,
+        //                 totalSum: status.totalSum,
+        //                 totalTime: status.totalTime,
+        //             };
+        //             try {
+        //                 this.sendToDevice(msg, connectionId);
+        //             } catch (err) {
+        //                 this.logger.warn(`Can't send to device`, connectionId, msg, err);
+        //             }
+        //         }
+        //     }
+        // }
     }
 
     processDeviceGetByCertificateReply(message: BusDeviceGetByCertificateReplyMessage): void {
@@ -447,7 +446,7 @@ export class PcConnector {
     }
 
     private startClientConnectionsMonitor(): void {
-        setInterval(() => this.cleanUpClientConnections(), 10000);
+        this.state.clientConnectionsMonitorTimerHandle = setInterval(() => this.cleanUpClientConnections(), 10000);
     }
 
     private cleanUpClientConnections(): void {
@@ -501,8 +500,17 @@ export class PcConnector {
             maxAllowedSubClientReconnectionErrorsCount: 50,
             pubClientPublishErrorsCount: 0,
             maxAllowedPubClientPublishErrorsCount: 10,
+            clientConnectionsMonitorTimerHandle: undefined,
         };
         return state;
+    }
+
+    async terminate(): Promise<void> {
+        this.logger.warn('Terminating');
+        clearInterval(this.state.clientConnectionsMonitorTimerHandle);
+        this.wssServer.stop();
+        await this.subClient.disconnect();
+        await this.pubClient.disconnect();
     }
 }
 
@@ -550,4 +558,6 @@ interface PcConnectorState {
 
     pubClientPublishErrorsCount: number;
     maxAllowedPubClientPublishErrorsCount: number;
+
+    clientConnectionsMonitorTimerHandle?: NodeJS.Timeout;
 }

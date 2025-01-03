@@ -14,12 +14,13 @@ import { QueryUtils } from './queries/query-utils.mjs';
 import { ISystemSetting } from 'src/storage/entities/system-setting.mjs';
 import { IDeviceConnectionEvent } from 'src/storage/entities/device-connection-event.mjs';
 import { IOperatorConnectionEvent } from 'src/storage/entities/operator-connection-event.mjs';
+import { ITariff } from 'src/storage/entities/tariff.mjs';
 
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
     private logger: Logger;
     private readonly className = (this as any).constructor.name;
-    private readonly queryHelper = new QueryUtils();
+    private readonly queryUtils = new QueryUtils();
 
     constructor() {
         this.logger = new Logger();
@@ -40,81 +41,139 @@ export class PostgreStorageProvider implements StorageProvider {
         this.state.pool.on('error', (err: Error, client: pg.PoolClient) => this.handlePoolError(err, client));
         const migrateResult = await this.migrateDatabase();
         result.success = migrateResult.success;
+        pg.types.setTypeParser(1114, stringValue => {
+            var temp = new Date(stringValue);
+            const newDate = new Date(Date.UTC(
+                temp.getFullYear(), temp.getMonth(), temp.getDate(), temp.getHours(), temp.getMinutes(), temp.getSeconds(), temp.getMilliseconds())
+            );
+            return newDate.toISOString();
+        });
         return result;
     }
 
-    
+
 
     async addOperatorConnectionEvent(operatorConnectionEvent: IOperatorConnectionEvent): Promise<IOperatorConnectionEvent | undefined> {
-        const queryData = this.queryHelper.addOperatorConnectionEventQueryData(operatorConnectionEvent);
+        const queryData = this.queryUtils.addOperatorConnectionEventQueryData(operatorConnectionEvent);
         const res = await this.execQuery(queryData.text, queryData.params);
         return res.rows[0] as IOperatorConnectionEvent | undefined;
     }
 
     async addDeviceConnectionEvent(deviceConnectionEvent: IDeviceConnectionEvent): Promise<IDeviceConnectionEvent | undefined> {
-        const queryData = this.queryHelper.addDeviceConnectionEventQueryData(deviceConnectionEvent);
+        const queryData = this.queryUtils.addDeviceConnectionEventQueryData(deviceConnectionEvent);
         const res = await this.execQuery(queryData.text, queryData.params);
         return res.rows[0] as IDeviceConnectionEvent | undefined;
     }
 
     async getSystemSettingByName(name: string): Promise<ISystemSetting | undefined> {
-        const queryData = this.queryHelper.getSystemSettingByNameQueryData(name);
+        const queryData = this.queryUtils.getSystemSettingByNameQueryData(name);
         const res = await this.execQuery(queryData.text, queryData.params);
         return res.rows[0] as ISystemSetting | undefined;
     }
 
     async getAllSystemSettings(): Promise<ISystemSetting[]> {
-        const query = this.queryHelper.getAllSystemSettingsQuery();
+        const query = this.queryUtils.getAllSystemSettingsQuery();
         const res = await this.execQuery(query);
         return res.rows as ISystemSetting[];
     }
 
     async getAllDeviceStatuses(): Promise<IDeviceStatus[]> {
-        const query = this.queryHelper.getAllDeviceStatusesQueryText();
+        const query = this.queryUtils.getAllDeviceStatusesQueryText();
         const res = await this.execQuery(query);
         return res.rows as IDeviceStatus[];
     }
 
     async getDeviceStatus(deviceId: number): Promise<IDeviceStatus | undefined> {
-        const query = this.queryHelper.getDeviceStatusQuery(deviceId);
+        const query = this.queryUtils.getDeviceStatusQuery(deviceId);
         const res = await this.execQuery(query.text, query.params);
         return res.rows[0] as IDeviceStatus | undefined;
     }
 
+    async addOrUpdateDeviceStatusEnabled(deviceStatus: IDeviceStatus): Promise<IDeviceStatus | undefined> {
+        const query = this.queryUtils.addOrUpdateDeviceStatusEnabledQuery(deviceStatus);
+        const res = await this.execQuery(query.text, query.params);
+        return res.rows[0] as IDeviceStatus | undefined;
+    }
+
+    async updateDeviceStatus(deviceStatus: IDeviceStatus): Promise<void> {
+        const query = this.queryUtils.updateDeviceStatusQuery(deviceStatus);
+        await this.execQuery(query.text, query.params);
+    }
+
+    // async setDeviceStatusEnabledFlag(deviceId: number, enabled: boolean): Promise<void> {
+    //     const query = this.queryHelper.setDeviceStatusEnabledFlag(deviceId, enabled);
+    //     await this.execQuery(query.text, query.params);
+    // }
+
+    async getAllTariffs(): Promise<ITariff[]> {
+        const queryText = this.queryUtils.getAllTariffsQueryText();
+        const res = await this.execQuery(queryText);
+        return res.rows as ITariff[];
+    }
+
+    async createTariff(tariff: ITariff): Promise<ITariff> {
+        const queryData = this.queryUtils.createTariffQueryData(tariff);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows[0] as ITariff;
+    }
+
+    async updateTariff(tariff: ITariff): Promise<ITariff> {
+        const queryData = this.queryUtils.updateTariffQueryData(tariff);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows[0] as ITariff;
+    }
+
     async getUser(username: string, passwordHash: string): Promise<IUser | undefined> {
-        const queryData = this.queryHelper.getUserQueryData(username, passwordHash);
+        const queryData = this.queryUtils.getUserQueryData(username, passwordHash);
         const res = await this.execQuery(queryData.text, queryData.params);
         return res.rows[0] as IUser | undefined;
     }
 
     async getUserById(userId: number): Promise<IUser | undefined> {
-        const queryData = this.queryHelper.getUserByIdQueryData(userId);
+        const queryData = this.queryUtils.getUserByIdQueryData(userId);
         const res = await this.execQuery(queryData.text, queryData.params);
         return res.rows[0] as IUser | undefined;
     }
 
     async getUserPermissions(userId: number): Promise<string[] | undefined> {
-        const queryData = this.queryHelper.getUserPermissionsQueryData(userId);
+        const queryData = this.queryUtils.getUserPermissionsQueryData(userId);
         const res = await this.execQuery(queryData.text, queryData.params);
         return (res.rows as { name: string }[]).map(x => x.name);
     }
 
     async createDevice(device: IDevice): Promise<IDevice> {
-        const queryData = this.queryHelper.createDeviceQueryData(device);
+        const queryData = this.queryUtils.createDeviceQueryData(device);
         const res = await this.execQuery(queryData.text, queryData.params);
         return res.rows[0] as IDevice;
     }
 
+    async updateDevice(device: IDevice): Promise<IDevice> {
+        const queryData = this.queryUtils.updateDeviceQueryData(device);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows[0] as IDevice;
+    }
+
+
     async getDeviceByCertificateThumbprint(certificateThumbprint: string): Promise<IDevice | undefined> {
-        const queryData = this.queryHelper.getDeviceByCertificateThumbprintQueryData(certificateThumbprint);
+        const queryData = this.queryUtils.getDeviceByCertificateThumbprintQueryData(certificateThumbprint);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows[0] as IDevice | undefined;
+    }
+
+    async getDeviceById(deviceId: number): Promise<IDevice | undefined> {
+        const queryData = this.queryUtils.getDeviceQueryData(deviceId);
         const res = await this.execQuery(queryData.text, queryData.params);
         return res.rows[0] as IDevice | undefined;
     }
 
     async getAllDevices(): Promise<IDevice[]> {
-        const queryText = this.queryHelper.getAllDevicesQueryText();
+        const queryText = this.queryUtils.getAllDevicesQueryText();
         const res = await this.execQuery(queryText);
         return res.rows as IDevice[];
+    }
+
+    async stop(): Promise<void> {
+        return this.state.pool.end();
     }
 
     private async execQuery(query: string, params?: any[]): Promise<QueryResult<any>> {

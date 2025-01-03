@@ -1,0 +1,22 @@
+ALTER TABLE device_status
+ADD COLUMN enabled boolean NOT NULL;
+
+CREATE TABLE tariff
+(
+    id serial PRIMARY KEY NOT NULL,
+    name text NOT NULL,
+    description text,
+    type integer NOT NULL,
+    duration integer,
+    from_time integer,
+    to_time integer,
+    price numeric(10, 2) NOT NULL,
+    enabled boolean NOT NULL,
+    created_at timestamp without time zone NOT NULL,
+    updated_at timestamp without time zone,
+    UNIQUE (name)
+);
+
+UPDATE db_metadata
+SET value = '7'
+WHERE name = 'database-version';

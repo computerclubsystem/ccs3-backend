@@ -1,4 +1,4 @@
-import { DeviceState } from 'src/entities/device-state.mjs';
+// import { DeviceState } from 'src/entities/device-state.mjs';
 import { MessageType } from '../declarations/message-type.mjs';
 import { Message } from '../declarations/message.mjs';
 
@@ -11,7 +11,8 @@ export interface DeviceStatusAmounts {
 }
 
 export interface DeviceSetStatusMessageBody {
-    state: DeviceState;
+    // state: DeviceState;
+    started: boolean;
     amounts: DeviceStatusAmounts;
 }
 

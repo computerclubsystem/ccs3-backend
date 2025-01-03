@@ -106,6 +106,10 @@ export class WssServer {
         return this.clientsByConnectionId.get(connectionId);
     }
 
+    stop(): void {
+        this.wsServer.close();
+    }
+
     // private toBinary(obj: Record<string | number, any>): Uint8Array {
     //     const string = JSON.stringify(obj);
     //     const te = new TextEncoder();

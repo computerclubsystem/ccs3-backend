@@ -1,15 +1,18 @@
-import { DeviceState } from 'src/entities/device-state.mjs';
+// import { DeviceState } from 'src/entities/device-state.mjs';
 import { MessageType } from '../declarations/message-type.mjs';
 import { Message } from '../declarations/message.mjs';
 
 export interface DeviceStatus {
     deviceId: number;
-    state: DeviceState;
-    totalSum: number;
-    totalTime: number;
-    startedAt: number;
-    expectedEndAt: number;
-    remainingSeconds: number;
+    started: boolean;
+    tariff?: number | null;
+    totalSum: number | null;
+    totalTime: number | null;
+    startedAt: number | null;
+    stoppedAt: number | null;
+    expectedEndAt: number | null;
+    remainingSeconds: number | null;
+    enabled: boolean;
 }
 
 export interface BusDeviceStatusesMessageBody {

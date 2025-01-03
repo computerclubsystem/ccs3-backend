@@ -2,6 +2,7 @@ import { DetailedPeerCertificate } from 'node:tls';
 import { IncomingHttpHeaders } from 'node:http2';
 import { UserAuthDataCacheValue } from './cache-helper.mjs';
 import { Permission } from '@computerclubsystem/types/entities/permission.mjs';
+import { TariffValidator } from './tariff-validator.mjs';
 
 export interface ConnectedClientData {
     connectionId: number;
@@ -63,6 +64,11 @@ export interface OperatorConnectorState {
     cleanUpClientConnectionsInterval: number;
     messageBusReplyTimeout: number;
     operatorChannelMessageStatItems: MessageStatItem[];
+    clientConnectionsMonitorTimerHandle?: NodeJS.Timeout;
+}
+
+export interface OperatorConnectorValidators {
+    tariff: TariffValidator;
 }
 
 export interface IsTokenActiveResult {

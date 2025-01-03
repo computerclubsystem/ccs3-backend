@@ -5,7 +5,7 @@ CREATE TABLE device_status
     start_reason integer,
     started_at timestamp without time zone,
     stopped_at timestamp without time zone,
-    total numeric(2, 5),
+    total numeric(10, 2),
     PRIMARY KEY (device_id),
     CONSTRAINT fk_device_status_device_id_device_id
         FOREIGN KEY (device_id)

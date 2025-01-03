@@ -12,8 +12,7 @@ import { createBusDeviceGetByCertificateReplyMessage } from '@computerclubsystem
 import { MessageType } from '@computerclubsystem/types/messages/declarations/message-type.mjs';
 import { Device } from '@computerclubsystem/types/entities/device.mjs';
 import { DeviceStatus, createBusDeviceStatusesMessage } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
-import { DeviceState } from '@computerclubsystem/types/entities/device-state.mjs';
-import { envVars } from './env-vars.mjs';
+// import { DeviceState } from '@computerclubsystem/types/entities/device-state.mjs';
 import { StorageProviderConfig } from './storage/storage-provider-config.mjs';
 import { StorageProvider } from './storage/storage-provider.mjs';
 import { PostgreStorageProvider } from './postgre-storage/postgre-storage-provider.mjs';
@@ -25,7 +24,7 @@ import { BusDeviceConnectionEventMessage } from '@computerclubsystem/types/messa
 import { IDeviceConnectionEvent } from './storage/entities/device-connection-event.mjs';
 import { BusOperatorAuthRequestMessage, BusOperatorAuthRequestMessageBody } from '@computerclubsystem/types/messages/bus/bus-operator-auth-request.message.mjs';
 import { BusOperatorAuthReplyMessage, createBusOperatorAuthReplyMessage } from '@computerclubsystem/types/messages/bus/bus-operator-auth-reply.message.mjs';
-import { transferSharedMessageDataToReplyMessage } from '@computerclubsystem/types/messages/utils.mjs';
+import { transferSharedMessageData } from '@computerclubsystem/types/messages/utils.mjs';
 import { OperatorConnectionRoundTripData } from '@computerclubsystem/types/messages/operators/declarations/operator-connection-roundtrip-data.mjs';
 import { ISystemSetting } from './storage/entities/system-setting.mjs';
 import { CacheHelper } from './cache-helper.mjs';
@@ -35,6 +34,18 @@ import { BusOperatorConnectionEventMessage } from '@computerclubsystem/types/mes
 import { IOperatorConnectionEvent } from './storage/entities/operator-connection-event.mjs';
 import { BusOperatorGetAllDevicesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-operator-get-all-devices-request.message.mjs';
 import { createBusOperatorGetAllDevicesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-operator-get-all-devices-reply.message.mjs';
+import { BusDeviceGetByIdRequestMessage } from '@computerclubsystem/types/messages/bus/bus-device-get-by-id-request.message.mjs';
+import { createBusDeviceGetByIdReplyMessage } from '@computerclubsystem/types/messages/bus/bus-device-get-by-id-reply.message.mjs';
+import { BusUpdateDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-device-request.message.mjs';
+import { createBusUpdateDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-device-reply.message.mjs';
+import { IDeviceStatus } from './storage/entities/device-status.mjs';
+import { BusGetAllTariffsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-tariffs-request.message.mjs';
+import { createBusGetAllTariffsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-tariffs-reply.message.mjs';
+import { BusCreateTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-tariff-request.message.mjs';
+import { createBusCreateTariffReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-tariff-reply.message.mjs';
+import { Tariff, TariffType } from '@computerclubsystem/types/entities/tariff.mjs';
+import { BusStartDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-request.message.mjs';
+import { createBusStartDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-reply.message.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -60,7 +71,7 @@ export class StateManager {
 
         await this.loadSystemSettings();
 
-        setInterval(() => this.mainTimerCallback(), 1000);
+        this.state.mainTimerHandle = setInterval(() => this.mainTimerCallback(), 1000);
 
         const redisHost = this.envVars.CCS3_REDIS_HOST.value;
         const redisPort = this.envVars.CCS3_REDIS_PORT.value;
@@ -161,6 +172,21 @@ export class StateManager {
     processOperatorsMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busStartDeviceRequest:
+                this.processStartDeviceRequestMessage(message as BusStartDeviceRequestMessage);
+                break;
+            case MessageType.busCreateTariffRequest:
+                this.processCreateTariffRequestMessage(message as BusCreateTariffRequestMessage);
+                break;
+            case MessageType.busGetAllTariffsRequest:
+                this.processGetAllTariffsRequestMessage(message as BusGetAllTariffsRequestMessage);
+                break;
+            case MessageType.busUpdateDeviceRequest:
+                this.processUpdateDeviceRequest(message as BusUpdateDeviceRequestMessage);
+                break;
+            case MessageType.busOperatorGetDeviceByIdRequest:
+                this.processOperatorGetDeviceByIdRequest(message as BusDeviceGetByIdRequestMessage);
+                break;
             case MessageType.busOperatorGetAllDevicesRequest:
                 this.processOperatorGetAllDevicesRequest(message as BusOperatorGetAllDevicesRequestMessage);
                 break;
@@ -232,13 +258,142 @@ export class StateManager {
         return replyMsg;
     }
 
+    async processStartDeviceRequestMessage(message: BusStartDeviceRequestMessage): Promise<void> {
+        try {
+            const currentStorageDeviceStatus = (await this.storageProvider.getDeviceStatus(message.body.deviceId))!;
+            if (currentStorageDeviceStatus.started) {
+                // Already started
+                const replyMsg = createBusStartDeviceReplyMessage();
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [
+                    { code: 'device-already-started', description: 'Selected device is already started' },
+                ]
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            currentStorageDeviceStatus.enabled = true;
+            currentStorageDeviceStatus.start_reason = message.body.tariffId;
+            currentStorageDeviceStatus.started = true;
+            currentStorageDeviceStatus.started_at = this.getNowAsIsoString();
+            currentStorageDeviceStatus.stopped_at = null;
+            const allTariffs = await this.cacheHelper.getAllTariffs();
+            const tariff = allTariffs.find(x => x.id === message.body.tariffId)!;
+            currentStorageDeviceStatus.total = tariff.price;
+            await this.storageProvider.updateDeviceStatus(currentStorageDeviceStatus);
+            const replyMsg = createBusStartDeviceReplyMessage();
+            replyMsg.body.deviceStatus = this.createAndCalculateDeviceStatusFromStorageDeviceStatus(currentStorageDeviceStatus, tariff);
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusStartDeviceRequestMessage message`, message, err);
+            const replyMsg = createBusStartDeviceReplyMessage(message);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+    async processCreateTariffRequestMessage(message: BusCreateTariffRequestMessage): Promise<void> {
+        try {
+            const storageTariff = this.entityConverter.tariffToStorageTariff(message.body.tariff);
+            storageTariff.created_at = this.getNowAsIsoString();
+            const tariff = await this.storageProvider.createTariff(storageTariff);
+            await this.cacheHelper.deleteAllTariffs();
+            const replyMsg = createBusCreateTariffReplyMessage(message);
+            replyMsg.body.tariff = tariff;
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusCreateTariffRequestMessage message`, message, err);
+            const replyMsg = createBusCreateTariffReplyMessage(message);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+    async processGetAllTariffsRequestMessage(message: BusGetAllTariffsRequestMessage): Promise<void> {
+        try {
+            const allTariffs = await this.storageProvider.getAllTariffs();
+            const replyMsg = createBusGetAllTariffsReplyMessage(message);
+            replyMsg.body.tariffs = allTariffs.map(tariff => this.entityConverter.storageTariffToTariff(tariff));
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusGetAllTariffsRequestMessage message`, message, err);
+            const replyMsg = createBusGetAllTariffsReplyMessage(message);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+    async processUpdateDeviceRequest(message: BusUpdateDeviceRequestMessage): Promise<void> {
+        try {
+            if (!message.body.device?.id) {
+                this.logger.warn(`Can't update device without id`, message);
+                const replyMsg = createBusUpdateDeviceReplyMessage(message);
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: '',
+                    description: 'Specified device does not have id',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const storageDevice = this.entityConverter.deviceToStorageDevice(message.body.device);
+            const updatedStorageDevice = await this.storageProvider.updateDevice(storageDevice);
+            await this.cacheHelper.deleteAllDevices();
+            const deviceStatusEnabled = updatedStorageDevice.approved && updatedStorageDevice.enabled;
+            // Create record in device_status table - if it already exists, it will not be changed
+            const deviceStatus: IDeviceStatus = {
+                device_id: message.body.device.id,
+                start_reason: null,
+                started: false,
+                started_at: null,
+                stopped_at: null,
+                total: null,
+                enabled: deviceStatusEnabled,
+            };
+            await this.storageProvider.addOrUpdateDeviceStatusEnabled(deviceStatus);
+            const replyMsg = createBusUpdateDeviceReplyMessage(message);
+            replyMsg.body.device = updatedStorageDevice && this.entityConverter.storageDeviceToDevice(updatedStorageDevice);
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusUpdateDeviceRequestMessage message`, message, err);
+            const replyMsg = createBusUpdateDeviceReplyMessage(message);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+    async processOperatorGetDeviceByIdRequest(message: BusDeviceGetByIdRequestMessage): Promise<void> {
+        try {
+            const device = await this.storageProvider.getDeviceById(message.body.deviceId);
+            const replyMsg = createBusDeviceGetByIdReplyMessage(message);
+            replyMsg.body.device = device && this.entityConverter.storageDeviceToDevice(device);
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusDeviceGetByIdRequestMessage message`, message, err);
+        }
+    }
+
     async processOperatorGetAllDevicesRequest(message: BusOperatorGetAllDevicesRequestMessage): Promise<void> {
         const storageDevices = await this.storageProvider.getAllDevices();
         const replyMsg = createBusOperatorGetAllDevicesReplyMessage(message);
         replyMsg.body.devices = storageDevices.map(storageDevice => this.entityConverter.storageDeviceToDevice(storageDevice));
         this.publishToOperatorsChannel(replyMsg, message);
     }
-
 
     async processOperatorConnectionEvent(message: BusOperatorConnectionEventMessage): Promise<void> {
         try {
@@ -323,12 +478,19 @@ export class StateManager {
                 enabled: false,
             } as IDevice;
             const createdDevice = await this.storageProvider.createDevice(device);
+            const storageDeviceStatus: IDeviceStatus = {
+                device_id: createdDevice.id,
+                enabled: false,
+                start_reason: null,
+                started: false,
+                started_at: null,
+                stopped_at: null,
+                total: null,
+            }
+            // Create record in device statuses database table
+            await this.storageProvider.addOrUpdateDeviceStatusEnabled(storageDeviceStatus);
             this.logger.log('New device created. Device Id', createdDevice.id);
-            // const msg = createBusDeviceGetByCertificateReplyMessage();
-            // msg.header.correlationId = message.header.correlationId;
-            // msg.header.roundTripData = message.header.roundTripData;
-            // msg.body.device = device;
-            // this.publishMessage(ChannelName.devices, msg);
+            await this.cacheHelper.deleteAllDevices();
         } catch (err) {
             this.logger.warn(`Can't process BusDeviceUnknownDeviceConnectedRequestMessage message`, message, err);
         }
@@ -350,9 +512,17 @@ export class StateManager {
     async publishToOperatorsChannel<TBody>(message: Message<TBody>, sourceMessage?: Message<any>): Promise<number> {
         if (sourceMessage) {
             // Transfer source message common data (like round trip data) to destination message
-            transferSharedMessageDataToReplyMessage(message, sourceMessage);
+            transferSharedMessageData(message, sourceMessage);
         }
         return this.publishMessage(ChannelName.operators, message);
+    }
+
+    async publishToDevicesChannel<TBody>(message: Message<TBody>, sourceMessage?: Message<any>): Promise<number> {
+        if (sourceMessage) {
+            // Transfer source message common data (like round trip data) to destination message
+            transferSharedMessageData(message, sourceMessage);
+        }
+        return this.publishMessage(ChannelName.devices, message);
     }
 
     async publishMessage<TBody>(channelName: ChannelName, message: Message<TBody>): Promise<number> {
@@ -385,9 +555,58 @@ export class StateManager {
     private async refreshDeviceStatuses(): Promise<void> {
         try {
             this.state.deviceStatusRefreshInProgress = true;
-            const deviceStatuses = await this.storageProvider.getAllDeviceStatuses();
-            // TODO: Collect all the necessary information and generate message(s)
-            //       with devices statuses for use by other services
+            const storageDeviceStatuses = await this.storageProvider.getAllDeviceStatuses();
+            let allTariffs = await this.cacheHelper.getAllTariffs();
+            if (!allTariffs) {
+                const storageTariffs = await this.storageProvider.getAllTariffs();
+                allTariffs = storageTariffs.map(x => this.entityConverter.storageTariffToTariff(x));
+                await this.cacheHelper.setAllTariffs(allTariffs);
+            }
+            let allDevices = await this.cacheHelper.getAllDevices();
+            if (!allDevices) {
+                const storageDevices = await this.storageProvider.getAllDevices();
+                allDevices = storageDevices.map(x => this.entityConverter.storageDeviceToDevice(x));
+                await this.cacheHelper.setAllDevices(allDevices);
+            }
+            // TODO: We will process only enabled devices
+            //       If the user disables device while it is started, it will not be processed here and will remain started
+            //       until enabled again
+            const enabledDevices = allDevices.filter(x => x.approved && x.enabled);
+            const deviceStatuses: DeviceStatus[] = [];
+            for (const enabledDevice of enabledDevices) {
+                const storageDeviceStatus = storageDeviceStatuses.find(x => x.device_id === enabledDevice.id);
+                if (storageDeviceStatus) {
+                    const tariff = allTariffs.find(x => x.id === storageDeviceStatus.start_reason)!;
+                    const deviceStatus = this.createAndCalculateDeviceStatusFromStorageDeviceStatus(storageDeviceStatus, tariff);
+                    if (storageDeviceStatus.started && !deviceStatus.started) {
+                        // After the calculation, if device was started but no longer, it must be stopped
+                        // TODO: See if we need to switch to another tariff
+                        storageDeviceStatus.started = deviceStatus.started;
+                        storageDeviceStatus.stopped_at = this.getStringDateFromNumber(deviceStatus.stoppedAt!);
+                        storageDeviceStatus.total = deviceStatus.totalSum;
+                        await this.storageProvider.updateDeviceStatus(storageDeviceStatus);
+                        // TODO: Save the stop to device_status_history
+                    }
+                    deviceStatuses.push(deviceStatus);
+                } else {
+                    // Device status for this device is not found - consider it in the default status
+                    deviceStatuses.push({
+                        deviceId: enabledDevice.id,
+                        enabled: true,
+                        expectedEndAt: null,
+                        remainingSeconds: null,
+                        started: false,
+                        startedAt: null,
+                        stoppedAt: null,
+                        totalSum: null,
+                        totalTime: null,
+                    });
+                }
+            }
+            // Send device statuses to the channel
+            const deviceStatusMsg = createBusDeviceStatusesMessage();
+            deviceStatusMsg.body.deviceStatuses = deviceStatuses;
+            this.publishToDevicesChannel(deviceStatusMsg);
         } catch (err) {
             // TODO: Count database errors and eventually send system notification
             this.logger.error(`Can't get all device statuses`, err);
@@ -396,6 +615,74 @@ export class StateManager {
             this.state.lastDeviceStatusRefreshAt = this.getNowAsNumber();
         }
     }
+
+    createAndCalculateDeviceStatusFromStorageDeviceStatus(storageDeviceStatus: IDeviceStatus, tariff: Tariff): DeviceStatus {
+        const deviceStatus = this.createDeviceStatusFromStorageDeviceStatus(storageDeviceStatus);
+        // TODO: Process also storageDeviceStatus.enabled
+        if (storageDeviceStatus.started) {
+            // The device is started - calculate the elapsed time, remaining time and the total sum
+            switch (tariff.type) {
+                case TariffType.duration:
+                    this.modifyDeviceStatusForDurationTariff(deviceStatus, tariff);
+                    break;
+                case TariffType.fromTo:
+                    this.modifyDeviceStatusForFromToTariff(deviceStatus, tariff);
+                    break;
+            }
+        }
+        return deviceStatus;
+    }
+
+    createDeviceStatusFromStorageDeviceStatus(storageDeviceStatus: IDeviceStatus): DeviceStatus {
+        const deviceStatus: DeviceStatus = {
+            deviceId: storageDeviceStatus.device_id,
+            enabled: storageDeviceStatus.enabled,
+            started: storageDeviceStatus.started,
+            expectedEndAt: null,
+            remainingSeconds: null,
+            startedAt: this.getNumberFromDate(storageDeviceStatus.started_at),
+            stoppedAt: this.getNumberFromDate(storageDeviceStatus.stopped_at),
+            totalSum: storageDeviceStatus.total,
+            totalTime: null,
+        } as DeviceStatus;
+        return deviceStatus;
+    }
+
+    modifyDeviceStatusForDurationTariff(deviceStatus: DeviceStatus, tariff: Tariff): void {
+        if (!deviceStatus.started) {
+            // Stopped devices should have been modified when stopped
+            return;
+        }
+        const now = this.getNowAsNumber();
+        const startedAt = deviceStatus.startedAt!;
+        const diffMs = now - startedAt;
+        const tariffDurationMs = tariff.duration! * 60 * 1000;
+        // totalTime must be in seconds
+        deviceStatus.totalTime = Math.ceil(diffMs / 1000);
+        deviceStatus.totalSum = tariff.price;
+        if (diffMs >= tariffDurationMs) {
+            // Must be stopped
+            deviceStatus.started = false;
+            deviceStatus.expectedEndAt = now;
+            deviceStatus.stoppedAt = now;
+            deviceStatus.remainingSeconds = 0;
+        } else {
+            // Still in the tariff duration
+            deviceStatus.expectedEndAt = startedAt + tariffDurationMs;
+            const remainingMs = deviceStatus.expectedEndAt - now;
+            const remainingSeconds = Math.floor(remainingMs / 1000);
+            deviceStatus.remainingSeconds = remainingSeconds;
+        }
+    }
+
+    modifyDeviceStatusForFromToTariff(deviceStatus: DeviceStatus, tariff: Tariff): void {
+
+    }
+
+    // private async calculateDeviceStatuses(storageDeviceStatuses: IDeviceStatus[]): Promise<DeviceStatus[]> {
+    // TODO: Collect all the necessary information and calculate device statuses
+    //       Stop these that must be stopped
+    // }
 
     private isWhiteSpace(string?: string): boolean {
         return !(string?.trim());
@@ -429,6 +716,17 @@ export class StateManager {
         return new Date().toISOString();
     }
 
+    private getStringDateFromNumber(date: number): string {
+        return new Date(date).toISOString();
+    }
+
+    private getNumberFromDate(date?: string | null): number | null {
+        if (!date) {
+            return null;
+        }
+        return new Date(date).getTime();
+    }
+
     private createDefaultState(): StateManagerState {
         const state: StateManagerState = {
             systemSettings: {
@@ -438,6 +736,7 @@ export class StateManager {
             },
             lastDeviceStatusRefreshAt: this.getNowAsNumber(),
             deviceStatusRefreshInProgress: false,
+            mainTimerHandle: undefined,
         };
         return state;
     }
@@ -454,6 +753,15 @@ export class StateManager {
 
     createUUIDString(): string {
         return randomUUID().toString();
+    }
+
+    async terminate(): Promise<void> {
+        this.logger.warn('Terminating');
+        clearInterval(this.state.mainTimerHandle);
+        await this.storageProvider.stop();
+        await this.subClient.disconnect();
+        await this.pubClient.disconnect();
+        await this.cacheClient.disconnect();
     }
 
     // // TODO: For testing only
@@ -509,6 +817,7 @@ interface StateManagerState {
     systemSettings: StateManagerStateSystemSettings;
     lastDeviceStatusRefreshAt: number;
     deviceStatusRefreshInProgress: boolean;
+    mainTimerHandle?: NodeJS.Timeout;
 }
 
 interface StateManagerStateSystemSettings {

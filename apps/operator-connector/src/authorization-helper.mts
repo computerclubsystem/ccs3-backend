@@ -1,10 +1,9 @@
 import { Permission } from '@computerclubsystem/types/entities/permission.mjs';
-import { OperatorMessage } from '@computerclubsystem/types/messages/operators/declarations/operator.message.mjs';
 import { IsAuthorizedResult, IsAuthorizedResultReason } from './declarations.mjs';
 import { OperatorMessageType } from '@computerclubsystem/types/messages/operators/declarations/operator-message-type.mjs';
 
 export class AuthorizationHelper {
-    isAuthorized(permissions: Set<string>, message: OperatorMessage<any>): IsAuthorizedResult {
+    isAuthorized(permissions: Set<string>, messageType: string): IsAuthorizedResult {
         const result: IsAuthorizedResult = {
             authorized: false,
             reason: IsAuthorizedResultReason.missingPermission,
@@ -17,11 +16,10 @@ export class AuthorizationHelper {
             return result;
         }
 
-        const type = message.header.type;
-        switch (type) {
+        switch (messageType) {
             case OperatorMessageType.getAllDevicesRequest:
+            case OperatorMessageType.getDeviceByIdRequest:
                 result.authorized = permissions.has(Permission.deviceReadEntities);
-                result.reason = IsAuthorizedResultReason.hasRequiredPermissions;
                 break;
             case OperatorMessageType.authRequest:
             case OperatorMessageType.pingRequest:
@@ -36,6 +34,9 @@ export class AuthorizationHelper {
                 break;
         }
 
+        if (!result.authorized && !result.reason) {
+            result.reason = IsAuthorizedResultReason.missingPermission;
+        }
         return result;
     }
 }

@@ -3,7 +3,6 @@ import { Message } from '../declarations/message.mjs';
 
 export interface BusDeviceGetByCertificateRequestMessageBody {
     certificateThumbprint: string;
-    ipAddress: string;
 }
 
 export interface BusDeviceGetByCertificateRequestMessage extends Message<BusDeviceGetByCertificateRequestMessageBody> {
