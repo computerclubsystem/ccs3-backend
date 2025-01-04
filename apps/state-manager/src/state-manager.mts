@@ -644,6 +644,7 @@ export class StateManager {
             stoppedAt: this.getNumberFromDate(storageDeviceStatus.stopped_at),
             totalSum: storageDeviceStatus.total,
             totalTime: null,
+            tariff: storageDeviceStatus.start_reason,
         } as DeviceStatus;
         return deviceStatus;
     }

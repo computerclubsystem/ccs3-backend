@@ -21,11 +21,13 @@ export enum OperatorMessageType {
     updateTariffRequest = 'update-tariff-request',
     updateTariffReply = 'update-tariff-reply',
     startDeviceRequest = 'start-device-request',
+    getDeviceStatusesRequest = 'get-device-statuses-request',
 }
 
 export const enum OperatorReplyMessageType {
     createTariffReply = 'create-tariff-reply',
     startDeviceReply = 'start-device-reply',
+    getDeviceStatusesReply = 'get-device-statuses-reply',
 }
 
 export const enum OperatorNotificationMessageType {

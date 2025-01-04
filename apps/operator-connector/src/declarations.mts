@@ -3,6 +3,7 @@ import { IncomingHttpHeaders } from 'node:http2';
 import { UserAuthDataCacheValue } from './cache-helper.mjs';
 import { Permission } from '@computerclubsystem/types/entities/permission.mjs';
 import { TariffValidator } from './tariff-validator.mjs';
+import { BusDeviceStatusesMessage } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
 
 export interface ConnectedClientData {
     connectionId: number;
@@ -65,6 +66,7 @@ export interface OperatorConnectorState {
     messageBusReplyTimeout: number;
     operatorChannelMessageStatItems: MessageStatItem[];
     clientConnectionsMonitorTimerHandle?: NodeJS.Timeout;
+    lastBusDeviceStatusesMessage?: BusDeviceStatusesMessage;
 }
 
 export interface OperatorConnectorValidators {

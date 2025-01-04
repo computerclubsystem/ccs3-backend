@@ -1,16 +1,19 @@
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
+import { catchError, filter, finalize, first, Observable, of, timeout } from 'rxjs';
 
-import { CreateConnectedRedisClientOptions, RedisCacheClient, RedisClientMessageCallback, RedisPubClient, RedisSubClient } from '@computerclubsystem/redis-client';
+import {
+    CreateConnectedRedisClientOptions, RedisCacheClient, RedisClientMessageCallback, RedisPubClient, RedisSubClient,
+} from '@computerclubsystem/redis-client';
 import { ChannelName } from '@computerclubsystem/types/channels/channel-name.mjs';
 import { Message } from '@computerclubsystem/types/messages/declarations/message.mjs';
 import { MessageType } from '@computerclubsystem/types/messages/declarations/message-type.mjs';
-import { BusDeviceStatusesMessage } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
+import { BusDeviceStatusesMessage, DeviceStatus } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
 import {
     ClientConnectedEventArgs, ConnectionClosedEventArgs, ConnectionErrorEventArgs,
     MessageReceivedEventArgs, WssServer, WssServerConfig, WssServerEventName, SendErrorEventArgs,
-    ServerErrorEventArgs
+    ServerErrorEventArgs,
 } from '@computerclubsystem/websocket-server';
 import { OperatorAuthRequestMessage } from '@computerclubsystem/types/messages/operators/operator-auth-request.message.mjs';
 import { createBusOperatorAuthRequestMessage } from '@computerclubsystem/types/messages/bus/bus-operator-auth-request.message.mjs';
@@ -37,35 +40,35 @@ import { AuthorizationHelper } from './authorization-helper.mjs';
 import { OperatorGetAllDevicesRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-devices-request.message.mjs';
 import { createBusOperatorGetAllDevicesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-operator-get-all-devices-request.message.mjs';
 import { SubjectsService } from './subjects.service.mjs';
-import { catchError, EMPTY, filter, finalize, first, NEVER, Observable, of, throwError, timeout } from 'rxjs';
 import { createOperatorGetAllDevicesReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-devices-reply.message.mjs';
 import { BusOperatorGetAllDevicesReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-operator-get-all-devices-reply.message.mjs';
 import { OperatorGetDeviceByIdRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-device-by-id-request.message.mjs';
 import { createBusDeviceGetByIdRequestMessage } from '@computerclubsystem/types/messages/bus/bus-device-get-by-id-request.message.mjs';
-import { BusDeviceGetByIdReplyMessage, BusDeviceGetByIdReplyMessageBody, createBusDeviceGetByIdReplyMessage } from '@computerclubsystem/types/messages/bus/bus-device-get-by-id-reply.message.mjs';
+import { BusDeviceGetByIdReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-device-get-by-id-reply.message.mjs';
 import { createOperatorGetDeviceByIdReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-device-by-id-reply.message.mjs';
 import { OperatorUpdateDeviceRequestMessage } from '@computerclubsystem/types/messages/operators/operator-update-device-request.message.mjs';
 import { createOperatorUpdateDeviceReplyMessage } from '@computerclubsystem/types/messages/operators/operator-update-device-reply.message.mjs';
 import { createBusUpdateDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-device-request.message.mjs';
 import { BusUpdateDeviceReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-update-device-reply.message.mjs';
 import { OperatorGetAllTariffsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-tariffs-request.message.mjs';
-import { BusGetAllTariffsReplyMessageBody, createBusGetAllTariffsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-tariffs-reply.message.mjs';
+import { BusGetAllTariffsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-all-tariffs-reply.message.mjs';
 import { createBusGetAllTariffsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-tariffs-request.message.mjs';
 import { createOperatorGetAllTariffsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-tariffs-reply.message.mjs';
 import { OperatorCreateTariffRequestMessage } from '@computerclubsystem/types/messages/operators/operator-create-tariff-request.message.mjs';
 import { createOperatorCreateTariffReplyMessage } from '@computerclubsystem/types/messages/operators/operator-create-tariff-reply.message.mjs';
 import { createBusCreateTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-tariff-request.message.mjs';
-import { BusCreateTariffReplyMessage, BusCreateTariffReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-create-tariff-reply.message.mjs';
+import { BusCreateTariffReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-create-tariff-reply.message.mjs';
 import { MessageError } from '@computerclubsystem/types/messages/declarations/message-error.mjs';
 import { OperatorReplyMessageErrorCode } from '@computerclubsystem/types/messages/operators/declarations/error-code.mjs';
 import { Tariff } from '@computerclubsystem/types/entities/tariff.mjs';
 import { TariffValidator } from './tariff-validator.mjs';
-import { error } from 'node:console';
 import { createOperatorDeviceStatusesNotificationMessage } from '@computerclubsystem/types/messages/operators/operator-device-statuses-notification.message.mjs';
 import { OperatorDeviceStatus } from '@computerclubsystem/types/entities/operator-device-status.mjs';
 import { OperatorStartDeviceRequestMessage } from '@computerclubsystem/types/messages/operators/operator-start-device-request.message.mjs';
 import { createBusStartDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-request.message.mjs';
 import { createOperatorStartDeviceReplyMessage } from '@computerclubsystem/types/messages/operators/operator-start-device-reply.message.mjs';
+import { OperatorGetDeviceStatusesRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-device-statuses-request.message.mjs';
+import { createOperatorGetDeviceStatusesReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-device-statuses-reply.message.mjs';
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
     private readonly pubClient = new RedisPubClient();
@@ -142,6 +145,9 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorMessageType.getDeviceStatusesRequest:
+                this.processOperatorGetDeviceStatusesRequest(clientData, message as OperatorGetDeviceStatusesRequestMessage);
+                break;
             case OperatorMessageType.startDeviceRequest:
                 this.processOperatorStartDeviceRequest(clientData, message as OperatorStartDeviceRequestMessage);
                 break;
@@ -173,6 +179,33 @@ export class OperatorConnector {
                 clientData.receivedPingMessagesCount++;
                 this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
+        }
+    }
+
+    processOperatorGetDeviceStatusesRequest(clientData: ConnectedClientData, message: OperatorGetDeviceStatusesRequestMessage): void {
+        // Simply simulate processing of the last bus notification message about device statuses
+        if (this.state.lastBusDeviceStatusesMessage) {
+            // this.processBusDeviceStatusesMessage(this.state.lastBusDeviceStatusesMessage);
+            const clientDataToSendTo = this.getConnectedClientsDataToSendDeviceStatusesMessageTo();
+            const currentClientData = clientDataToSendTo.find(x => x.connectionInstanceId === clientData.connectionInstanceId);
+            if (currentClientData) {
+                // This client is authorized to receive device statuses
+                const replyMsg = createOperatorGetDeviceStatusesReplyMessage();
+                replyMsg.body.deviceStatuses = this.state.lastBusDeviceStatusesMessage.body.deviceStatuses;
+                this.sendReplyMessageToOperator(replyMsg, clientData, message);
+            } else {
+                // The client is not authorized to receive device statuses
+                const replyMsg = createOperatorGetDeviceStatusesReplyMessage();
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: 'not-authorized',
+                    description: 'A permission required to execute the operation is not found',
+                }] as MessageError[];
+            }
+        } else {
+            // This will barely happen - only if the operator request comes before the state-manager to had a chance to calculate device statuses
+            // Usually only on services start and can happen only in very short amount of time (like less than the time to refresh teh device statuses which is 5 seconds by default)
+            // If this happens simply do not respond to the operator - it will timeout and will get the next device statuses notification message
         }
     }
 
@@ -629,13 +662,31 @@ export class OperatorConnector {
         const type = message.header.type;
         switch (type) {
             case MessageType.busDeviceStatuses:
-                this.processDeviceStatusesMessage(message as BusDeviceStatusesMessage);
+                this.processBusDeviceStatusesMessage(message as BusDeviceStatusesMessage);
                 break;
         }
     }
 
-    processDeviceStatusesMessage(message: BusDeviceStatusesMessage): void {
+    processBusDeviceStatusesMessage(message: BusDeviceStatusesMessage): void {
+        // Store the last device statuses bus message so we can send it back to operators on request
+        this.state.lastBusDeviceStatusesMessage = message;
         // Send device statuses message to all connected operators that can read this information
+        const clientDataToSendTo = this.getConnectedClientsDataToSendDeviceStatusesMessageTo();
+        if (clientDataToSendTo.length > 0) {
+            const deviceStatuses = message.body.deviceStatuses;
+            const deviceStatusesNotificationMsg = createOperatorDeviceStatusesNotificationMessage();
+            deviceStatusesNotificationMsg.body.deviceStatuses = deviceStatuses.map(x => this.convertDeviceStatusToOperatorDeviceStatus(x));
+            for (const clientData of clientDataToSendTo) {
+                try {
+                    this.sendNotificationMessageToOperator(deviceStatusesNotificationMsg, clientData);
+                } catch (err) {
+                    this.logger.warn(`Can't send to operator`, clientData, deviceStatusesNotificationMsg, err);
+                }
+            }
+        }
+    }
+
+    getConnectedClientsDataToSendDeviceStatusesMessageTo(): ConnectedClientData[] {
         const clientDataToSendTo: ConnectedClientData[] = [];
         const connections = this.getAllConnectedClientsData();
         for (const connection of connections) {
@@ -645,33 +696,23 @@ export class OperatorConnector {
                 clientDataToSendTo.push(clientData);
             }
         }
+        return clientDataToSendTo;
+    }
 
-        if (clientDataToSendTo.length > 0) {
-            const deviceStatuses = message.body.deviceStatuses;
-            const deviceStatusesNotificationMsg = createOperatorDeviceStatusesNotificationMessage();
-            deviceStatusesNotificationMsg.body.deviceStatuses = deviceStatuses.map(x => {
-                const opDeviceStatus: OperatorDeviceStatus = {
-                    deviceId: x.deviceId,
-                    enabled: x.enabled,
-                    expectedEndAt: x.expectedEndAt,
-                    remainingSeconds: x.remainingSeconds,
-                    started: x.started,
-                    startedAt: x.startedAt,
-                    stoppedAt: x.stoppedAt,
-                    tariff: x.tariff,
-                    totalSum: x.totalSum,
-                    totalTime: x.totalTime,
-                };
-                return opDeviceStatus;
-            });
-            for (const clientData of clientDataToSendTo) {
-                try {
-                    this.sendNotificationMessageToOperator(deviceStatusesNotificationMsg, clientData);
-                } catch (err) {
-                    this.logger.warn(`Can't send to operator`, clientData, deviceStatusesNotificationMsg, err);
-                }
-            }
-        }
+    convertDeviceStatusToOperatorDeviceStatus(deviceStatus: DeviceStatus): OperatorDeviceStatus {
+        const opDeviceStatus: OperatorDeviceStatus = {
+            deviceId: deviceStatus.deviceId,
+            enabled: deviceStatus.enabled,
+            expectedEndAt: deviceStatus.expectedEndAt,
+            remainingSeconds: deviceStatus.remainingSeconds,
+            started: deviceStatus.started,
+            startedAt: deviceStatus.startedAt,
+            stoppedAt: deviceStatus.stoppedAt,
+            tariff: deviceStatus.tariff,
+            totalSum: deviceStatus.totalSum,
+            totalTime: deviceStatus.totalTime,
+        };
+        return opDeviceStatus;
     }
 
     processOperatorConnectionClosed(args: ConnectionClosedEventArgs): void {
