@@ -46,6 +46,9 @@ import { createBusCreateTariffReplyMessage } from '@computerclubsystem/types/mes
 import { Tariff, TariffType } from '@computerclubsystem/types/entities/tariff.mjs';
 import { BusStartDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-request.message.mjs';
 import { createBusStartDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-reply.message.mjs';
+import { TariffHelper } from './tariff-helper.mjs';
+import { BusErrorCode } from '@computerclubsystem/types/messages/bus/declarations/bus-error-code.mjs';
+import { DateTimeHelper } from './date-time-helper.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -58,6 +61,8 @@ export class StateManager {
     private storageProvider!: StorageProvider;
     private state = this.createDefaultState();
     private readonly entityConverter = new EntityConverter();
+    private readonly tariffHelper = new TariffHelper();
+    private readonly dateTimeHelper = new DateTimeHelper();
     private readonly envVars = new EnvironmentVariablesHelper().createEnvironmentVars();
 
     async start(): Promise<boolean> {
@@ -70,6 +75,9 @@ export class StateManager {
         }
 
         await this.loadSystemSettings();
+
+        this.dateTimeHelper.setDefaultTimeZone(this.state.systemSettings[SystemSettingName.timezone]);
+        // TODO: Should we publish system settings to the shared channel ? They can contain sensitive information
 
         this.state.mainTimerHandle = setInterval(() => this.mainTimerCallback(), 1000);
 
@@ -266,18 +274,30 @@ export class StateManager {
                 const replyMsg = createBusStartDeviceReplyMessage();
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [
-                    { code: 'device-already-started', description: 'Selected device is already started' },
+                    { code: BusErrorCode.deviceAlreadyStarted, description: 'Selected device is already started' },
                 ]
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
+            const allTariffs = await this.cacheHelper.getAllTariffs();
+            const tariff = allTariffs.find(x => x.id === message.body.tariffId)!;
+            const canUseTariffResult = this.tariffHelper.canUseTariff(tariff);
+            if (!canUseTariffResult.canUse) {
+                // Already started
+                const replyMsg = createBusStartDeviceReplyMessage();
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [
+                    { code: BusErrorCode.cantUseTheTariffNow, description: `Can't use the tariff right now` },
+                ]
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+
             currentStorageDeviceStatus.enabled = true;
             currentStorageDeviceStatus.start_reason = message.body.tariffId;
             currentStorageDeviceStatus.started = true;
             currentStorageDeviceStatus.started_at = this.getNowAsIsoString();
             currentStorageDeviceStatus.stopped_at = null;
-            const allTariffs = await this.cacheHelper.getAllTariffs();
-            const tariff = allTariffs.find(x => x.id === message.body.tariffId)!;
             currentStorageDeviceStatus.total = tariff.price;
             await this.storageProvider.updateDeviceStatus(currentStorageDeviceStatus);
             const replyMsg = createBusStartDeviceReplyMessage();
@@ -537,7 +557,7 @@ export class StateManager {
     };
 
     private mainTimerCallback(): void {
-        const now = this.getNowAsNumber();
+        const now = this.dateTimeHelper.getCurrentDateTimeAsNumber();
         this.checkForRefreshDeviceStatuses(now);
     }
 
@@ -569,25 +589,25 @@ export class StateManager {
                 await this.cacheHelper.setAllDevices(allDevices);
             }
             // TODO: We will process only enabled devices
-            //       If the user disables device while it is started, it will not be processed here and will remain started
-            //       until enabled again
+            //       If the user disables device while it is started (the system should prevent this),
+            //       it will not be processed here and will remain started until enabled again
             const enabledDevices = allDevices.filter(x => x.approved && x.enabled);
             const deviceStatuses: DeviceStatus[] = [];
             for (const enabledDevice of enabledDevices) {
                 const storageDeviceStatus = storageDeviceStatuses.find(x => x.device_id === enabledDevice.id);
                 if (storageDeviceStatus) {
                     const tariff = allTariffs.find(x => x.id === storageDeviceStatus.start_reason)!;
-                    const deviceStatus = this.createAndCalculateDeviceStatusFromStorageDeviceStatus(storageDeviceStatus, tariff);
-                    if (storageDeviceStatus.started && !deviceStatus.started) {
+                    const calculatedDeviceStatus = this.createAndCalculateDeviceStatusFromStorageDeviceStatus(storageDeviceStatus, tariff);
+                    if (storageDeviceStatus.started && !calculatedDeviceStatus.started) {
                         // After the calculation, if device was started but no longer, it must be stopped
                         // TODO: See if we need to switch to another tariff
-                        storageDeviceStatus.started = deviceStatus.started;
-                        storageDeviceStatus.stopped_at = this.getStringDateFromNumber(deviceStatus.stoppedAt!);
-                        storageDeviceStatus.total = deviceStatus.totalSum;
+                        storageDeviceStatus.started = calculatedDeviceStatus.started;
+                        storageDeviceStatus.stopped_at = this.getStringDateFromNumber(calculatedDeviceStatus.stoppedAt!);
+                        storageDeviceStatus.total = calculatedDeviceStatus.totalSum;
                         await this.storageProvider.updateDeviceStatus(storageDeviceStatus);
                         // TODO: Save the stop to device_status_history
                     }
-                    deviceStatuses.push(deviceStatus);
+                    deviceStatuses.push(calculatedDeviceStatus);
                 } else {
                     // Device status for this device is not found - consider it in the default status
                     deviceStatuses.push({
@@ -612,25 +632,26 @@ export class StateManager {
             this.logger.error(`Can't get all device statuses`, err);
         } finally {
             this.state.deviceStatusRefreshInProgress = false;
-            this.state.lastDeviceStatusRefreshAt = this.getNowAsNumber();
+            this.state.lastDeviceStatusRefreshAt = this.dateTimeHelper.getCurrentDateTimeAsNumber();
         }
     }
 
     createAndCalculateDeviceStatusFromStorageDeviceStatus(storageDeviceStatus: IDeviceStatus, tariff: Tariff): DeviceStatus {
-        const deviceStatus = this.createDeviceStatusFromStorageDeviceStatus(storageDeviceStatus);
-        // TODO: Process also storageDeviceStatus.enabled
-        if (storageDeviceStatus.started) {
-            // The device is started - calculate the elapsed time, remaining time and the total sum
-            switch (tariff.type) {
-                case TariffType.duration:
-                    this.modifyDeviceStatusForDurationTariff(deviceStatus, tariff);
-                    break;
-                case TariffType.fromTo:
-                    this.modifyDeviceStatusForFromToTariff(deviceStatus, tariff);
-                    break;
-            }
+        const calculatedDeviceStatus = this.createDeviceStatusFromStorageDeviceStatus(storageDeviceStatus);
+        if (!calculatedDeviceStatus.started) {
+            // If the device is not started - it was already calculated - just return it without modifications
+            return calculatedDeviceStatus;
         }
-        return deviceStatus;
+        // The device is started - calculate the elapsed time, remaining time and the total sum
+        switch (tariff.type) {
+            case TariffType.duration:
+                this.modifyDeviceStatusForDurationTariff(calculatedDeviceStatus, tariff);
+                break;
+            case TariffType.fromTo:
+                this.modifyDeviceStatusForFromToTariff(calculatedDeviceStatus, tariff);
+                break;
+        }
+        return calculatedDeviceStatus;
     }
 
     createDeviceStatusFromStorageDeviceStatus(storageDeviceStatus: IDeviceStatus): DeviceStatus {
@@ -654,7 +675,7 @@ export class StateManager {
             // Stopped devices should have been modified when stopped
             return;
         }
-        const now = this.getNowAsNumber();
+        const now = this.dateTimeHelper.getCurrentDateTimeAsNumber();
         const startedAt = deviceStatus.startedAt!;
         const diffMs = now - startedAt;
         const tariffDurationMs = tariff.duration! * 60 * 1000;
@@ -677,7 +698,92 @@ export class StateManager {
     }
 
     modifyDeviceStatusForFromToTariff(deviceStatus: DeviceStatus, tariff: Tariff): void {
+        if (!deviceStatus.started) {
+            // Stopped devices should have been modified when stopped
+            return;
+        }
+        const now = this.dateTimeHelper.getCurrentDateTimeAsNumber();
+        deviceStatus.totalSum = tariff.price;
+        const tariffFromMinute = tariff.fromTime!;
+        const tariffToMinute = tariff.toTime!;
+        const startedAt = deviceStatus.startedAt!;
 
+        // Check if current date has passed the "To" minute of the tariff
+        const compareCurrentDateWithMinutePeriodResult = this.dateTimeHelper.compareCurrentDateWithMinutePeriod(startedAt, tariffFromMinute, tariffToMinute);
+        if (compareCurrentDateWithMinutePeriodResult.isAfter) {
+            // Must be stopped
+            deviceStatus.started = false;
+            deviceStatus.expectedEndAt = now;
+            deviceStatus.stoppedAt = now;
+            deviceStatus.remainingSeconds = 0;
+        } else {
+            // Still in the tariff period
+            // deviceStatus.expectedEndAt = startedAt + tariffDurationMs;
+            // const remainingMs = deviceStatus.expectedEndAt - now;
+            // const remainingSeconds = Math.floor(remainingMs / 1000);
+            deviceStatus.remainingSeconds = compareCurrentDateWithMinutePeriodResult.remainingSeconds!;
+            deviceStatus.totalTime = compareCurrentDateWithMinutePeriodResult.totalTimeSeconds;
+        }
+        return;
+        // First check if current minute is in the specified tariff From-To interval
+        // const isCurrentMinuteInTariffPeriod = this.dateTimeHelper.isCurrentMinuteInMinutePeriod(tariffFromMinute, tariffToMinute);
+        // if (!isCurrentMinuteInTariffPeriod) {
+        //     // Must be stopped
+        //     deviceStatus.started = false;
+        //     deviceStatus.expectedEndAt = now;
+        //     deviceStatus.stoppedAt = now;
+        //     deviceStatus.remainingSeconds = 0;
+        //     return;
+        // }
+
+        // Since the above check could return true even if the device was started a long time ago 
+        // like if the server was turned off for days and started, the current minute could be in the tariff's From-To interval,
+        // but the device must be stopped, since current date-time is past the "To" value
+
+        const nowDate = this.getNowAsDate();
+        const nowAsNumber = this.dateTimeHelper.getCurrentDateTimeAsNumber();
+        const tariffCrossesMidnight = tariffFromMinute > tariffToMinute;
+        // Calculate the end of the session - this is startedAt plus minutes to "To" value
+
+        // Check if now has passed the "To" minute of the same day as when it was started
+        const nowMinute = nowDate.getHours() * 60 + nowDate.getMinutes();
+
+        const tariffLengthInMinutes = tariffCrossesMidnight ? 1440 - tariffFromMinute + tariffToMinute : tariffToMinute - tariffFromMinute;
+        // Calculate maximum minutes available - this should be the difference between now and the tariff's To value
+        // const usedMinutes = (nowAsNumber - startedAt)
+        // If used time is more than tariffLengthInMinutes, the device must be stopped
+        // This is safe-check - needed just to properly determine if the device must be stopped
+        // in case the server has been stopped for a long time and then started at time, which is inside the tariff From-To period
+
+        if (!tariffCrossesMidnight) {
+            // Does not cross midnight - simply check if current minute is between tariff's From and To
+            const isNowInTariffFromTo = nowMinute >= tariffFromMinute && nowMinute <= tariffToMinute;
+            if (isNowInTariffFromTo) {
+                // Still in tariff From-To period
+            } else {
+                // No longer in tariff From-To period
+            }
+        } else {
+
+        }
+        // const diffMs = now - startedAt;
+        // const tariffDurationMs = tariff.duration! * 60 * 1000;
+        // // totalTime must be in seconds
+        // deviceStatus.totalTime = Math.ceil(diffMs / 1000);
+        // deviceStatus.totalSum = tariff.price;
+        // if (diffMs >= tariffDurationMs) {
+        //     // Must be stopped
+        //     deviceStatus.started = false;
+        //     deviceStatus.expectedEndAt = now;
+        //     deviceStatus.stoppedAt = now;
+        //     deviceStatus.remainingSeconds = 0;
+        // } else {
+        //     // Still in the tariff duration
+        //     deviceStatus.expectedEndAt = startedAt + tariffDurationMs;
+        //     const remainingMs = deviceStatus.expectedEndAt - now;
+        //     const remainingSeconds = Math.floor(remainingMs / 1000);
+        //     deviceStatus.remainingSeconds = remainingSeconds;
+        // }
     }
 
     // private async calculateDeviceStatuses(storageDeviceStatuses: IDeviceStatus[]): Promise<DeviceStatus[]> {
@@ -709,8 +815,8 @@ export class StateManager {
         return new PostgreStorageProvider();
     }
 
-    private getNowAsNumber(): number {
-        return Date.now();
+    private getNowAsDate(): Date {
+        return new Date();
     }
 
     private getNowAsIsoString(): string {
@@ -733,9 +839,10 @@ export class StateManager {
             systemSettings: {
                 device_status_refresh_interval: 10 * 1000,
                 // 1800 seconds = 30 minutes
-                token_duration: 1800 * 1000
+                token_duration: 1800 * 1000,
+                timezone: 'Europe/Sofia',
             },
-            lastDeviceStatusRefreshAt: this.getNowAsNumber(),
+            lastDeviceStatusRefreshAt: 0,
             deviceStatusRefreshInProgress: false,
             mainTimerHandle: undefined,
         };
@@ -824,6 +931,7 @@ interface StateManagerState {
 interface StateManagerStateSystemSettings {
     [SystemSettingName.device_status_refresh_interval]: number;
     [SystemSettingName.token_duration]: number;
+    [SystemSettingName.timezone]: string;
 }
 
 interface UserAuthDataCacheValue {

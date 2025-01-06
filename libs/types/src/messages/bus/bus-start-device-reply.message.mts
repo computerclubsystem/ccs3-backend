@@ -4,7 +4,7 @@ import { MessageType } from '../declarations/message-type.mjs';
 import { DeviceStatus } from './bus-device-statuses.message.mjs';
 
 export interface BusStartDeviceReplyMessageBody {
-    deviceStatus: DeviceStatus;
+    deviceStatus?: DeviceStatus | null;
 }
 
 export interface BusStartDeviceReplyMessage extends Message<BusStartDeviceReplyMessageBody> {

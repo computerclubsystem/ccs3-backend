@@ -14,11 +14,13 @@
         "@computerclubsystem/redis-client": "*",
         "@computerclubsystem/types": "*",
         "bson-objectid": "2.0.4",
-        "pg": "^8.13.1"
+        "pg": "^8.13.1",
+        "luxon": "3.5.0"
     },
     "devDependencies": {
         "@types/node": "20.11.5",
         "@types/pg": "^8.11.10",
+        "@types/luxon": "3.4.2",
         "typescript": "5.3.3"
     }
 }
