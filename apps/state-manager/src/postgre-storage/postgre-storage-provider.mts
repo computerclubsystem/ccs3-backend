@@ -42,11 +42,16 @@ export class PostgreStorageProvider implements StorageProvider {
         const migrateResult = await this.migrateDatabase();
         result.success = migrateResult.success;
         pg.types.setTypeParser(1114, stringValue => {
+            // TODO: Revisit this - make it more effective if possible
             var temp = new Date(stringValue);
             const newDate = new Date(Date.UTC(
                 temp.getFullYear(), temp.getMonth(), temp.getDate(), temp.getHours(), temp.getMinutes(), temp.getSeconds(), temp.getMilliseconds())
             );
             return newDate.toISOString();
+        });
+        pg.types.setTypeParser(1700, numericString => {
+            // Numeric type is returned as string. We have to convert it to float
+            return parseFloat(numericString);
         });
         return result;
     }

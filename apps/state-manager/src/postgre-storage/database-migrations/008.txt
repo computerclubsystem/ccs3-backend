@@ -1,0 +1,19 @@
+
+INSERT INTO system_setting
+(
+    name,
+    type,
+    description,
+    value
+)
+VALUES
+(
+    'timezone',
+    'string',
+    'The timezone which will be used for date and time calculations. Must be the same as the operator computers. The default value is Europe/Sofia. For available timezone names refer to https://en.wikipedia.org/wiki/List_of_tz_database_time_zones',
+    'Europe/Sofia'
+);
+
+UPDATE db_metadata
+SET value = '8'
+WHERE name = 'database-version';

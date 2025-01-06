@@ -69,6 +69,9 @@ import { createBusStartDeviceRequestMessage } from '@computerclubsystem/types/me
 import { createOperatorStartDeviceReplyMessage } from '@computerclubsystem/types/messages/operators/operator-start-device-reply.message.mjs';
 import { OperatorGetDeviceStatusesRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-device-statuses-request.message.mjs';
 import { createOperatorGetDeviceStatusesReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-device-statuses-reply.message.mjs';
+import { BusErrorCode } from '@computerclubsystem/types/messages/bus/declarations/bus-error-code.mjs';
+import { BusStartDeviceReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-start-device-reply.message.mjs';
+
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
     private readonly pubClient = new RedisPubClient();
@@ -184,6 +187,7 @@ export class OperatorConnector {
 
     processOperatorGetDeviceStatusesRequest(clientData: ConnectedClientData, message: OperatorGetDeviceStatusesRequestMessage): void {
         // Simply simulate processing of the last bus notification message about device statuses
+        // TODO: This will return old data - for example if it is requested immediatelly after a device was started, it will still return that the device is not started
         if (this.state.lastBusDeviceStatusesMessage) {
             // this.processBusDeviceStatusesMessage(this.state.lastBusDeviceStatusesMessage);
             const clientDataToSendTo = this.getConnectedClientsDataToSendDeviceStatusesMessageTo();
@@ -214,15 +218,21 @@ export class OperatorConnector {
         const busRequestMsg = createBusStartDeviceRequestMessage();
         busRequestMsg.body.deviceId = message.body.deviceId;
         busRequestMsg.body.tariffId = message.body.tariffId;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusCreateTariffReplyMessageBody>(busRequestMsg, MessageType.busStartDeviceReply, clientData)
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusStartDeviceReplyMessageBody>(busRequestMsg, MessageType.busStartDeviceReply, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorStartDeviceReplyMessage();
+                operatorReplyMsg.body.deviceStatus = busReplyMsg.body.deviceStatus;
                 if (busReplyMsg.header.failure) {
                     operatorReplyMsg.header.failure = true;
-                    if (busReplyMsg.header.errors?.find(x => x.code === 'device-already-started')) {
+                    if (busReplyMsg.header.errors?.find(x => x.code === BusErrorCode.deviceAlreadyStarted)) {
                         operatorReplyMsg.header.errors = [{
                             code: OperatorReplyMessageErrorCode.deviceAlreadyStarted,
-                            description: `Can't start the device. Check if it is already started`,
+                            description: `Can't start the device. It is already started`,
+                        }] as MessageError[];
+                    } else if (busReplyMsg.header.errors?.find(x => x.code === BusErrorCode.cantUseTheTariffNow)) {
+                        operatorReplyMsg.header.errors = [{
+                            code: OperatorReplyMessageErrorCode.cantUseTheTariffNow,
+                            description: `Can't start the device. The tariff can't be used right now`,
                         }] as MessageError[];
                     } else {
                         operatorReplyMsg.header.errors = [{
@@ -238,7 +248,7 @@ export class OperatorConnector {
 
     processOperatorCreateTariffRequest(clientData: ConnectedClientData, message: OperatorCreateTariffRequestMessage): void {
         const errorReplyMsg = this.validators.tariff.validateTariff(message.body.tariff);
-        if (errorReplyMsg?.body.tariff.idmnj) {
+        if (errorReplyMsg) {
             this.sendReplyMessageToOperator(errorReplyMsg, clientData, message);
             return;
         }
@@ -473,6 +483,7 @@ export class OperatorConnector {
         const isTokenActiveResult = await this.isTokenActive(requestToken);
         if (!isTokenActiveResult.isActive) {
             // Token is provided but is not active
+            this.logger.warn('Authentication request with token failed. The token is not active', clientData, message, isTokenActiveResult);
             if (isTokenActiveResult.authTokenCacheValue?.token) {
                 await this.cacheHelper.deleteAuthTokenKey(isTokenActiveResult.authTokenCacheValue?.token);
             }
@@ -691,9 +702,11 @@ export class OperatorConnector {
         const connections = this.getAllConnectedClientsData();
         for (const connection of connections) {
             const clientData = connection[1];
-            const isAuthorized = this.authorizationHelper.isAuthorized(clientData.permissions, OperatorNotificationMessageType.deviceStatusesNotification);
-            if (isAuthorized) {
-                clientDataToSendTo.push(clientData);
+            if (clientData.isAuthenticated) {
+                const isAuthorized = this.authorizationHelper.isAuthorized(clientData.permissions, OperatorNotificationMessageType.deviceStatusesNotification);
+                if (isAuthorized) {
+                    clientDataToSendTo.push(clientData);
+                }
             }
         }
         return clientDataToSendTo;

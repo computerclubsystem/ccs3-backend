@@ -4,4 +4,5 @@ export const enum OperatorReplyMessageErrorCode {
     tariffCreationError = 'tariff-creation-error',
     deviceAlreadyStarted = 'device-already-started',
     cantStartDevice = 'cant-start-device',
+    cantUseTheTariffNow = 'cant-use-the-tariff-now',
 }
