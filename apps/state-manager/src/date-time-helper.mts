@@ -1,4 +1,4 @@
-import { DateTime, Duration, Settings } from 'luxon';
+import { DateTime, Settings } from 'luxon';
 import { Valid } from 'luxon/src/_util.js';
 
 export class DateTimeHelper {
@@ -19,7 +19,7 @@ export class DateTimeHelper {
             // Create date with toMinute and check if current date has passed it
             const startingDate = DateTime.fromMillis(startDate);
             const { hours, minutes } = this.getHoursAndMinutesFromTotalMinutes(toMinute);
-            const toDate = startingDate.set({ hour: hours, minute: minutes, second: 59, millisecond: 999 });
+            const toDate = startingDate.set({ hour: hours, minute: minutes, second: 0, millisecond: 0 });
             const currentDate = this.getNow();
             result.isAfter = currentDate >= toDate;
             result.totalTimeSeconds = Math.floor(currentDate.diff(startingDate).as('seconds'))
