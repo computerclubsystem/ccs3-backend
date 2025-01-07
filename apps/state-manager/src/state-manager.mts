@@ -281,16 +281,29 @@ export class StateManager {
             }
             const allTariffs = await this.cacheHelper.getAllTariffs();
             const tariff = allTariffs.find(x => x.id === message.body.tariffId)!;
-            const canUseTariffResult = this.tariffHelper.canUseTariff(tariff);
-            if (!canUseTariffResult.canUse) {
-                // Already started
-                const replyMsg = createBusStartDeviceReplyMessage();
-                replyMsg.header.failure = true;
-                replyMsg.header.errors = [
-                    { code: BusErrorCode.cantUseTheTariffNow, description: `Can't use the tariff right now` },
-                ]
-                this.publishToOperatorsChannel(replyMsg, message);
-                return;
+            // const canUseTariffResult = this.tariffHelper.canUseTariff(tariff);
+            // if (!canUseTariffResult.canUse) {
+            //     // Already started
+            //     const replyMsg = createBusStartDeviceReplyMessage();
+            //     replyMsg.header.failure = true;
+            //     replyMsg.header.errors = [
+            //         { code: BusErrorCode.cantUseTheTariffNow, description: `Can't use the tariff right now` },
+            //     ]
+            //     this.publishToOperatorsChannel(replyMsg, message);
+            //     return;
+            // }
+            if (tariff.type === TariffType.fromTo) {
+                const isCurrentMinuteInPeriodResult = this.dateTimeHelper.isCurrentMinuteInMinutePeriod(tariff.fromTime!, tariff.toTime!);
+                this.logger.log('isCurrentMinuteInMinutePeriod: Tariff id', tariff.id, 'fromTime', tariff.fromTime, 'toTime', tariff.toTime, 'result', isCurrentMinuteInPeriodResult);
+                if (!isCurrentMinuteInPeriodResult.isInPeriod) {
+                    const replyMsg = createBusStartDeviceReplyMessage();
+                    replyMsg.header.failure = true;
+                    replyMsg.header.errors = [
+                        { code: BusErrorCode.cantUseTheTariffNow, description: `Can't use the tariff right now` },
+                    ]
+                    this.publishToOperatorsChannel(replyMsg, message);
+                    return;
+                }
             }
 
             currentStorageDeviceStatus.enabled = true;

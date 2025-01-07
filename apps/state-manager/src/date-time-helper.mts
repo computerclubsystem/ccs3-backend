@@ -1,4 +1,5 @@
 import { DateTime, Duration, Settings } from 'luxon';
+import { Valid } from 'luxon/src/_util.js';
 
 export class DateTimeHelper {
     /**
@@ -19,7 +20,7 @@ export class DateTimeHelper {
             const startingDate = DateTime.fromMillis(startDate);
             const { hours, minutes } = this.getHoursAndMinutesFromTotalMinutes(toMinute);
             const toDate = startingDate.set({ hour: hours, minute: minutes, second: 59, millisecond: 999 });
-            const currentDate = DateTime.now();
+            const currentDate = this.getNow();
             result.isAfter = currentDate >= toDate;
             result.totalTimeSeconds = Math.floor(currentDate.diff(startingDate).as('seconds'))
             if (!result.isAfter) {
@@ -57,13 +58,17 @@ export class DateTimeHelper {
      * @param fromMinute 
      * @param toMinute 
      */
-    isCurrentMinuteInMinutePeriod(fromMinute: number, toMinute: number): boolean {
-        const currentMinute = DateTime.now().minute;
-        return this.isInMinutePeriod(fromMinute, toMinute, currentMinute);
+    isCurrentMinuteInMinutePeriod(fromMinute: number, toMinute: number): IsCurrentMinuteInMinutePeriodResult {
+        const currentMinute = this.getCurrentMinute();
+        const result: IsCurrentMinuteInMinutePeriodResult = {
+            currentMinute: currentMinute,
+            isInPeriod: this.isInMinutePeriod(fromMinute, toMinute, currentMinute),
+        };
+        return result;
     }
 
     getCurrentDateTimeAsNumber(): number {
-        return DateTime.now().toMillis();
+        return this.getNow().toMillis();
     }
 
     setDefaultTimeZone(timeZone: string): void {
@@ -74,6 +79,16 @@ export class DateTimeHelper {
         const hour = Math.floor(totalMinutes / 60);
         const minute = totalMinutes % 60;
         return { hours: hour, minutes: minute };
+    }
+
+    getCurrentMinute(): number {
+        const now = this.getNow();
+        const currentMinute = now.hour * 60 + now.minute;
+        return currentMinute;
+    }
+
+    private getNow(): DateTime<Valid> {
+        return DateTime.now();
     }
 
     // /**
@@ -101,4 +116,8 @@ interface CompareCurrentDateWithMinutePeriodResult {
     isAfter: boolean;
     totalTimeSeconds: number;
     remainingSeconds?: number | null;
+}
+interface IsCurrentMinuteInMinutePeriodResult {
+    isInPeriod: boolean;
+    currentMinute: number;
 }
