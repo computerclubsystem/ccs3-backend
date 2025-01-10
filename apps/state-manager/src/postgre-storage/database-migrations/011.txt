@@ -1,0 +1,27 @@
+CREATE TABLE device_session
+(
+    id serial NOT NULL,
+    device_id integer NOT NULL,
+    tariff_id integer NOT NULL,
+    total_amount numeric(10, 2) NOT NULL,
+    started_at timestamp without time zone NOT NULL,
+    stopped_at timestamp without time zone NOT NULL,
+    started_by_user_id integer,
+    stopped_by_user_id integer,
+    started_by_customer boolean,
+    stopped_by_customer boolean,
+    note text,
+    PRIMARY KEY (id),
+    FOREIGN KEY (device_id)
+        REFERENCES device (id),
+    FOREIGN KEY (tariff_id)
+        REFERENCES tariff (id),
+    FOREIGN KEY (started_by_user_id)
+        REFERENCES "user" (id),
+    FOREIGN KEY (stopped_by_user_id)
+        REFERENCES "user" (id)
+);
+
+UPDATE db_metadata
+SET value = '11'
+WHERE name = 'database-version';

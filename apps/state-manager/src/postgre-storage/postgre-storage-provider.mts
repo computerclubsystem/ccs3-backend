@@ -15,6 +15,7 @@ import { ISystemSetting } from 'src/storage/entities/system-setting.mjs';
 import { IDeviceConnectionEvent } from 'src/storage/entities/device-connection-event.mjs';
 import { IOperatorConnectionEvent } from 'src/storage/entities/operator-connection-event.mjs';
 import { ITariff } from 'src/storage/entities/tariff.mjs';
+import { IDeviceSession } from 'src/storage/entities/device-session.mjs';
 
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
@@ -57,6 +58,11 @@ export class PostgreStorageProvider implements StorageProvider {
     }
 
 
+    async addDeviceSession(deviceSession: IDeviceSession): Promise<IDeviceSession> {
+        const queryData = this.queryUtils.addDeviceSessionQueryData(deviceSession);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows[0] as IDeviceSession;
+    }
 
     async addOperatorConnectionEvent(operatorConnectionEvent: IOperatorConnectionEvent): Promise<IOperatorConnectionEvent | undefined> {
         const queryData = this.queryUtils.addOperatorConnectionEventQueryData(operatorConnectionEvent);
@@ -188,14 +194,28 @@ export class PostgreStorageProvider implements StorageProvider {
         return this.state.pool.end();
     }
 
-    private async execQuery(query: string, params?: any[]): Promise<QueryResult<any>> {
+    private async execTransaction(query: string, params?: any[]): Promise<QueryResult<any>> {
         let client: pg.PoolClient | null = null;
         let res: QueryResult<any>;
         try {
+
             client = await this.getPoolClient();
             res = await client.query(query, params);
         } finally {
             client?.release();
+        }
+        return res;
+    }
+
+    private async execQuery(query: string, params?: any[]): Promise<QueryResult<any>> {
+        let client: pg.PoolClient | null = null;
+        let res: QueryResult<any>;
+        try {
+            //     client = await this.getPoolClient();
+            //     res = await client.query(query, params);
+            res = await this.state.pool.query(query, params);
+        } finally {
+            // client?.release();
         }
         return res;
     }

@@ -7,6 +7,7 @@ import { StorageProviderConfig } from './storage-provider-config.mjs';
 import { StorageProviderInitResult } from './storage-provider-init-result.mjs';
 import { IOperatorConnectionEvent } from './entities/operator-connection-event.mjs';
 import { ITariff } from './entities/tariff.mjs';
+import { IDeviceSession } from './entities/device-session.mjs';
 
 export interface StorageProvider {
     init(config: StorageProviderConfig): Promise<StorageProviderInitResult>;
@@ -32,4 +33,5 @@ export interface StorageProvider {
     getTariffById(tariffId: number): Promise<ITariff | undefined>;
     createTariff(tariff: ITariff): Promise<ITariff>;
     updateTariff(tariff: ITariff): Promise<ITariff>;
+    addDeviceSession(deviceSession: IDeviceSession): Promise<IDeviceSession>
 }
