@@ -10,6 +10,8 @@ import { DeviceQueryHelper } from './device-query-helper.mjs';
 import { IDeviceStatus } from 'src/storage/entities/device-status.mjs';
 import { TariffQueryHelper } from './tariff-query-helper.mjs';
 import { ITariff } from 'src/storage/entities/tariff.mjs';
+import { IDeviceSession } from 'src/storage/entities/device-session.mjs';
+import { DeviceSessionQueryHelper } from './device-session-query-helper.mjs';
 
 export class QueryUtils {
     private readonly helpers = {
@@ -19,7 +21,12 @@ export class QueryUtils {
         deviceStatus: new DeviceStatusQueryHelper(),
         device: new DeviceQueryHelper(),
         tariff: new TariffQueryHelper(),
+        deviceSession: new DeviceSessionQueryHelper(),
     };
+
+    addDeviceSessionQueryData(deviceSession: IDeviceSession): IQueryTextWithParamsResult {
+        return this.helpers.deviceSession.addDeviceSessionQueryData(deviceSession);
+    }
 
     getAllTariffsQueryText(): string {
         return this.helpers.tariff.getAllTariffsQueryText;

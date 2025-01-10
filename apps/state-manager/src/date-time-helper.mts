@@ -1,5 +1,6 @@
-import { DateTime, Settings } from 'luxon';
+import { DateTime, Duration, Settings } from 'luxon';
 import { Valid } from 'luxon/src/_util.js';
+import { isDataView } from 'util/types';
 
 export class DateTimeHelper {
     /**
@@ -25,6 +26,7 @@ export class DateTimeHelper {
             result.totalTimeSeconds = Math.floor(currentDate.diff(startingDate).as('seconds'))
             if (!result.isAfter) {
                 result.remainingSeconds = Math.floor(toDate.diff(currentDate).as('seconds'));
+                result.expectedEndAt = currentDate.plus(Duration.fromMillis(result.remainingSeconds * 1000)).toMillis();
             }
         } else {
             // From is from this day and To is from the next day (the period crosses midnight like 1380 (23:00) - 120 (2:00))
@@ -91,6 +93,17 @@ export class DateTimeHelper {
         return DateTime.utc().toISO();
     }
 
+    getUTCDateTimeAsISOStringFromNumber(milliseconds: number): string {
+        return DateTime.fromMillis(milliseconds).toISO()!;
+    }
+
+    getNumberFromISOStringDateTime(isoDateTime?: string | null): number | null {
+        if (!isoDateTime) {
+            return null;
+        }
+        return DateTime.fromISO(isoDateTime).toMillis();
+    }
+
     private getNow(): DateTime<Valid> {
         return DateTime.now();
     }
@@ -120,6 +133,7 @@ interface CompareCurrentDateWithMinutePeriodResult {
     isAfter: boolean;
     totalTimeSeconds: number;
     remainingSeconds?: number | null;
+    expectedEndAt?: number | null;
 }
 interface IsCurrentMinuteInMinutePeriodResult {
     isInPeriod: boolean;
