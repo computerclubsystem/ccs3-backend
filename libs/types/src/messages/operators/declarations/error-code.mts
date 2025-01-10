@@ -5,4 +5,8 @@ export const enum OperatorReplyMessageErrorCode {
     deviceAlreadyStarted = 'device-already-started',
     cantStartDevice = 'cant-start-device',
     cantUseTheTariffNow = 'cant-use-the-tariff-now',
+    cantStartTheTariffNow = 'cant-start-the-tariff-now',
+    unknownTariffType = 'unknown-tariff-type',
+    cantFindTariff = 'cant-find-tariff',
+    userIdIsRequired = 'user-id-is-required',
 }

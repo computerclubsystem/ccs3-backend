@@ -1,0 +1,12 @@
+ALTER TABLE tariff
+ADD COLUMN restrict_start_time boolean;
+
+ALTER TABLE tariff
+ADD COLUMN restrict_start_from_time integer;
+
+ALTER TABLE tariff
+ADD COLUMN restrict_start_to_time integer;
+
+UPDATE db_metadata
+SET value = '9'
+WHERE name = 'database-version';

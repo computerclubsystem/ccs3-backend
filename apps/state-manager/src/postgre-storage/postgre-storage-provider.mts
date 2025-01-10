@@ -116,6 +116,13 @@ export class PostgreStorageProvider implements StorageProvider {
         return res.rows as ITariff[];
     }
 
+    async getTariffById(tariffId: number): Promise<ITariff | undefined> {
+        const queryData = this.queryUtils.getTariffByIdQueryData(tariffId);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows[0] as ITariff | undefined;
+    }
+
+
     async createTariff(tariff: ITariff): Promise<ITariff> {
         const queryData = this.queryUtils.createTariffQueryData(tariff);
         const res = await this.execQuery(queryData.text, queryData.params);

@@ -1,0 +1,17 @@
+ALTER TABLE device_status
+ADD COLUMN started_by_user_id integer;
+
+ALTER TABLE public.device_status
+ADD FOREIGN KEY (started_by_user_id)
+REFERENCES "user" (id);
+
+ALTER TABLE device_status
+ADD COLUMN stopped_by_user_id integer;
+
+ALTER TABLE public.device_status
+ADD FOREIGN KEY (stopped_by_user_id)
+REFERENCES "user" (id);
+
+UPDATE db_metadata
+SET value = '10'
+WHERE name = 'database-version';

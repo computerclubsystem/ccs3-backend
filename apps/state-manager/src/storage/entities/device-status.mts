@@ -6,4 +6,6 @@ export interface IDeviceStatus {
     stopped_at: string | null;
     total: number | null;
     enabled: boolean;
+    started_by_user_id?: number | null;
+    stopped_by_user_id?: number | null;
 }

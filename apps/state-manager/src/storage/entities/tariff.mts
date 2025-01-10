@@ -15,4 +15,7 @@ export interface ITariff {
     enabled: boolean;
     created_at: string | null;
     updated_at?: string | null;
+    restrict_start_time?: boolean | null;
+    restrict_start_from_time?: number | null;
+    restrict_start_to_time?: number | null;
 }

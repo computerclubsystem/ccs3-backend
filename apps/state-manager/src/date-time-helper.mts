@@ -87,6 +87,10 @@ export class DateTimeHelper {
         return currentMinute;
     }
 
+    getCurrentUTCDateTimeAsISOString(): string {
+        return DateTime.utc().toISO();
+    }
+
     private getNow(): DateTime<Valid> {
         return DateTime.now();
     }

@@ -2,6 +2,16 @@ import { ITariff } from 'src/storage/entities/tariff.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
 
 export class TariffQueryHelper {
+    getTariffByIdQueryData(tariffId: number): IQueryTextWithParamsResult {
+        const params = [
+            tariffId,
+        ];
+        return {
+            text: this.getTariffByIdQueryText,
+            params: params,
+        };
+    }
+
     updateTariffQueryData(tariff: ITariff): IQueryTextWithParamsResult {
         const params = [
             tariff.name,
@@ -12,8 +22,10 @@ export class TariffQueryHelper {
             tariff.to_time,
             tariff.price,
             tariff.enabled,
-            tariff.created_at,
             tariff.updated_at,
+            tariff.restrict_start_time,
+            tariff.restrict_start_from_time,
+            tariff.restrict_start_to_time,
             tariff.id,
         ];
         return {
@@ -32,13 +44,34 @@ export class TariffQueryHelper {
             tariff.to_time,
             tariff.price,
             tariff.enabled,
-            tariff.created_at
+            tariff.created_at,
+            tariff.restrict_start_time,
+            tariff.restrict_start_from_time,
+            tariff.restrict_start_to_time,
         ];
         return {
             text: this.createTariffQueryText,
             params: params,
         };
     }
+
+    private returningQueryText = `
+        RETURNING
+            id,
+            name,
+            description,
+            type,
+            duration,
+            from_time,
+            to_time,
+            price,
+            enabled,
+            created_at,
+            updated_at,
+            restrict_start_time,
+            restrict_start_from_time,
+            restrict_start_to_time
+    `;
 
     private readonly updateTariffQueryText = `
         UPDATE tariff
@@ -50,9 +83,12 @@ export class TariffQueryHelper {
             to_time = $6,
             price = $7,
             enabled = $8,
-            created_at = $9,
-            updated_at = $10
-        WHERE id = $11
+            updated_at = $9,
+            restrict_start_time = $10,
+            restrict_start_from_time = $11,
+            restrict_start_to_time = $12
+        WHERE id = $13
+        ${this.returningQueryText}
     `;
 
     private readonly createTariffQueryText = `
@@ -66,7 +102,10 @@ export class TariffQueryHelper {
             to_time,
             price,
             enabled,
-            created_at
+            created_at,
+            restrict_start_time,
+            restrict_start_from_time,
+            restrict_start_to_time
         )
         VALUES
         (
@@ -78,21 +117,12 @@ export class TariffQueryHelper {
             $6,
             $7,
             $8,
-            $9
+            $9,
+            $10,
+            $11,
+            $12
         )
-        RETURNING
-        (
-            id,
-            name,
-            description,
-            type,
-            duration,
-            from_time,
-            to_time,
-            price,
-            enabled,
-            created_at
-        )
+        ${this.returningQueryText}
     `;
 
     public readonly getAllTariffsQueryText = `
@@ -107,7 +137,30 @@ export class TariffQueryHelper {
             price,
             enabled,
             created_at,
-            updated_at
+            updated_at,
+            restrict_start_time,
+            restrict_start_from_time,
+            restrict_start_to_time
         FROM tariff
+    `;
+
+    public readonly getTariffByIdQueryText = `
+        SELECT
+            id,
+            name,
+            description,
+            type,
+            duration,
+            from_time,
+            to_time,
+            price,
+            enabled,
+            created_at,
+            updated_at,
+            restrict_start_time,
+            restrict_start_from_time,
+            restrict_start_to_time
+        FROM tariff
+        WHERE id = $1
     `;
 }

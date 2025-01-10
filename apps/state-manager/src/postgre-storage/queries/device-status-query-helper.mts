@@ -15,6 +15,8 @@ export class DeviceStatusQueryHelper {
             deviceStatus.stopped_at,
             deviceStatus.total,
             deviceStatus.enabled,
+            deviceStatus.started_by_user_id,
+            deviceStatus.stopped_by_user_id,
             deviceStatus.device_id,
         ];
         return {
@@ -24,15 +26,7 @@ export class DeviceStatusQueryHelper {
     }
 
     addOrUpdateDeviceStatusEnabledQuery(deviceStatus: IDeviceStatus): IQueryTextWithParamsResult {
-        const params: [
-            number,
-            boolean,
-            number | null,
-            string | null,
-            string | null,
-            number | null,
-            boolean,
-        ] = [
+        const params = [
                 deviceStatus.device_id,
                 deviceStatus.started,
                 deviceStatus.start_reason,
@@ -40,6 +34,8 @@ export class DeviceStatusQueryHelper {
                 deviceStatus.stopped_at,
                 deviceStatus.total,
                 deviceStatus.enabled,
+                deviceStatus.started_by_user_id,
+                deviceStatus.stopped_by_user_id,
             ];
         return {
             text: this.addDeviceStatusQueryText,
@@ -86,8 +82,10 @@ export class DeviceStatusQueryHelper {
             started_at = $3,
             stopped_at = $4,
             total = $5,
-            enabled = $6
-        WHERE device_id = $7
+            enabled = $6,
+            started_by_user_id = $7,
+            stopped_by_user_id = $8
+        WHERE device_id = $9
     `;
 
     private readonly addDeviceStatusQueryText = `
@@ -99,7 +97,9 @@ export class DeviceStatusQueryHelper {
             started_at,
             stopped_at,
             total,
-            enabled
+            enabled,
+            started_by_user_id,
+            stopped_by_user_id
         )
         VALUES
         (
@@ -109,7 +109,9 @@ export class DeviceStatusQueryHelper {
             $4,
             $5,
             $6,
-            $7
+            $7,
+            $8,
+            $9
         )
         ON CONFLICT (device_id) DO
             UPDATE SET enabled = $7
@@ -123,7 +125,9 @@ export class DeviceStatusQueryHelper {
             started_at,
             stopped_at,
             total,
-            enabled
+            enabled,
+            started_by_user_id,
+            stopped_by_user_id
         FROM device_status
     `;
 
@@ -135,7 +139,9 @@ export class DeviceStatusQueryHelper {
             started_at,
             stopped_at,
             total,
-            enabled
+            enabled,
+            started_by_user_id,
+            stopped_by_user_id
         FROM device_status
         WHERE device_id = $1
     `;

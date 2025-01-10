@@ -71,6 +71,14 @@ import { OperatorGetDeviceStatusesRequestMessage } from '@computerclubsystem/typ
 import { createOperatorGetDeviceStatusesReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-device-statuses-reply.message.mjs';
 import { BusErrorCode } from '@computerclubsystem/types/messages/bus/declarations/bus-error-code.mjs';
 import { BusStartDeviceReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-start-device-reply.message.mjs';
+import { OperatorGetTariffByIdRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-tariff-by-id-request.message.mjs';
+import { ErrorReplyHelper } from './error-reply-helper.mjs';
+import { createBusGetTariffByIdRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-tariff-by-id-request.message.mjs';
+import { BusGetTariffByIdReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-tariff-by-id-reply.message.mjs';
+import { createOperatorGetTariffByIdReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-tariff-by-id-reply.message.mjs';
+import { OperatorUpdateTariffRequestMessage } from '@computerclubsystem/types/messages/operators/operator-update-tariff-request.message.mjs';
+import { createBusUpdateTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-tariff-request.message.mjs';
+import { createOperatorUpdateTariffReplyMessage } from '@computerclubsystem/types/messages/operators/operator-update-tariff-reply.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -84,6 +92,7 @@ export class OperatorConnector {
     private readonly cacheClient = new RedisCacheClient();
     private readonly cacheHelper = new CacheHelper();
     private readonly authorizationHelper = new AuthorizationHelper();
+    private readonly errorReplyHelper = new ErrorReplyHelper();
     private readonly subjectsService = new SubjectsService();
 
     private wssServer!: WssServer;
@@ -154,8 +163,14 @@ export class OperatorConnector {
             case OperatorMessageType.startDeviceRequest:
                 this.processOperatorStartDeviceRequest(clientData, message as OperatorStartDeviceRequestMessage);
                 break;
+            case OperatorMessageType.getTariffByIdRequest:
+                this.processOperatorGetTariffByIdRequest(clientData, message as OperatorGetTariffByIdRequestMessage);
+                break;
             case OperatorMessageType.createTariffRequest:
                 this.processOperatorCreateTariffRequest(clientData, message as OperatorCreateTariffRequestMessage);
+                break;
+            case OperatorMessageType.updateTariffRequest:
+                this.processOperatorUpdateTariffRequest(clientData, message as OperatorUpdateTariffRequestMessage);
                 break;
             case OperatorMessageType.getAllTariffsRequest:
                 this.processOperatorGetAllTariffsRequest(clientData, message as OperatorGetAllTariffsRequestMessage);
@@ -183,6 +198,50 @@ export class OperatorConnector {
                 this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    processOperatorUpdateTariffRequest(clientData: ConnectedClientData, message: OperatorUpdateTariffRequestMessage): void {
+        const validateTariffResult = this.validators.tariff.validateTariff(message.body.tariff);
+        if (!validateTariffResult.success) {
+            const errorReplyMsg = createOperatorUpdateTariffReplyMessage();
+            errorReplyMsg.header.failure = true;
+            errorReplyMsg.header.errors = [{
+                code: OperatorReplyMessageErrorCode.tariffCreationError,
+                description: `${validateTariffResult.errorCode}: ${validateTariffResult.errorMessage}`,
+            }] as MessageError[];
+            this.sendReplyMessageToOperator(errorReplyMsg, clientData, message);
+            return;
+        }
+
+        const busRequestMsg = createBusUpdateTariffRequestMessage();
+        busRequestMsg.body.tariff = message.body.tariff;
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetTariffByIdReplyMessageBody>(
+            busRequestMsg, MessageType.busUpdateTariffReply, clientData,
+        ).subscribe(busReplyMsg => {
+            const operatorReplyMsg = createOperatorUpdateTariffReplyMessage();
+            operatorReplyMsg.body.tariff = busReplyMsg.body.tariff;
+            if (busReplyMsg.header.failure) {
+                operatorReplyMsg.header.failure = true;
+                operatorReplyMsg.header.errors = this.errorReplyHelper.getCantUpdateTariffErrors(busReplyMsg.header.errors);
+            }
+            this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+        });
+    }
+
+    processOperatorGetTariffByIdRequest(clientData: ConnectedClientData, message: OperatorGetTariffByIdRequestMessage): void {
+        // Validate
+        const busRequestMsg = createBusGetTariffByIdRequestMessage();
+        busRequestMsg.body.tariffId = message.body.tariffId;
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetTariffByIdReplyMessageBody>(busRequestMsg, MessageType.busGetTariffByIdReply, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorGetTariffByIdReplyMessage();
+                operatorReplyMsg.body.tariff = busReplyMsg.body.tariff;
+                if (busReplyMsg.header.failure) {
+                    operatorReplyMsg.header.failure = true;
+                    operatorReplyMsg.header.errors = this.errorReplyHelper.getCantGetTariffByIdErrors(busReplyMsg.header.errors);
+                }
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
     }
 
     processOperatorGetDeviceStatusesRequest(clientData: ConnectedClientData, message: OperatorGetDeviceStatusesRequestMessage): void {
@@ -214,41 +273,32 @@ export class OperatorConnector {
     }
 
     processOperatorStartDeviceRequest(clientData: ConnectedClientData, message: OperatorStartDeviceRequestMessage): void {
-        // Validate
+        // TODO: Validate
         const busRequestMsg = createBusStartDeviceRequestMessage();
         busRequestMsg.body.deviceId = message.body.deviceId;
         busRequestMsg.body.tariffId = message.body.tariffId;
+        busRequestMsg.body.userId = clientData.operatorId!;
         this.publishToOperatorsChannelAndWaitForReplyByType<BusStartDeviceReplyMessageBody>(busRequestMsg, MessageType.busStartDeviceReply, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorStartDeviceReplyMessage();
                 operatorReplyMsg.body.deviceStatus = busReplyMsg.body.deviceStatus;
                 if (busReplyMsg.header.failure) {
                     operatorReplyMsg.header.failure = true;
-                    if (busReplyMsg.header.errors?.find(x => x.code === BusErrorCode.deviceAlreadyStarted)) {
-                        operatorReplyMsg.header.errors = [{
-                            code: OperatorReplyMessageErrorCode.deviceAlreadyStarted,
-                            description: `Can't start the device. It is already started`,
-                        }] as MessageError[];
-                    } else if (busReplyMsg.header.errors?.find(x => x.code === BusErrorCode.cantUseTheTariffNow)) {
-                        operatorReplyMsg.header.errors = [{
-                            code: OperatorReplyMessageErrorCode.cantUseTheTariffNow,
-                            description: `Can't start the device. The tariff can't be used right now`,
-                        }] as MessageError[];
-                    } else {
-                        operatorReplyMsg.header.errors = [{
-                            code: OperatorReplyMessageErrorCode.cantStartDevice,
-                            description: `Can't start the device. Check if it is already started`,
-                        }] as MessageError[];
-                    }
-                    // TODO: Set error in the response header. For this to work we need to have different request and reply headers
+                    operatorReplyMsg.header.errors = this.errorReplyHelper.getCantStartTheDeviceErrors(busReplyMsg.header.errors);
                 }
                 this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
             });
     }
 
     processOperatorCreateTariffRequest(clientData: ConnectedClientData, message: OperatorCreateTariffRequestMessage): void {
-        const errorReplyMsg = this.validators.tariff.validateTariff(message.body.tariff);
-        if (errorReplyMsg) {
+        const validateTariffResult = this.validators.tariff.validateTariff(message.body.tariff);
+        if (!validateTariffResult.success) {
+            const errorReplyMsg = createOperatorCreateTariffReplyMessage();
+            errorReplyMsg.header.failure = true;
+            errorReplyMsg.header.errors = [{
+                code: OperatorReplyMessageErrorCode.tariffCreationError,
+                description: `${validateTariffResult.errorCode}: ${validateTariffResult.errorMessage}`,
+            }] as MessageError[];
             this.sendReplyMessageToOperator(errorReplyMsg, clientData, message);
             return;
         }

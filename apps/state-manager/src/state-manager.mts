@@ -49,6 +49,11 @@ import { createBusStartDeviceReplyMessage } from '@computerclubsystem/types/mess
 import { TariffHelper } from './tariff-helper.mjs';
 import { BusErrorCode } from '@computerclubsystem/types/messages/bus/declarations/bus-error-code.mjs';
 import { DateTimeHelper } from './date-time-helper.mjs';
+import { BusGetTariffByIdRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-tariff-by-id-request.message.mjs';
+import { createBusGetTariffByIdReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-tariff-by-id-reply.message.mjs';
+import { BusUpdateTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-tariff-request.message.mjs';
+import { createBusUpdateTariffReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-tariff-reply.message.mjs';
+import { ITariff } from './storage/entities/tariff.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -183,8 +188,14 @@ export class StateManager {
             case MessageType.busStartDeviceRequest:
                 this.processStartDeviceRequestMessage(message as BusStartDeviceRequestMessage);
                 break;
+            case MessageType.busGetTariffByIdRequest:
+                this.processGetTariffByIdRequestMessage(message as BusGetTariffByIdRequestMessage);
+                break;
             case MessageType.busCreateTariffRequest:
                 this.processCreateTariffRequestMessage(message as BusCreateTariffRequestMessage);
+                break;
+            case MessageType.busUpdateTariffRequest:
+                this.processUpdateTariffRequestMessage(message as BusUpdateTariffRequestMessage);
                 break;
             case MessageType.busGetAllTariffsRequest:
                 this.processGetAllTariffsRequestMessage(message as BusGetAllTariffsRequestMessage);
@@ -268,6 +279,15 @@ export class StateManager {
 
     async processStartDeviceRequestMessage(message: BusStartDeviceRequestMessage): Promise<void> {
         try {
+            if (!message.body.userId) {
+                const replyMsg = createBusStartDeviceReplyMessage();
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [
+                    { code: BusErrorCode.userIdIsRequired, description: 'User Id is required to start device' },
+                ]
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
             const currentStorageDeviceStatus = (await this.storageProvider.getDeviceStatus(message.body.deviceId))!;
             if (currentStorageDeviceStatus.started) {
                 // Already started
@@ -279,7 +299,7 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
-            const allTariffs = await this.cacheHelper.getAllTariffs();
+            const allTariffs = await this.getAndCacheAllTariffs();
             const tariff = allTariffs.find(x => x.id === message.body.tariffId)!;
             // const canUseTariffResult = this.tariffHelper.canUseTariff(tariff);
             // if (!canUseTariffResult.canUse) {
@@ -306,12 +326,28 @@ export class StateManager {
                 }
             }
 
+            if (tariff.type === TariffType.duration) {
+                if (tariff.restrictStartTime) {
+                    const isCurrentMinuteInPeriodResult = this.dateTimeHelper.isCurrentMinuteInMinutePeriod(tariff.restrictStartFromTime!, tariff.restrictStartToTime!);
+                    if (!isCurrentMinuteInPeriodResult.isInPeriod) {
+                        const replyMsg = createBusStartDeviceReplyMessage();
+                        replyMsg.header.failure = true;
+                        replyMsg.header.errors = [
+                            { code: BusErrorCode.cantStartTheTariffNow, description: `Can't start the tariff right now` },
+                        ]
+                        this.publishToOperatorsChannel(replyMsg, message);
+                        return;
+                    }
+                }
+            }
+
             currentStorageDeviceStatus.enabled = true;
             currentStorageDeviceStatus.start_reason = message.body.tariffId;
             currentStorageDeviceStatus.started = true;
             currentStorageDeviceStatus.started_at = this.getNowAsIsoString();
             currentStorageDeviceStatus.stopped_at = null;
             currentStorageDeviceStatus.total = tariff.price;
+            currentStorageDeviceStatus.started_by_user_id = message.body.userId;
             await this.storageProvider.updateDeviceStatus(currentStorageDeviceStatus);
             const replyMsg = createBusStartDeviceReplyMessage();
             replyMsg.body.deviceStatus = this.createAndCalculateDeviceStatusFromStorageDeviceStatus(currentStorageDeviceStatus, tariff);
@@ -328,12 +364,87 @@ export class StateManager {
         }
     }
 
+    async processUpdateTariffRequestMessage(message: BusUpdateTariffRequestMessage): Promise<void> {
+        try {
+            const replyMsg = createBusUpdateTariffReplyMessage();
+            const tariff: Tariff = message.body.tariff;
+            // TODO: Validate the tariff
+            if (!tariff?.id) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.cantFindTariff,
+                    description: `Can't find tariff`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const storageTariff = this.entityConverter.tariffToStorageTariff(tariff);
+            storageTariff.updated_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
+            const updatedTariff = await this.storageProvider.updateTariff(storageTariff);
+            if (!updatedTariff) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.cantFindTariff,
+                    description: `Can't find tariff`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            replyMsg.body.tariff = this.entityConverter.storageTariffToTariff(updatedTariff);
+            // Refresh the tariffs
+            await this.cacheAllTariffs();
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusUpdateTariffRequestMessage message`, message, err);
+            const replyMsg = createBusUpdateTariffReplyMessage();
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+    async processGetTariffByIdRequestMessage(message: BusGetTariffByIdRequestMessage): Promise<void> {
+        try {
+            const replyMsg = createBusGetTariffByIdReplyMessage();
+            const allTariffs = await this.getAndCacheAllTariffs();
+            const cachedTariff = allTariffs?.find(x => x.id === message.body.tariffId);
+            if (cachedTariff) {
+                replyMsg.body.tariff = cachedTariff;
+            } else {
+                const storageTariff = await this.storageProvider.getTariffById(message.body.tariffId);
+                if (storageTariff) {
+                    replyMsg.body.tariff = this.entityConverter.storageTariffToTariff(storageTariff);
+                } else {
+                    replyMsg.header.failure = true;
+                    replyMsg.header.errors = [{
+                        code: BusErrorCode.cantFindTariff,
+                        description: `Can't find tariff with Id '${message.body.tariffId}'`,
+                    }];
+                }
+            }
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusGetTariffByIdRequestMessage message`, message, err);
+            const replyMsg = createBusGetTariffByIdReplyMessage(message);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
     async processCreateTariffRequestMessage(message: BusCreateTariffRequestMessage): Promise<void> {
         try {
+            // TODO: Validate the tariff
             const storageTariff = this.entityConverter.tariffToStorageTariff(message.body.tariff);
-            storageTariff.created_at = this.getNowAsIsoString();
+            storageTariff.created_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
             const tariff = await this.storageProvider.createTariff(storageTariff);
-            await this.cacheHelper.deleteAllTariffs();
+            await this.cacheAllTariffs();
             const replyMsg = createBusCreateTariffReplyMessage(message);
             replyMsg.body.tariff = tariff;
             this.publishToOperatorsChannel(replyMsg, message);
@@ -382,7 +493,7 @@ export class StateManager {
             }
             const storageDevice = this.entityConverter.deviceToStorageDevice(message.body.device);
             const updatedStorageDevice = await this.storageProvider.updateDevice(storageDevice);
-            await this.cacheHelper.deleteAllDevices();
+            await this.cacheAllDevices();
             const deviceStatusEnabled = updatedStorageDevice.approved && updatedStorageDevice.enabled;
             // Create record in device_status table - if it already exists, it will not be changed
             const deviceStatus: IDeviceStatus = {
@@ -523,7 +634,7 @@ export class StateManager {
             // Create record in device statuses database table
             await this.storageProvider.addOrUpdateDeviceStatusEnabled(storageDeviceStatus);
             this.logger.log('New device created. Device Id', createdDevice.id);
-            await this.cacheHelper.deleteAllDevices();
+            await this.cacheAllDevices();
         } catch (err) {
             this.logger.warn(`Can't process BusDeviceUnknownDeviceConnectedRequestMessage message`, message, err);
         }
@@ -585,22 +696,42 @@ export class StateManager {
         }
     }
 
+    private async cacheAllTariffs(): Promise<Tariff[]> {
+        const storageTariffs = await this.storageProvider.getAllTariffs();
+        const allTariffs = storageTariffs.map(x => this.entityConverter.storageTariffToTariff(x));
+        await this.cacheHelper.setAllTariffs(allTariffs);
+        return allTariffs;
+    }
+
+    private async getAndCacheAllTariffs(): Promise<Tariff[]> {
+        let allTariffs = await this.cacheHelper.getAllTariffs();
+        if (!allTariffs) {
+            allTariffs = await this.cacheAllTariffs();
+        }
+        return allTariffs;
+    }
+
+    private async cacheAllDevices(): Promise<Device[]> {
+        const storageDevices = await this.storageProvider.getAllDevices();
+        const allDevices = storageDevices.map(x => this.entityConverter.storageDeviceToDevice(x));
+        await this.cacheHelper.setAllDevices(allDevices);
+        return allDevices;
+    }
+
+    private async getAndCacheAllDevices(): Promise<Device[]> {
+        let allDevices = await this.cacheHelper.getAllDevices();
+        if (!allDevices) {
+            allDevices = await this.cacheAllDevices();
+        }
+        return allDevices;
+    }
+
     private async refreshDeviceStatuses(): Promise<void> {
         try {
             this.state.deviceStatusRefreshInProgress = true;
             const storageDeviceStatuses = await this.storageProvider.getAllDeviceStatuses();
-            let allTariffs = await this.cacheHelper.getAllTariffs();
-            if (!allTariffs) {
-                const storageTariffs = await this.storageProvider.getAllTariffs();
-                allTariffs = storageTariffs.map(x => this.entityConverter.storageTariffToTariff(x));
-                await this.cacheHelper.setAllTariffs(allTariffs);
-            }
-            let allDevices = await this.cacheHelper.getAllDevices();
-            if (!allDevices) {
-                const storageDevices = await this.storageProvider.getAllDevices();
-                allDevices = storageDevices.map(x => this.entityConverter.storageDeviceToDevice(x));
-                await this.cacheHelper.setAllDevices(allDevices);
-            }
+            const allTariffs = await this.getAndCacheAllTariffs();
+            let allDevices = await this.getAndCacheAllDevices();
             // TODO: We will process only enabled devices
             //       If the user disables device while it is started (the system should prevent this),
             //       it will not be processed here and will remain started until enabled again
@@ -679,6 +810,7 @@ export class StateManager {
             totalSum: storageDeviceStatus.total,
             totalTime: null,
             tariff: storageDeviceStatus.start_reason,
+            startedByUserId: storageDeviceStatus.started_by_user_id,
         } as DeviceStatus;
         return deviceStatus;
     }

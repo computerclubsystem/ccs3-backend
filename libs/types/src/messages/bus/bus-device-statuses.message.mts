@@ -13,6 +13,7 @@ export interface DeviceStatus {
     expectedEndAt: number | null;
     remainingSeconds: number | null;
     enabled: boolean;
+    startedByUserId?: number | null;
 }
 
 export interface BusDeviceStatusesMessageBody {

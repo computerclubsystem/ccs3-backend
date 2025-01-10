@@ -17,9 +17,28 @@ export class AuthorizationHelper {
         }
 
         switch (messageType) {
+            case OperatorMessageType.createTariffRequest:
+                result.authorized = permissions.has(Permission.tariffsCreate);
+                break;
+            case OperatorMessageType.updateTariffRequest:
+                result.authorized = permissions.has(Permission.tariffsUpdate);
+                break;
+            case OperatorMessageType.getTariffByIdRequest:
+            case OperatorMessageType.getAllTariffsRequest:
+                result.authorized = permissions.has(Permission.tariffsRead);
+                break;
             case OperatorMessageType.getAllDevicesRequest:
             case OperatorMessageType.getDeviceByIdRequest:
-                result.authorized = permissions.has(Permission.deviceReadEntities);
+                result.authorized = permissions.has(Permission.devicesReadEntities);
+                break;
+            case OperatorMessageType.updateDeviceRequest:
+                result.authorized = permissions.has(Permission.devicesUpdateEntity);
+                break;
+            case OperatorMessageType.getDeviceStatusesRequest:
+                result.authorized = permissions.has(Permission.devicesReadStatus);
+                break;
+            case OperatorMessageType.startDeviceRequest:
+                result.authorized = permissions.has(Permission.devicesStart);
                 break;
             case OperatorMessageType.authRequest:
             case OperatorMessageType.pingRequest:

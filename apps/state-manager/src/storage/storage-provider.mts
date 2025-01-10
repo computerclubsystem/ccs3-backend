@@ -29,6 +29,7 @@ export interface StorageProvider {
     addDeviceConnectionEvent(deviceConnectionEvent: IDeviceConnectionEvent): Promise<IDeviceConnectionEvent | undefined>;
     addOperatorConnectionEvent(addOperatorConnectionEvent: IOperatorConnectionEvent): Promise<IOperatorConnectionEvent | undefined>;
     getAllTariffs(): Promise<ITariff[]>;
+    getTariffById(tariffId: number): Promise<ITariff | undefined>;
     createTariff(tariff: ITariff): Promise<ITariff>;
     updateTariff(tariff: ITariff): Promise<ITariff>;
 }

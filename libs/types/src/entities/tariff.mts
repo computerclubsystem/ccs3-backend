@@ -15,4 +15,8 @@ export interface Tariff {
     enabled: boolean;
     createdAt: string | null;
     updatedAt?: string | null;
+    restrictStartTime?: boolean | null;
+    restrictStartFromTime?: number | null;
+    restrictStartToTime?: number | null;
+    startedByUserId?: number | null;
 }

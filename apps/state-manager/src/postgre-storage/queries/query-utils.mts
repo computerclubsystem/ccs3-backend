@@ -25,6 +25,10 @@ export class QueryUtils {
         return this.helpers.tariff.getAllTariffsQueryText;
     }
 
+    getTariffByIdQueryData(tariffId: number): IQueryTextWithParamsResult {
+        return this.helpers.tariff.getTariffByIdQueryData(tariffId);
+    }
+
     createTariffQueryData(tariff: ITariff): IQueryTextWithParamsResult {
         return this.helpers.tariff.createTariffQueryData(tariff);
     }

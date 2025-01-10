@@ -4,6 +4,7 @@ import { Message } from '../declarations/message.mjs';
 export interface BusStartDeviceRequestMessageBody {
     deviceId: number;
     tariffId: number;
+    userId: number;
 }
 
 export interface BusStartDeviceRequestMessage extends Message<BusStartDeviceRequestMessageBody> {

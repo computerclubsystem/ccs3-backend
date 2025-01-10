@@ -1,28 +1,94 @@
-import { Tariff } from '@computerclubsystem/types/entities/tariff.mjs';
-import { MessageError } from '@computerclubsystem/types/messages/declarations/message-error.mjs';
-import { OperatorReplyMessageErrorCode } from '@computerclubsystem/types/messages/operators/declarations/error-code.mjs';
-import { createOperatorCreateTariffReplyMessage, OperatorCreateTariffReplyMessage } from '@computerclubsystem/types/messages/operators/operator-create-tariff-reply.message.mjs';
+import { Tariff, TariffType } from '@computerclubsystem/types/entities/tariff.mjs';
 
+// TODO: Move this to utils library
 export class TariffValidator {
-    validateTariff(tariff: Tariff): OperatorCreateTariffReplyMessage | null {
+    validateTariff(tariff: Tariff): ValidateTariffResult {
+        const result = { success: false } as ValidateTariffResult;
         if (!tariff) {
-            const operatorErrorReplyMsg = createOperatorCreateTariffReplyMessage();
-            operatorErrorReplyMsg.header.failure = true;
-            operatorErrorReplyMsg.header.errors = [{
-                code: OperatorReplyMessageErrorCode.tariffNotProvided,
-                description: 'Tariff is not provided'
-            }] as MessageError[];
-            return operatorErrorReplyMsg;
+            result.errorCode = ValidateTariffErrorCode.tariffNotProvided;
+            result.errorMessage = 'Tariff not provided';
+            return result;
+        }
+        if (this.isWhiteSpace(tariff.name)) {
+            result.errorCode = ValidateTariffErrorCode.nameIsEmpty;
+            result.errorMessage = 'The name is empty';
+            return result;
         }
         if (!(tariff.price > 0)) {
-            const operatorReplyMsg = createOperatorCreateTariffReplyMessage();
-            operatorReplyMsg.header.failure = true;
-            operatorReplyMsg.header.errors = [{
-                code: OperatorReplyMessageErrorCode.tariffPriceIsZeroOrLess,
-                description: 'Tariff price must be positive number'
-            }] as MessageError[];
-            return operatorReplyMsg;
+            result.errorCode = ValidateTariffErrorCode.priceMustBeGreaterThanZero;
+            result.errorMessage = `Price must be greater than zero. It is '${tariff.price}'`;
+            return result;
         }
-        return null;
+
+        switch (tariff.type) {
+            case TariffType.duration:
+                const isDurationPositive = tariff.duration! > 0;
+                if (!isDurationPositive) {
+                    result.errorCode = ValidateTariffErrorCode.fromAndToMustBeBetweenZeroAnd1439;
+                    result.errorMessage = `Duration '${tariff.duration}' must be positive`;
+                    return result;
+                }
+                if (tariff.restrictStartTime) {
+                    const isInRange = this.isTimeInRange(tariff.restrictStartFromTime) && this.isTimeInRange(tariff.restrictStartToTime);
+                    if (!isInRange) {
+                        result.errorCode = ValidateTariffErrorCode.restrictFromAndRestrictToMustBeBetweenZeroAnd1439;
+                        result.errorMessage = `Restrict From '${tariff.restrictStartFromTime}' and restrict To '${tariff.restrictStartToTime}' values must be between 0 and 1439`;
+                        return result;
+                    }
+                    if (tariff.restrictStartFromTime === tariff.restrictStartToTime) {
+                        result.errorCode = ValidateTariffErrorCode.fromAndToMustNotBeTheSame;
+                        result.errorMessage = `Restrict from '${tariff.restrictStartFromTime}' and restrict To '${tariff.restrictStartToTime}' values must not be the same`;
+                        return result;
+                    }
+                }
+                break;
+            case TariffType.fromTo:
+                const isInRange = this.isTimeInRange(tariff.fromTime) && this.isTimeInRange(tariff.toTime);
+                if (!isInRange) {
+                    result.errorCode = ValidateTariffErrorCode.fromAndToMustBeBetweenZeroAnd1439;
+                    result.errorMessage = `From '${tariff.fromTime}' and To '${tariff.toTime}' values must be between 0 and 1439`;
+                    return result;
+                }
+                if (tariff.fromTime === tariff.toTime) {
+                    result.errorCode = ValidateTariffErrorCode.fromAndToMustNotBeTheSame;
+                    result.errorMessage = `From '${tariff.fromTime}' and To '${tariff.toTime}' values must not be the same`;
+                    return result;
+                }
+                break;
+            default:
+                result.errorCode = ValidateTariffErrorCode.unknownTariffType;
+                result.errorMessage = `Unknown tariff type '${tariff.type}'`;
+                return result;
+        }
+        result.success = true;
+        return result;
     }
+
+    private isWhiteSpace(string?: string): boolean {
+        return !(string?.trim());
+    }
+
+    private isTimeInRange(value?: number | null): boolean {
+        if (value === undefined || value === null) {
+            return false;
+        }
+        return value >= 0 && value <= 1439;
+    }
+}
+
+export enum ValidateTariffErrorCode {
+    tariffNotProvided = 'tariff-not-provided',
+    priceMustBeGreaterThanZero = 'price-must-be-greater-than-0',
+    durationMustBeGreaterThanZero = 'duration-must-be-greater-than-0',
+    fromAndToMustBeBetweenZeroAnd1439 = 'from-and-to-must-be-between-0-and-1439',
+    restrictFromAndRestrictToMustBeBetweenZeroAnd1439 = 'restrict-from-and-restrict-to-must-be-between-0-and-1439',
+    fromAndToMustNotBeTheSame = 'from-and-to-must-not-be-the-same',
+    nameIsEmpty = 'name-is-empty',
+    unknownTariffType = 'unknown-tariff-type',
+}
+
+export interface ValidateTariffResult {
+    success: boolean;
+    errorCode?: ValidateTariffErrorCode;
+    errorMessage?: string;
 }

@@ -25,6 +25,7 @@ export class EntityConverter {
             started: storageDeviceStatus.started,
             totalSum: storageDeviceStatus.total,
             tariff: storageDeviceStatus.start_reason,
+            startedByUserId: storageDeviceStatus.started_by_user_id,
         } as DeviceStatus;
         return deviceStatus;
     }
@@ -42,6 +43,9 @@ export class EntityConverter {
             fromTime: storageTariff.from_time,
             toTime: storageTariff.to_time,
             updatedAt: storageTariff.updated_at,
+            restrictStartFromTime: storageTariff.restrict_start_from_time,
+            restrictStartTime: storageTariff.restrict_start_time,
+            restrictStartToTime: storageTariff.restrict_start_to_time,
         };
         return tariff;
     }
@@ -59,6 +63,9 @@ export class EntityConverter {
             from_time: tariff.fromTime,
             to_time: tariff.toTime,
             updated_at: tariff.updatedAt,
+            restrict_start_from_time: tariff.restrictStartFromTime,
+            restrict_start_time: tariff.restrictStartTime,
+            restrict_start_to_time: tariff.restrictStartToTime,
         };
         return storageTariff;
     }

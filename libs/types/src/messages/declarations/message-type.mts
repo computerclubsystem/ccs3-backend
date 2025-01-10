@@ -28,10 +28,14 @@ export const enum MessageType {
     busStartDeviceRequest = 'bus-start-device-request',
     busStartDeviceReply = 'bus-start-device-reply',
 
+    busGetTariffByIdRequest = 'bus-get-tariff-by-id-request',
+    busGetTariffByIdReply = 'bus-get-tariff-by-id-reply',
     busGetAllTariffsRequest = 'bus-get-all-tariffs-request',
     busGetAllTariffsReply = 'bus-get-all-tariffs-reply',
     busCreateTariffRequest = 'bus-create-tariff-request',
     busCreateTariffReply = 'bus-create-tariff-reply',
+    busUpdateTariffRequest = 'bus-update-tariff-request',
+    busUpdateTariffReply = 'bus-update-tariff-reply',
 
     // // Operators
     // operatorAuthRequest = 'auth-request',

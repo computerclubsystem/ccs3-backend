@@ -19,15 +19,17 @@ export enum OperatorMessageType {
     createTariffRequest = 'create-tariff-request',
     // createTariffReply = 'create-tariff-reply',
     updateTariffRequest = 'update-tariff-request',
-    updateTariffReply = 'update-tariff-reply',
     startDeviceRequest = 'start-device-request',
     getDeviceStatusesRequest = 'get-device-statuses-request',
+    getTariffByIdRequest = 'get-tariff-by-id-request',
 }
 
 export const enum OperatorReplyMessageType {
+    getTariffByIdReply = 'get-tariff-by-id-reply',
     createTariffReply = 'create-tariff-reply',
     startDeviceReply = 'start-device-reply',
     getDeviceStatusesReply = 'get-device-statuses-reply',
+    updateTariffReply = 'update-tariff-reply',
 }
 
 export const enum OperatorNotificationMessageType {
