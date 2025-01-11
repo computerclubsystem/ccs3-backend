@@ -1,0 +1,9 @@
+ALTER TABLE permission
+    ADD COLUMN description text;
+
+ALTER TABLE role
+    ADD COLUMN description text;
+
+UPDATE db_metadata
+SET value = '12'
+WHERE name = 'database-version';
