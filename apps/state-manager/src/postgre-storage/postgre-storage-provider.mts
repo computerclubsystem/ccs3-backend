@@ -16,6 +16,8 @@ import { IDeviceConnectionEvent } from 'src/storage/entities/device-connection-e
 import { IOperatorConnectionEvent } from 'src/storage/entities/operator-connection-event.mjs';
 import { ITariff } from 'src/storage/entities/tariff.mjs';
 import { IDeviceSession } from 'src/storage/entities/device-session.mjs';
+import { IRole } from 'src/storage/entities/role.mjs';
+import { IPermission } from 'src/storage/entities/permission.mjs';
 
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
@@ -57,6 +59,83 @@ export class PostgreStorageProvider implements StorageProvider {
         return result;
     }
 
+    async createRoleWithPermissions(role: IRole, permissionIds: number[]): Promise<IRole | undefined> {
+        let transactionClient: pg.PoolClient | undefined;
+        let createdRole: IRole | undefined;
+        try {
+            transactionClient = await this.getPoolClient();
+            await transactionClient.query('BEGIN');
+            const createRoleQueryData = this.queryUtils.createRoleQueryData(role);
+            const createRoleResult = await transactionClient.query(createRoleQueryData.text, createRoleQueryData.params);
+            createdRole = createRoleResult.rows[0] as IRole | undefined;
+            if (!createdRole) {
+                await transactionClient?.query('ROLLBACK');
+                return undefined;
+            } else {
+                const replaceRolePermissionsQueryData = this.queryUtils.replaceRolePermissionsQueryData(createdRole.id, permissionIds);
+                await transactionClient.query(replaceRolePermissionsQueryData.text);
+            }
+            await transactionClient?.query('COMMIT');
+        } catch (err) {
+            createdRole = undefined;
+            await transactionClient?.query('ROLLBACK');
+            throw err;
+        } finally {
+            transactionClient?.release();
+        }
+        return createdRole;
+    }
+
+    async updateRoleWithPermissions(role: IRole, permissionIds: number[]): Promise<IRole | undefined> {
+        let transactionClient: pg.PoolClient | undefined;
+        let updatedRole: IRole | undefined;
+        try {
+            transactionClient = await this.getPoolClient();
+            await transactionClient.query('BEGIN');
+            const updatedRoleQueryData = this.queryUtils.updateRoleQueryData(role);
+            const updateRoleResult = await transactionClient.query(updatedRoleQueryData.text, updatedRoleQueryData.params);
+            updatedRole = updateRoleResult.rows[0] as IRole | undefined;
+            if (!updatedRole) {
+                await transactionClient?.query('ROLLBACK');
+                return undefined;
+            } else {
+                const replaceRolePermissionsQueryData = this.queryUtils.replaceRolePermissionsQueryData(updatedRole.id, permissionIds);
+                await transactionClient.query(replaceRolePermissionsQueryData.text);
+            }
+            await transactionClient?.query('COMMIT');
+        } catch (err) {
+            updatedRole = undefined;
+            await transactionClient?.query('ROLLBACK');
+            throw err;
+        } finally {
+            transactionClient?.release();
+        }
+        return updatedRole;
+    }
+
+    async getAllPermissions(): Promise<IPermission[]> {
+        const queryText = this.queryUtils.getAllPermissionsQueryText();
+        const res = await this.execQuery(queryText);
+        return res.rows as IPermission[];
+    }
+
+    async getRolePermissionIds(roleId: number): Promise<number[]> {
+        const queryData = this.queryUtils.getRolePermissionIdsQueryData(roleId);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows.map(x => x.permission_id) as number[];
+    }
+
+    async getAllRoles(): Promise<IRole[]> {
+        const queryText = this.queryUtils.getAllRolesQueryText();
+        const res = await this.execQuery(queryText);
+        return res.rows as IRole[];
+    }
+
+    async getRoleById(roleId: number): Promise<IRole | undefined> {
+        const queryData = this.queryUtils.getRoleByIdQueryData(roleId);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows[0] as IRole | undefined;
+    }
 
     async addDeviceSession(deviceSession: IDeviceSession): Promise<IDeviceSession> {
         const queryData = this.queryUtils.addDeviceSessionQueryData(deviceSession);
@@ -194,30 +273,8 @@ export class PostgreStorageProvider implements StorageProvider {
         return this.state.pool.end();
     }
 
-    private async execTransaction(query: string, params?: any[]): Promise<QueryResult<any>> {
-        let client: pg.PoolClient | null = null;
-        let res: QueryResult<any>;
-        try {
-
-            client = await this.getPoolClient();
-            res = await client.query(query, params);
-        } finally {
-            client?.release();
-        }
-        return res;
-    }
-
     private async execQuery(query: string, params?: any[]): Promise<QueryResult<any>> {
-        let client: pg.PoolClient | null = null;
-        let res: QueryResult<any>;
-        try {
-            //     client = await this.getPoolClient();
-            //     res = await client.query(query, params);
-            res = await this.state.pool.query(query, params);
-        } finally {
-            // client?.release();
-        }
-        return res;
+        return await this.state.pool.query(query, params);
     }
 
     private async migrateDatabase(): Promise<MigrateDatabaseResult> {

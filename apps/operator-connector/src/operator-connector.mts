@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
-import * as fs from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { catchError, filter, finalize, first, Observable, of, timeout } from 'rxjs';
 
 import {
@@ -17,9 +17,8 @@ import {
 } from '@computerclubsystem/websocket-server';
 import { OperatorAuthRequestMessage } from '@computerclubsystem/types/messages/operators/operator-auth-request.message.mjs';
 import { createBusOperatorAuthRequestMessage } from '@computerclubsystem/types/messages/bus/bus-operator-auth-request.message.mjs';
-import { BusOperatorAuthReplyMessage } from '@computerclubsystem/types/messages/bus/bus-operator-auth-reply.message.mjs';
+import { BusOperatorAuthReplyMessage, BusOperatorAuthReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-operator-auth-reply.message.mjs';
 import { createBusOperatorConnectionEventMessage } from '@computerclubsystem/types/messages/bus/bus-operator-connection-event.message.mjs';
-import { OperatorConnectionEventType } from '@computerclubsystem/types/entities/operator-connection-event-type.mjs';
 import { createOperatorAuthReplyMessage } from '@computerclubsystem/types/messages/operators/operator-auth-reply.message.mjs';
 import { Logger } from './logger.mjs';
 import { IStaticFilesServerConfig, StaticFilesServer } from './static-files-server.mjs';
@@ -79,6 +78,27 @@ import { createOperatorGetTariffByIdReplyMessage } from '@computerclubsystem/typ
 import { OperatorUpdateTariffRequestMessage } from '@computerclubsystem/types/messages/operators/operator-update-tariff-request.message.mjs';
 import { createBusUpdateTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-tariff-request.message.mjs';
 import { createOperatorUpdateTariffReplyMessage } from '@computerclubsystem/types/messages/operators/operator-update-tariff-reply.message.mjs';
+import { OperatorConnectionEventType } from '@computerclubsystem/types/entities/declarations/operator-connection-event-type.mjs';
+import { OperatorGetAllRolesRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-roles-request.message.mjs';
+import { BusGetAllRolesReplyMessageBody, createBusGetAllRolesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-roles-reply.message.mjs';
+import { createBusGetAllRolesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-roles-request.message.mjs';
+import { createOperatorGetAllRolesReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-roles-reply.message.mjs';
+import { OperatorGetRoleWithPermissionsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-role-with-permissions-request.message.mjs';
+import { createBusGetRoleWithPermissionsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-role-with-permissions-request.message.mjs';
+import { BusGetRoleWithPermissionsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-role-with-permissions-reply.message.mjs';
+import { createOperatorGetRoleWithPermissionsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-role-with-permissions-reply.message.mjs';
+import { OperatorGetAllPermissionsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-permissions-request.message.mjs';
+import { createBusGetAllPermissionsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-permissions-request.message.mjs';
+import { BusGetAllPermissionsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-all-permissions-reply.message.mjs';
+import { createOperatorGetAllPermissionsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-permissions-reply.message.mjs';
+import { OperatorCreateRoleWithPermissionsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-create-role-with-permissions-request.message.mjs';
+import { createBusCreateRoleWithPermissionsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-role-with-permissions-request.message.mjs';
+import { BusCreateRoleWithPermissionsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-create-role-with-permissions-reply.message.mjs';
+import { createOperatorCreateRoleWithPermissionsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-create-role-with-permissions-reply.message.mjs';
+import { OperatorUpdateRoleWithPermissionsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-update-role-with-permissions-request.message.mjs';
+import { createBusUpdateRoleWithPermissionsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-role-with-permissions-request.message.mjs';
+import { BusUpdateRoleWithPermissionsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-update-role-with-permissions-reply.message.mjs';
+import { createOperatorUpdateRoleWithPermissionsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-update-role-with-permissions-reply.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -148,7 +168,7 @@ export class OperatorConnector {
                 const notAuthenticatedMsg = createOperatorNotAuthenticatedMessage();
                 notAuthenticatedMsg.header.correlationId = message.header?.correlationId;
                 notAuthenticatedMsg.body.requestedMessageType = message.header?.type;
-                this.sendMessageToOperator(notAuthenticatedMsg, clientData);
+                this.sendMessageToOperator(notAuthenticatedMsg, clientData, message);
             }
             return;
         }
@@ -157,32 +177,47 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorMessageType.createRoleWithPermissionsRequest:
+                this.processOperatorCreateRoleWithPermissionsRequestMessage(clientData, message as OperatorCreateRoleWithPermissionsRequestMessage);
+                break;
+            case OperatorMessageType.updateRoleWithPermissionsRequest:
+                this.processOperatorUpdateRoleWithPermissionsRequestMessage(clientData, message as OperatorUpdateRoleWithPermissionsRequestMessage);
+                break;
+            case OperatorMessageType.getAllPermissionsRequest:
+                this.processOperatorGetAllPermissionsRequestMessage(clientData, message as OperatorGetAllPermissionsRequestMessage);
+                break;
+            case OperatorMessageType.getRoleWithPermissionsRequest:
+                this.processOperatorGetRoleWithPermissionsRequestMessage(clientData, message as OperatorGetRoleWithPermissionsRequestMessage);
+                break;
+            case OperatorMessageType.getAllRolesRequest:
+                this.processOperatorGetAllRolesRequestMessage(clientData, message as OperatorGetAllRolesRequestMessage);
+                break;
             case OperatorMessageType.getDeviceStatusesRequest:
-                this.processOperatorGetDeviceStatusesRequest(clientData, message as OperatorGetDeviceStatusesRequestMessage);
+                this.processOperatorGetDeviceStatusesRequestMessage(clientData, message as OperatorGetDeviceStatusesRequestMessage);
                 break;
             case OperatorMessageType.startDeviceRequest:
-                this.processOperatorStartDeviceRequest(clientData, message as OperatorStartDeviceRequestMessage);
+                this.processOperatorStartDeviceRequestMessage(clientData, message as OperatorStartDeviceRequestMessage);
                 break;
             case OperatorMessageType.getTariffByIdRequest:
-                this.processOperatorGetTariffByIdRequest(clientData, message as OperatorGetTariffByIdRequestMessage);
+                this.processOperatorGetTariffByIdRequestMessage(clientData, message as OperatorGetTariffByIdRequestMessage);
                 break;
             case OperatorMessageType.createTariffRequest:
-                this.processOperatorCreateTariffRequest(clientData, message as OperatorCreateTariffRequestMessage);
+                this.processOperatorCreateTariffRequestMessage(clientData, message as OperatorCreateTariffRequestMessage);
                 break;
             case OperatorMessageType.updateTariffRequest:
-                this.processOperatorUpdateTariffRequest(clientData, message as OperatorUpdateTariffRequestMessage);
+                this.processOperatorUpdateTariffRequestMessage(clientData, message as OperatorUpdateTariffRequestMessage);
                 break;
             case OperatorMessageType.getAllTariffsRequest:
-                this.processOperatorGetAllTariffsRequest(clientData, message as OperatorGetAllTariffsRequestMessage);
+                this.processOperatorGetAllTariffsRequestMessage(clientData, message as OperatorGetAllTariffsRequestMessage);
                 break;
             case OperatorMessageType.updateDeviceRequest:
-                this.processOperatorUpdateDeviceRequest(clientData, message as OperatorUpdateDeviceRequestMessage);
+                this.processOperatorUpdateDeviceRequestMessage(clientData, message as OperatorUpdateDeviceRequestMessage);
                 break;
             case OperatorMessageType.getAllDevicesRequest:
-                this.processOperatorGetAllDevicesRequest(clientData, message as OperatorGetAllDevicesRequestMessage);
+                this.processOperatorGetAllDevicesRequestMessage(clientData, message as OperatorGetAllDevicesRequestMessage);
                 break;
             case OperatorMessageType.getDeviceByIdRequest:
-                this.processOperatorGetDeviceByIdRequest(clientData, message as OperatorGetDeviceByIdRequestMessage);
+                this.processOperatorGetDeviceByIdRequestMessage(clientData, message as OperatorGetDeviceByIdRequestMessage);
                 break;
             case OperatorMessageType.authRequest:
                 this.processOperatorAuthRequestMessage(clientData, message as OperatorAuthRequestMessage);
@@ -199,8 +234,85 @@ export class OperatorConnector {
                 break;
         }
     }
+    
+    processOperatorUpdateRoleWithPermissionsRequestMessage(clientData: ConnectedClientData, message: OperatorUpdateRoleWithPermissionsRequestMessage): void {
+        const requestMsg = createBusUpdateRoleWithPermissionsRequestMessage();
+        requestMsg.body.role = message.body.role;
+        requestMsg.body.permissionIds = message.body.rolePermissionIds;
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusUpdateRoleWithPermissionsReplyMessageBody>(requestMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorUpdateRoleWithPermissionsReplyMessage();
+                operatorReplyMsg.body.role = busReplyMsg.body.role;
+                if (busReplyMsg.header.failure) {
+                    operatorReplyMsg.header.failure = true;
+                    operatorReplyMsg.header.errors = this.errorReplyHelper.cantUpdateRoleWithPermissionsErrors(busReplyMsg.header.errors);
+                }
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
 
-    processOperatorUpdateTariffRequest(clientData: ConnectedClientData, message: OperatorUpdateTariffRequestMessage): void {
+    processOperatorCreateRoleWithPermissionsRequestMessage(clientData: ConnectedClientData, message: OperatorCreateRoleWithPermissionsRequestMessage): void {
+        const requestMsg = createBusCreateRoleWithPermissionsRequestMessage();
+        requestMsg.body.role = message.body.role;
+        requestMsg.body.permissionIds = message.body.rolePermissionIds;
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusCreateRoleWithPermissionsReplyMessageBody>(requestMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorCreateRoleWithPermissionsReplyMessage();
+                operatorReplyMsg.body.role = busReplyMsg.body.role;
+                if (busReplyMsg.header.failure) {
+                    operatorReplyMsg.header.failure = true;
+                    operatorReplyMsg.header.errors = this.errorReplyHelper.cantCreateRoleWithPermissionsErrors(busReplyMsg.header.errors);
+                }
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    processOperatorGetAllPermissionsRequestMessage(clientData: ConnectedClientData, message: OperatorGetAllRolesRequestMessage): void {
+        const requestMsg = createBusGetAllPermissionsRequestMessage();
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetAllPermissionsReplyMessageBody>(requestMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorGetAllPermissionsReplyMessage();
+                operatorReplyMsg.body.permissions = busReplyMsg.body.permissions;
+                if (busReplyMsg.header.failure) {
+                    operatorReplyMsg.header.failure = true;
+                    operatorReplyMsg.header.errors = this.errorReplyHelper.cantGetAllPermissionsErrors(busReplyMsg.header.errors);
+                }
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    processOperatorGetRoleWithPermissionsRequestMessage(clientData: ConnectedClientData, message: OperatorGetRoleWithPermissionsRequestMessage): void {
+        const requestMsg = createBusGetRoleWithPermissionsRequestMessage();
+        requestMsg.body.roleId = message.body.roleId;
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetRoleWithPermissionsReplyMessageBody>(requestMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorGetRoleWithPermissionsReplyMessage();
+                operatorReplyMsg.body.allPermissions = busReplyMsg.body.allPermissions;
+                operatorReplyMsg.body.role = busReplyMsg.body.role;
+                operatorReplyMsg.body.rolePermissionIds = busReplyMsg.body.rolePermissionIds;
+                if (busReplyMsg.header.failure) {
+                    operatorReplyMsg.header.failure = true;
+                    operatorReplyMsg.header.errors = this.errorReplyHelper.cantGetAllRoleWithPermissionsErrors(busReplyMsg.header.errors);
+                }
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    processOperatorGetAllRolesRequestMessage(clientData: ConnectedClientData, message: OperatorGetAllRolesRequestMessage): void {
+        const requestMsg = createBusGetAllRolesRequestMessage();
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetAllRolesReplyMessageBody>(requestMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorGetAllRolesReplyMessage();
+                operatorReplyMsg.body.roles = busReplyMsg.body.roles;
+                if (busReplyMsg.header.failure) {
+                    operatorReplyMsg.header.failure = true;
+                    operatorReplyMsg.header.errors = this.errorReplyHelper.cantGetAllRolesErrors(busReplyMsg.header.errors);
+                }
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    processOperatorUpdateTariffRequestMessage(clientData: ConnectedClientData, message: OperatorUpdateTariffRequestMessage): void {
         const validateTariffResult = this.validators.tariff.validateTariff(message.body.tariff);
         if (!validateTariffResult.success) {
             const errorReplyMsg = createOperatorUpdateTariffReplyMessage();
@@ -215,24 +327,23 @@ export class OperatorConnector {
 
         const busRequestMsg = createBusUpdateTariffRequestMessage();
         busRequestMsg.body.tariff = message.body.tariff;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetTariffByIdReplyMessageBody>(
-            busRequestMsg, MessageType.busUpdateTariffReply, clientData,
-        ).subscribe(busReplyMsg => {
-            const operatorReplyMsg = createOperatorUpdateTariffReplyMessage();
-            operatorReplyMsg.body.tariff = busReplyMsg.body.tariff;
-            if (busReplyMsg.header.failure) {
-                operatorReplyMsg.header.failure = true;
-                operatorReplyMsg.header.errors = this.errorReplyHelper.getCantUpdateTariffErrors(busReplyMsg.header.errors);
-            }
-            this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
-        });
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetTariffByIdReplyMessageBody>(busRequestMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorUpdateTariffReplyMessage();
+                operatorReplyMsg.body.tariff = busReplyMsg.body.tariff;
+                if (busReplyMsg.header.failure) {
+                    operatorReplyMsg.header.failure = true;
+                    operatorReplyMsg.header.errors = this.errorReplyHelper.getCantUpdateTariffErrors(busReplyMsg.header.errors);
+                }
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
     }
 
-    processOperatorGetTariffByIdRequest(clientData: ConnectedClientData, message: OperatorGetTariffByIdRequestMessage): void {
+    processOperatorGetTariffByIdRequestMessage(clientData: ConnectedClientData, message: OperatorGetTariffByIdRequestMessage): void {
         // Validate
         const busRequestMsg = createBusGetTariffByIdRequestMessage();
         busRequestMsg.body.tariffId = message.body.tariffId;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetTariffByIdReplyMessageBody>(busRequestMsg, MessageType.busGetTariffByIdReply, clientData)
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetTariffByIdReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorGetTariffByIdReplyMessage();
                 operatorReplyMsg.body.tariff = busReplyMsg.body.tariff;
@@ -244,7 +355,7 @@ export class OperatorConnector {
             });
     }
 
-    processOperatorGetDeviceStatusesRequest(clientData: ConnectedClientData, message: OperatorGetDeviceStatusesRequestMessage): void {
+    processOperatorGetDeviceStatusesRequestMessage(clientData: ConnectedClientData, message: OperatorGetDeviceStatusesRequestMessage): void {
         // Simply simulate processing of the last bus notification message about device statuses
         // TODO: This will return old data - for example if it is requested immediatelly after a device was started, it will still return that the device is not started
         if (this.state.lastBusDeviceStatusesMessage) {
@@ -272,13 +383,13 @@ export class OperatorConnector {
         }
     }
 
-    processOperatorStartDeviceRequest(clientData: ConnectedClientData, message: OperatorStartDeviceRequestMessage): void {
+    processOperatorStartDeviceRequestMessage(clientData: ConnectedClientData, message: OperatorStartDeviceRequestMessage): void {
         // TODO: Validate
         const busRequestMsg = createBusStartDeviceRequestMessage();
         busRequestMsg.body.deviceId = message.body.deviceId;
         busRequestMsg.body.tariffId = message.body.tariffId;
         busRequestMsg.body.userId = clientData.operatorId!;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusStartDeviceReplyMessageBody>(busRequestMsg, MessageType.busStartDeviceReply, clientData)
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusStartDeviceReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorStartDeviceReplyMessage();
                 operatorReplyMsg.body.deviceStatus = busReplyMsg.body.deviceStatus;
@@ -290,7 +401,7 @@ export class OperatorConnector {
             });
     }
 
-    processOperatorCreateTariffRequest(clientData: ConnectedClientData, message: OperatorCreateTariffRequestMessage): void {
+    processOperatorCreateTariffRequestMessage(clientData: ConnectedClientData, message: OperatorCreateTariffRequestMessage): void {
         const validateTariffResult = this.validators.tariff.validateTariff(message.body.tariff);
         if (!validateTariffResult.success) {
             const errorReplyMsg = createOperatorCreateTariffReplyMessage();
@@ -308,7 +419,7 @@ export class OperatorConnector {
 
         const busRequestMsg = createBusCreateTariffRequestMessage();
         busRequestMsg.body.tariff = requestedTariff;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusCreateTariffReplyMessageBody>(busRequestMsg, MessageType.busCreateTariffReply, clientData)
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusCreateTariffReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorCreateTariffReplyMessage();
                 operatorReplyMsg.body.tariff = busReplyMsg.body.tariff;
@@ -324,14 +435,14 @@ export class OperatorConnector {
             });
     }
 
-    processOperatorGetAllTariffsRequest(clientData: ConnectedClientData, message: OperatorGetAllTariffsRequestMessage): void {
+    processOperatorGetAllTariffsRequestMessage(clientData: ConnectedClientData, message: OperatorGetAllTariffsRequestMessage): void {
         // TODO: Remove "as any"
         const busRequestMsg = createBusGetAllTariffsRequestMessage(message as any);
         busRequestMsg.header.roundTripData = {
             connectionId: clientData.connectionId,
             connectionInstanceId: clientData.connectionInstanceId,
         } as OperatorConnectionRoundTripData;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetAllTariffsReplyMessageBody>(busRequestMsg, MessageType.busGetAllTariffsReply, clientData)
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetAllTariffsReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMessage => {
                 const operatorReplyMsg = createOperatorGetAllTariffsReplyMessage();
                 operatorReplyMsg.body.tariffs = busReplyMessage.body.tariffs;
@@ -342,14 +453,14 @@ export class OperatorConnector {
             });
     }
 
-    processOperatorUpdateDeviceRequest(clientData: ConnectedClientData, message: OperatorUpdateDeviceRequestMessage): void {
+    processOperatorUpdateDeviceRequestMessage(clientData: ConnectedClientData, message: OperatorUpdateDeviceRequestMessage): void {
         const busRequestMsg = createBusUpdateDeviceRequestMessage();
         busRequestMsg.body.device = message.body.device;
         busRequestMsg.header.roundTripData = {
             connectionId: clientData.connectionId,
             connectionInstanceId: clientData.connectionInstanceId,
         } as OperatorConnectionRoundTripData;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusUpdateDeviceReplyMessageBody>(busRequestMsg, MessageType.busUpdateDeviceReply, clientData)
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusUpdateDeviceReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMessage => {
                 const operatorReplyMsg = createOperatorUpdateDeviceReplyMessage();
                 operatorReplyMsg.body.device = busReplyMessage.body.device;
@@ -360,7 +471,7 @@ export class OperatorConnector {
             });
     }
 
-    async processOperatorGetDeviceByIdRequest(clientData: ConnectedClientData, message: OperatorGetDeviceByIdRequestMessage): Promise<void> {
+    async processOperatorGetDeviceByIdRequestMessage(clientData: ConnectedClientData, message: OperatorGetDeviceByIdRequestMessage): Promise<void> {
         const busRequestMsg = createBusDeviceGetByIdRequestMessage();
         busRequestMsg.body.deviceId = message.body.deviceId;
         // TODO: Do we need this roundTripData ? We are now waiting for reply by type
@@ -368,7 +479,7 @@ export class OperatorConnector {
             connectionId: clientData.connectionId,
             connectionInstanceId: clientData.connectionInstanceId,
         } as OperatorConnectionRoundTripData;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusDeviceGetByIdReplyMessageBody>(busRequestMsg, MessageType.busOperatorGetDeviceByIdReply, clientData)
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusDeviceGetByIdReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMessage => {
                 const operatorReplyMsg = createOperatorGetDeviceByIdReplyMessage();
                 operatorReplyMsg.body.device = busReplyMessage.body.device;
@@ -376,13 +487,13 @@ export class OperatorConnector {
             });
     }
 
-    async processOperatorGetAllDevicesRequest(clientData: ConnectedClientData, message: OperatorGetAllDevicesRequestMessage): Promise<void> {
+    async processOperatorGetAllDevicesRequestMessage(clientData: ConnectedClientData, message: OperatorGetAllDevicesRequestMessage): Promise<void> {
         const busRequestMsg = createBusOperatorGetAllDevicesRequestMessage(message);
         busRequestMsg.header.roundTripData = {
             connectionId: clientData.connectionId,
             connectionInstanceId: clientData.connectionInstanceId,
         } as OperatorConnectionRoundTripData;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusOperatorGetAllDevicesReplyMessageBody>(busRequestMsg, MessageType.busOperatorGetAllDevicesReply, clientData)
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusOperatorGetAllDevicesReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMessage => {
                 const operatorReplyMsg = createOperatorGetAllDevicesReplyMessage();
                 operatorReplyMsg.body.devices = busReplyMessage.body.devices;
@@ -390,16 +501,19 @@ export class OperatorConnector {
             });
     }
 
-    publishToOperatorsChannelAndWaitForReplyByType<TReplyBody>(busMessage: Message<any>, expectedReplyType: MessageType, clientData: ConnectedClientData): Observable<Message<TReplyBody>> {
+    publishToOperatorsChannelAndWaitForReplyByType<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData): Observable<Message<TReplyBody>> {
         const messageStatItem: MessageStatItem = {
             sentAt: this.getNowAsNumber(),
-            replyType: expectedReplyType,
+            correlationId: busMessage.header.correlationId,
             type: busMessage.header.type,
             completedAt: 0,
             operatorId: clientData.operatorId,
         };
+        if (!busMessage.header.correlationId) {
+            busMessage.header.correlationId = this.createUUIDString();
+        }
         return this.publishToOperatorsChannel(busMessage).pipe(
-            filter(msg => msg.header.type === expectedReplyType),
+            filter(msg => msg.header.correlationId === busMessage.header.correlationId),
             first(),
             timeout(this.state.messageBusReplyTimeout),
             catchError(err => {
@@ -514,11 +628,12 @@ export class OperatorConnector {
             return;
         }
 
-        const msg = createBusOperatorAuthRequestMessage();
-        msg.body.passwordHash = message.body.passwordHash;
-        msg.body.username = message.body.username;
-        msg.header.roundTripData = this.createRoundTripDataFromConnectedClientData(clientData);
-        this.publishToOperatorsChannel(msg);
+        const requestMsg = createBusOperatorAuthRequestMessage();
+        requestMsg.body.passwordHash = message.body.passwordHash;
+        requestMsg.body.username = message.body.username;
+        requestMsg.header.roundTripData = this.createRoundTripDataFromConnectedClientData(clientData);
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusOperatorAuthReplyMessageBody>(requestMsg, clientData)
+            .subscribe(busReplyMsg => this.processBusOperatorAuthReplyMessage(clientData, busReplyMsg, message));
     }
 
     /**
@@ -538,7 +653,7 @@ export class OperatorConnector {
                 await this.cacheHelper.deleteAuthTokenKey(isTokenActiveResult.authTokenCacheValue?.token);
             }
             authReplyMsg.body.success = false;
-            this.sendMessageToOperator(authReplyMsg, clientData);
+            this.sendMessageToOperator(authReplyMsg, clientData, message);
             if (isTokenActiveResult.authTokenCacheValue) {
                 const operatorId = clientData.operatorId || isTokenActiveResult.authTokenCacheValue.userId;
                 const note = JSON.stringify({
@@ -580,9 +695,9 @@ export class OperatorConnector {
         const operatorId = clientData.operatorId || authTokenCacheValue.userId;
         clientData.operatorId = operatorId;
         // Send messages back to the operator
-        this.sendMessageToOperator(authReplyMsg, clientData);
+        this.sendMessageToOperator(authReplyMsg, clientData, message);
         const configurationMsg = this.createOperatorConfigurationMessage();
-        this.sendMessageToOperator(configurationMsg, clientData);
+        this.sendMessageToOperator(configurationMsg, clientData, null);
         const note = JSON.stringify({
             clientData: clientData,
             authReplyMsg: authReplyMsg,
@@ -623,21 +738,20 @@ export class OperatorConnector {
         this.subjectsService.setOperatorsChannelBusMessageReceived(message);
         const type = message.header.type;
         switch (type) {
-            case MessageType.busOperatorAuthReply:
-                this.processBusOperatorAuthReplyMessage(message as BusOperatorAuthReplyMessage)
-                break;
+            // case MessageType.busOperatorAuthReply:
+            //     this.processBusOperatorAuthReplyMessage(message as BusOperatorAuthReplyMessage)
+            //     break;
             default:
                 // this.logger.log(`Unknown message received`, message);
                 break;
         }
     }
 
-    processBusOperatorAuthReplyMessage(message: BusOperatorAuthReplyMessage): void {
-        const rtData = message.header.roundTripData! as OperatorConnectionRoundTripData;
-        const clientData = this.getConnectedClientData(rtData.connectionId);
+    processBusOperatorAuthReplyMessage(clientData: ConnectedClientData, message: BusOperatorAuthReplyMessage, operatorMessage: OperatorMessage<any>): void {
         if (!clientData) {
             return;
         }
+        const rtData = message.header.roundTripData! as OperatorConnectionRoundTripData;
         clientData.isAuthenticated = message.body.success;
         clientData.permissions = new Set<string>(message.body.permissions);
         clientData.operatorId = message.body.userId;
@@ -649,12 +763,12 @@ export class OperatorConnector {
             replyMsg.body.tokenExpiresAt = this.getNowAsNumber() + this.getTokenExpirationMilliseconds();
             this.maintainUserAuthDataTokenCacheItem(clientData.operatorId!, replyMsg.body.permissions!, replyMsg.body.token, rtData);
         }
-        this.sendMessageToOperator(replyMsg, clientData);
+        this.sendMessageToOperator(replyMsg, clientData, operatorMessage);
         if (message.body.success) {
             // Send configuration message
             // TODO: Get configuration from the database
             const configurationMsg = this.createOperatorConfigurationMessage();
-            this.sendMessageToOperator(configurationMsg, clientData);
+            this.sendMessageToOperator(configurationMsg, clientData, operatorMessage);
 
             const note = JSON.stringify({
                 messageBody: message.body,
@@ -895,7 +1009,7 @@ export class OperatorConnector {
         this.wssServer.sendJSON(message, clientData.connectionId);
     }
 
-    sendMessageToOperator<TBody>(message: OperatorMessage<TBody>, clientData: ConnectedClientData, requestMessage?: OperatorMessage<any>): void {
+    sendMessageToOperator<TBody>(message: OperatorMessage<TBody>, clientData: ConnectedClientData, requestMessage: OperatorMessage<any> | null): void {
         if (requestMessage) {
             message.header.correlationId = requestMessage.header.correlationId;
         }
@@ -1066,9 +1180,9 @@ export class OperatorConnector {
     startWebSocketServer(): void {
         this.wssServer = new WssServer();
         const wssServerConfig: WssServerConfig = {
-            cert: fs.readFileSync(this.envVars.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_CRT_FILE_PATH.value).toString(),
-            key: fs.readFileSync(this.envVars.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_KEY_FILE_PATH.value).toString(),
-            caCert: fs.readFileSync(this.envVars.CCS3_OPERATOR_CONNECTOR_ISSUER_CERTIFICATE_CRT_FILE_PATH.value).toString(),
+            cert: readFileSync(this.envVars.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_CRT_FILE_PATH.value).toString(),
+            key: readFileSync(this.envVars.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_KEY_FILE_PATH.value).toString(),
+            caCert: readFileSync(this.envVars.CCS3_OPERATOR_CONNECTOR_ISSUER_CERTIFICATE_CRT_FILE_PATH.value).toString(),
             port: this.envVars.CCS3_OPERATOR_CONNECTOR_PORT.value,
         };
         this.wssServer.start(wssServerConfig);
@@ -1136,7 +1250,7 @@ export class OperatorConnector {
             this.staticFilesServer = new StaticFilesServer(config, this.wssServer.getHttpsServer());
             this.staticFilesServer.start();
             const resolvedStaticFilesPath = this.staticFilesServer.getResolvedPath();
-            const staticFilesPathExists = fs.existsSync(resolvedStaticFilesPath);
+            const staticFilesPathExists = existsSync(resolvedStaticFilesPath);
             if (staticFilesPathExists) {
                 this.logger.log('Serving static files from', resolvedStaticFilesPath);
             } else {

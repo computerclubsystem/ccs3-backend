@@ -1,0 +1,76 @@
+UPDATE permission
+SET description = 'Allows all operations in the system. System administrators should have this permission.'
+WHERE name = 'all';
+
+INSERT INTO permission
+(
+    name,
+    description
+)
+VALUES
+(
+    'devices:start',
+    'Allows starting computers. Operator role should have this permission.'
+),
+(
+    'devices:stop',
+    'Allows stopping computers. Operator role should have this permission.'
+),
+(
+    'devices:read-status',
+    'Allows reading computers current status (list with started and stopped computers, their times and amounts etc.). Operator role should have this permission.'
+),
+(
+    'devices:read-entity',
+    'Allows reading computers information (computer name, description, group etc.). Operator role should have this permission (to see computer names)'
+),
+(
+    'devices:update-entity',
+    'Allows updating computers data (name, description, enabled/disabled certificate thumbprint etc.).'
+),
+(
+    'system-settings:read',
+    'Allows reading system settings.'
+),
+(
+    'system-settings:update',
+    'Allows updating system settings.'
+),
+(
+    'roles:create',
+    'Allows creating new roles.'
+),
+(
+    'roles:read',
+    'Allows reading user roles.'
+),
+(
+    'roles:update',
+    'Allows updating user roles (adding or removing permissions from roles, changing role name/description etc.)'
+),
+(
+    'tariffs:read',
+    'Allows reading tariffs. Operator role should have this permission (to be able to select tariff on which the computers to be started).'
+),
+(
+    'tariffs:create',
+    'Allows creating new tariffs.'
+),
+(
+    'tariffs:update',
+    'Allows updating tariffs.'
+);
+
+ALTER TABLE role
+    ADD COLUMN enabled boolean;
+
+UPDATE role
+SET enabled = true
+WHERE name = 'admin';
+
+ALTER TABLE role
+    ALTER COLUMN enabled SET NOT NULL;
+
+UPDATE db_metadata
+SET value = '13'
+WHERE name = 'database-version';

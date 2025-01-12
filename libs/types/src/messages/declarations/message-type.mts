@@ -37,8 +37,14 @@ export const enum MessageType {
     busUpdateTariffRequest = 'bus-update-tariff-request',
     busUpdateTariffReply = 'bus-update-tariff-reply',
 
-    // // Operators
-    // operatorAuthRequest = 'auth-request',
-    // operatorAuthReply = 'auth-reply',
-    // operatorConfiguration = 'configuration'
+    busGetAllRolesRequest = 'bus-get-all-roles-request',
+    busGetAllRolesReply = 'bus-get-all-roles-reply',
+    busGetRoleWithPermissionsRequest = 'bus-get-role-with-permissions-request',
+    busGetRoleWithPermissionsReply = 'bus-get-role-with-permissions-reply',
+    busCreateRoleWithPermissionsRequest = 'bus-create-role-with-permissions-request',
+    busCreateRoleWithPermissionsReply = 'bus-create-role-with-permissions-reply',
+    busUpdateRoleWithPermissionsRequest = 'bus-update-role-with-permissions-request',
+    busUpdateRoleWithPermissionsReply = 'bus-update-role-with-permissions-reply',
+    busGetAllPermissionsRequest = 'bus-get-all-permissions-request',
+    busGetAllPermissionsReply = 'bus-get-all-permissions-reply',
 }

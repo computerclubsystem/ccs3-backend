@@ -1,6 +1,6 @@
 import { Message } from '../declarations/message.mjs';
 import { MessageType } from '../declarations/message-type.mjs';
-import { OperatorConnectionEventType } from '../../entities/operator-connection-event-type.mjs';
+import { OperatorConnectionEventType } from '../../entities/declarations/operator-connection-event-type.mjs';
 
 export interface BusOperatorConnectionEventMessageBody {
     operatorId: number;

@@ -4,4 +4,8 @@ export enum BusErrorCode {
     cantStartTheTariffNow = 'cant-start-the-tariff-now',
     cantFindTariff = 'cant-find-tariff',
     userIdIsRequired = 'user-id-is-required',
+    roleIdIsRequired = 'role-id-is-required',
+    roleNameIsRequired = 'role-name-is-required',
+    roleNotFound = 'role-not-found',
+    roleNotCreated = 'role-not-created',
 }

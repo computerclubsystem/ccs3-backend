@@ -12,6 +12,10 @@ import { TariffQueryHelper } from './tariff-query-helper.mjs';
 import { ITariff } from 'src/storage/entities/tariff.mjs';
 import { IDeviceSession } from 'src/storage/entities/device-session.mjs';
 import { DeviceSessionQueryHelper } from './device-session-query-helper.mjs';
+import { RoleQueryHelper } from './role-query-helper.mjs';
+import { PermissionQueryHelper } from './permission-query-helper.mjs';
+import { PermissionInRoleQueryHelper } from './permission-in-role-query-helper.mjs';
+import { IRole } from 'src/storage/entities/role.mjs';
 
 export class QueryUtils {
     private readonly helpers = {
@@ -22,7 +26,38 @@ export class QueryUtils {
         device: new DeviceQueryHelper(),
         tariff: new TariffQueryHelper(),
         deviceSession: new DeviceSessionQueryHelper(),
+        role: new RoleQueryHelper(),
+        permission: new PermissionQueryHelper(),
+        permissionInRole: new PermissionInRoleQueryHelper(),
     };
+
+    replaceRolePermissionsQueryData(roleId: number, permissionIds: number[]): IQueryTextWithParamsResult {
+        return this.helpers.permissionInRole.replaceRolePermissionsQueryData(roleId, permissionIds);
+    }
+
+    createRoleQueryData(role: IRole): IQueryTextWithParamsResult {
+        return this.helpers.role.createRoleQueryData(role);
+    }
+
+    updateRoleQueryData(role: IRole): IQueryTextWithParamsResult {
+        return this.helpers.role.updateRoleQueryData(role);
+    }
+
+    getRolePermissionIdsQueryData(roleId: number): IQueryTextWithParamsResult {
+        return this.helpers.permissionInRole.getRolePermissionIdsQueryData(roleId);
+    }
+
+    getAllPermissionsQueryText(): string {
+        return this.helpers.permission.getAllPermissionsQueryText;
+    }
+
+    getRoleByIdQueryData(roleId: number): IQueryTextWithParamsResult {
+        return this.helpers.role.getRoleByIdQueryData(roleId);
+    }
+
+    getAllRolesQueryText(): string {
+        return this.helpers.role.getAllRolesQueryText;
+    }
 
     addDeviceSessionQueryData(deviceSession: IDeviceSession): IQueryTextWithParamsResult {
         return this.helpers.deviceSession.addDeviceSessionQueryData(deviceSession);

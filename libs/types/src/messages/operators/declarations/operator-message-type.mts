@@ -22,6 +22,11 @@ export enum OperatorMessageType {
     startDeviceRequest = 'start-device-request',
     getDeviceStatusesRequest = 'get-device-statuses-request',
     getTariffByIdRequest = 'get-tariff-by-id-request',
+    getAllRolesRequest = 'get-all-roles-request',
+    getRoleWithPermissionsRequest = 'get-role-with-permissions-request',
+    createRoleWithPermissionsRequest = 'create-role-with-permissions-request',
+    getAllPermissionsRequest = 'get-all-permissions-request',
+    updateRoleWithPermissionsRequest = 'update-role-with-permissions-request',
 }
 
 export const enum OperatorReplyMessageType {
@@ -30,6 +35,11 @@ export const enum OperatorReplyMessageType {
     startDeviceReply = 'start-device-reply',
     getDeviceStatusesReply = 'get-device-statuses-reply',
     updateTariffReply = 'update-tariff-reply',
+    getAllRolesReply = 'get-all-roles-reply',
+    getRoleWithPermissionsReply = 'get-role-with-permissions-reply',
+    createRoleWithPermissionsReply = 'create-role-with-permissions-reply',
+    getAllPermissionsReply = 'get-all-permissions-reply',
+    updateRoleWithPermissionsReply = 'update-role-with-permissions-reply',
 }
 
 export const enum OperatorNotificationMessageType {

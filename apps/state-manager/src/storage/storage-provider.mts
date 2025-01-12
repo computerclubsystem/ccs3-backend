@@ -8,6 +8,8 @@ import { StorageProviderInitResult } from './storage-provider-init-result.mjs';
 import { IOperatorConnectionEvent } from './entities/operator-connection-event.mjs';
 import { ITariff } from './entities/tariff.mjs';
 import { IDeviceSession } from './entities/device-session.mjs';
+import { IRole } from './entities/role.mjs';
+import { IPermission } from './entities/permission.mjs';
 
 export interface StorageProvider {
     init(config: StorageProviderConfig): Promise<StorageProviderInitResult>;
@@ -34,4 +36,10 @@ export interface StorageProvider {
     createTariff(tariff: ITariff): Promise<ITariff>;
     updateTariff(tariff: ITariff): Promise<ITariff>;
     addDeviceSession(deviceSession: IDeviceSession): Promise<IDeviceSession>
+    getAllRoles(): Promise<IRole[]>;
+    getRoleById(roleId: number): Promise<IRole | undefined>;
+    getAllPermissions(): Promise<IPermission[]>
+    getRolePermissionIds(roleId: number): Promise<number[]>;
+    createRoleWithPermissions(role: IRole, permissionIds: number[]): Promise<IRole | undefined>;
+    updateRoleWithPermissions(role: IRole, permissionIds: number[]): Promise<IRole | undefined>;
 }

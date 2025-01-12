@@ -24,7 +24,7 @@ export class TariffValidator {
             case TariffType.duration:
                 const isDurationPositive = tariff.duration! > 0;
                 if (!isDurationPositive) {
-                    result.errorCode = ValidateTariffErrorCode.fromAndToMustBeBetweenZeroAnd1439;
+                    result.errorCode = ValidateTariffErrorCode.durationMustBeGreaterThanZero;
                     result.errorMessage = `Duration '${tariff.duration}' must be positive`;
                     return result;
                 }

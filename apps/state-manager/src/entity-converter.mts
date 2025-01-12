@@ -1,15 +1,48 @@
 import { Device } from '@computerclubsystem/types/entities/device.mjs';
-import { DeviceConnectionEventType } from '@computerclubsystem/types/entities/device-connection-event-type.mjs';
+import { DeviceConnectionEventType } from '@computerclubsystem/types/entities/declarations/device-connection-event-type.mjs';
 import { DeviceConnectionEventType as DeviceConnectionEventTypeStorage } from './storage/entities/constants/device-connection-event-type.mjs';
 import { OperatorConnectionEventType as OperatorConnectionEventTypeStorage } from './storage/entities/constants/operator-connection-event-type.mjs';
 import { IDevice } from './storage/entities/device.mjs';
-import { OperatorConnectionEventType } from '@computerclubsystem/types/entities/operator-connection-event-type.mjs';
+import { OperatorConnectionEventType } from '@computerclubsystem/types/entities/declarations/operator-connection-event-type.mjs';
 import { ITariff, TariffType as StorageTariffType } from './storage/entities/tariff.mjs';
 import { Tariff, TariffType } from '@computerclubsystem/types/entities/tariff.mjs';
 import { IDeviceStatus } from './storage/entities/device-status.mjs';
 import { DeviceStatus } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
+import { IRole } from './storage/entities/role.mjs';
+import { Role } from '@computerclubsystem/types/entities/role.mjs';
+import { IPermission } from './storage/entities/permission.mjs';
+import { Permission } from '@computerclubsystem/types/entities/permission.mjs';
 
 export class EntityConverter {
+    storagePermissionToPermission(storagePermission: IPermission): Permission {
+        const permission: Permission = {
+            id: storagePermission.id,
+            name: storagePermission.name,
+            description: storagePermission.description,
+        };
+        return permission;
+    }
+
+    storageRoleToRole(storageRole: IRole): Role {
+        const role: Role = {
+            enabled: storageRole.enabled,
+            id: storageRole.id,
+            name: storageRole.name,
+            description: storageRole.description,
+        };
+        return role;
+    }
+
+    roleToStorageRole(role: Role): IRole {
+        const storageRole: IRole = {
+            enabled: role.enabled,
+            id: role.id,
+            name: role.name,
+            description: role.description,
+        };
+        return storageRole;
+    }
+
     deviceConnectionEventTypeToDeviceConnectionEventStorage(deviceConnectionEventType: DeviceConnectionEventType): DeviceConnectionEventTypeStorage {
         return (deviceConnectionEventType as number) as DeviceConnectionEventTypeStorage;
     }
