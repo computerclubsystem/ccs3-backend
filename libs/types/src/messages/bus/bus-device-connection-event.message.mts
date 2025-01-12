@@ -1,6 +1,6 @@
 import { Message } from '../declarations/message.mjs';
 import { MessageType } from '../declarations/message-type.mjs';
-import { DeviceConnectionEventType } from '../../entities/device-connection-event-type.mjs';
+import { DeviceConnectionEventType } from '../../entities/declarations/device-connection-event-type.mjs';
 
 export interface BusDeviceConnectionEventMessageBody {
     deviceId: number;

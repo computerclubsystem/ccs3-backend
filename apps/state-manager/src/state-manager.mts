@@ -28,7 +28,6 @@ import { transferSharedMessageData } from '@computerclubsystem/types/messages/ut
 import { OperatorConnectionRoundTripData } from '@computerclubsystem/types/messages/operators/declarations/operator-connection-roundtrip-data.mjs';
 import { ISystemSetting } from './storage/entities/system-setting.mjs';
 import { CacheHelper } from './cache-helper.mjs';
-import { SystemSettingType } from './storage/entities/constants/system-setting-type.mjs';
 import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
 import { BusOperatorConnectionEventMessage } from '@computerclubsystem/types/messages/bus/bus-operator-connection-event.message.mjs';
 import { IOperatorConnectionEvent } from './storage/entities/operator-connection-event.mjs';
@@ -53,8 +52,19 @@ import { BusGetTariffByIdRequestMessage } from '@computerclubsystem/types/messag
 import { createBusGetTariffByIdReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-tariff-by-id-reply.message.mjs';
 import { BusUpdateTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-tariff-request.message.mjs';
 import { createBusUpdateTariffReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-tariff-reply.message.mjs';
-import { ITariff } from './storage/entities/tariff.mjs';
 import { IDeviceSession } from './storage/entities/device-session.mjs';
+import { BusGetAllRolesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-roles-request.message.mjs';
+import { createBusGetAllRolesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-roles-reply.message.mjs';
+import { BusGetRoleWithPermissionsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-role-with-permissions-request.message.mjs';
+import { createBusGetRoleWithPermissionsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-role-with-permissions-reply.message.mjs';
+import { BusGetAllPermissionsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-permissions-request.message.mjs';
+import { createBusGetAllPermissionsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-permissions-reply.message.mjs';
+import { BusCreateRoleWithPermissionsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-role-with-permissions-request.message.mjs';
+import { createBusCreateRoleWithPermissionsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-role-with-permissions-reply.message.mjs';
+import { Role } from '@computerclubsystem/types/entities/role.mjs';
+import { BusUpdateRoleWithPermissionsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-role-with-permissions-request.message.mjs';
+import { createBusUpdateRoleWithPermissionsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-role-with-permissions-reply.message.mjs';
+import { MessageError } from '@computerclubsystem/types/messages/declarations/message-error.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -144,6 +154,7 @@ export class StateManager {
         await this.cacheClient.connect(redisCacheClientOptions);
         this.logger.log('CacheClient connected');
 
+        await this.cacheStaticData();
         // setInterval(async () => {
         //     try {
         //         console.log('StoreClient writing key/value pair');
@@ -186,6 +197,21 @@ export class StateManager {
     processOperatorsMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busCreateRoleWithPermissionsRequest:
+                this.processCreateRoleWithPermissionsRequestMessage(message as BusCreateRoleWithPermissionsRequestMessage);
+                break;
+            case MessageType.busUpdateRoleWithPermissionsRequest:
+                this.processUpdateRoleWithPermissionsRequestMessage(message as BusUpdateRoleWithPermissionsRequestMessage);
+                break;
+            case MessageType.busGetAllPermissionsRequest:
+                this.processGetAllPermissionsRequestMessage(message as BusGetAllPermissionsRequestMessage);
+                break;
+            case MessageType.busGetRoleWithPermissionsRequest:
+                this.processGetRoleWithPermissionsRequestMessage(message as BusGetRoleWithPermissionsRequestMessage);
+                break;
+            case MessageType.busGetAllRolesRequest:
+                this.processGetAllRolesRequestMessage(message as BusGetAllRolesRequestMessage);
+                break;
             case MessageType.busStartDeviceRequest:
                 this.processStartDeviceRequestMessage(message as BusStartDeviceRequestMessage);
                 break;
@@ -234,48 +260,169 @@ export class StateManager {
         }
     }
 
-    // async getBusOperatorAuthReplyMessageForToken(token: string): Promise<BusOperatorAuthReplyMessage> {
-    //     const replyMsg = createBusOperatorAuthReplyMessage();
-    //     const cachedItem: UserAuthDataCacheValue = await this.cacheHelper.getAuthTokenValue(token);
-    //     if (cachedItem) {
-    //         const now = this.getNowAsNumber();
-    //         const isTokenExpired = now > cachedItem.tokenExpiresAt;
-    //         if (!isTokenExpired) {
-    //             // Token is not expired - get user data
-    //             const user = await this.storageProvider.getUserById(cachedItem.userId);
-    //             if (user) {
-    //                 if (user.enabled) {
-    //                     replyMsg.body.permissions = await this.storageProvider.getUserPermissions(user.id);
-    //                     replyMsg.body.success = true;
-    //                     replyMsg.body.userId = user.id;
-    //                 } else {
-    //                     // TODO: Set "User is not enabled"
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     return replyMsg;
-    // }
-
-    async getBusOperatorReplyMessageForUsernameAndPasswordHash(username: string, passwordHash: string): Promise<BusOperatorAuthReplyMessage> {
-        const replyMsg = createBusOperatorAuthReplyMessage();
-        const user = await this.storageProvider.getUser(username, passwordHash);
-        if (!user) {
-            // TODO: Send "credentials are invalid"
-            replyMsg.body.success = false;
-        } else if (!user.enabled) {
-            // TODO: Send "User not enabled"
-            const replyMsg = createBusOperatorAuthReplyMessage();
-            replyMsg.body.success = false;
-            replyMsg.body.userId = user.id;
-        } else {
-            // User with such username and password is found and is enabled
-            const permissions = await this.storageProvider.getUserPermissions(user.id);
-            replyMsg.body.success = true;
-            replyMsg.body.userId = user.id;
-            replyMsg.body.permissions = permissions;
+    private getRoleValidationMessageErrors(role: Role, idRequired: boolean = false): MessageError[] | undefined {
+        let result: MessageError[] | undefined
+        if (!role?.name?.trim()) {
+            result = [{
+                code: BusErrorCode.roleNameIsRequired,
+                description: 'Role name is required',
+            }] as MessageError[];
+            return result;
         }
-        return replyMsg;
+        if (idRequired) {
+            if (!role?.id) {
+                result = [{
+                    code: BusErrorCode.roleIdIsRequired,
+                    description: 'Role Id is required',
+                }] as MessageError[];
+                return result;
+            }
+        }
+        return undefined;
+    }
+
+    async processUpdateRoleWithPermissionsRequestMessage(message: BusUpdateRoleWithPermissionsRequestMessage): Promise<void> {
+        const replyMsg = createBusUpdateRoleWithPermissionsReplyMessage();
+        const role: Role = message.body.role;
+        const messageErrors = this.getRoleValidationMessageErrors(role, true);
+        if (messageErrors) {
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = messageErrors;
+            this.publishToOperatorsChannel(replyMsg, message);
+            return;
+        }
+        try {
+            const storageRole = this.entityConverter.roleToStorageRole(role);
+            const updatedStorageRole = await this.storageProvider.updateRoleWithPermissions(storageRole, message.body.permissionIds || []);
+            if (updatedStorageRole) {
+                replyMsg.body.role = this.entityConverter.storageRoleToRole(updatedStorageRole);
+            } else {
+                this.logger.warn(`Can't process BusUpdateRoleWithPermissionsRequestMessage message. Role was not updated`, message);
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.roleNotFound,
+                    description: 'Role was not found',
+                }];
+            }
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusUpdateRoleWithPermissionsRequestMessage message`, message, err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+    async processCreateRoleWithPermissionsRequestMessage(message: BusCreateRoleWithPermissionsRequestMessage): Promise<void> {
+        const replyMsg = createBusCreateRoleWithPermissionsReplyMessage();
+        const role: Role = message.body.role;
+        const messageErrors = this.getRoleValidationMessageErrors(role, false);
+        if (messageErrors) {
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = messageErrors;
+            this.publishToOperatorsChannel(replyMsg, message);
+            return;
+        }
+        try {
+            const storageRole = this.entityConverter.roleToStorageRole(role);
+            const createdStorageRole = await this.storageProvider.createRoleWithPermissions(storageRole, message.body.permissionIds || []);
+            if (createdStorageRole) {
+                replyMsg.body.role = this.entityConverter.storageRoleToRole(createdStorageRole);
+            } else {
+                this.logger.warn(`Can't process BusCreateRoleWithPermissionsRequestMessage message. Role was not created`, message);
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.roleNotCreated,
+                    description: 'Role was not created',
+                }];
+            }
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusCreateRoleWithPermissionsRequestMessage message`, message, err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+    async processGetAllPermissionsRequestMessage(message: BusGetAllPermissionsRequestMessage): Promise<void> {
+        const replyMsg = createBusGetAllPermissionsReplyMessage();
+        try {
+            const allPermissions = await this.cacheHelper.getAllPermissions();
+            replyMsg.body.permissions = allPermissions;
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusGetAllPermissionsRequestMessage message`, message, err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+    async processGetRoleWithPermissionsRequestMessage(message: BusGetRoleWithPermissionsRequestMessage): Promise<void> {
+        const replyMsg = createBusGetRoleWithPermissionsReplyMessage();
+        if (!message.body.roleId) {
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: BusErrorCode.roleIdIsRequired,
+                description: 'Role Id is required to get role and permissions',
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+            return;
+        }
+        try {
+            const storageRole = await this.storageProvider.getRoleById(message.body.roleId);
+            if (!storageRole) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.roleNotFound,
+                    description: `Role with specified Id ${message.body.roleId} was not found`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const rolePermissionIds = await this.storageProvider.getRolePermissionIds(message.body.roleId);
+            const allPermissions = await this.cacheHelper.getAllPermissions();
+            replyMsg.body.role = this.entityConverter.storageRoleToRole(storageRole);
+            replyMsg.body.allPermissions = allPermissions;
+            replyMsg.body.rolePermissionIds = rolePermissionIds;
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusGetAllRolesRequestMessage message`, message, err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+    async processGetAllRolesRequestMessage(message: BusGetAllRolesRequestMessage): Promise<void> {
+        const replyMsg = createBusGetAllRolesReplyMessage();
+        try {
+            const allStorageRoles = await this.storageProvider.getAllRoles();
+            const allRoles = allStorageRoles.map(storageTole => this.entityConverter.storageRoleToRole(storageTole));
+            replyMsg.body.roles = allRoles;
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusGetAllRolesRequestMessage message`, message, err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
     }
 
     async processStartDeviceRequestMessage(message: BusStartDeviceRequestMessage): Promise<void> {
@@ -613,6 +760,27 @@ export class StateManager {
         }
     }
 
+    async getBusOperatorReplyMessageForUsernameAndPasswordHash(username: string, passwordHash: string): Promise<BusOperatorAuthReplyMessage> {
+        const replyMsg = createBusOperatorAuthReplyMessage();
+        const user = await this.storageProvider.getUser(username, passwordHash);
+        if (!user) {
+            // TODO: Send "credentials are invalid"
+            replyMsg.body.success = false;
+        } else if (!user.enabled) {
+            // TODO: Send "User not enabled"
+            const replyMsg = createBusOperatorAuthReplyMessage();
+            replyMsg.body.success = false;
+            replyMsg.body.userId = user.id;
+        } else {
+            // User with such username and password is found and is enabled
+            const permissions = await this.storageProvider.getUserPermissions(user.id);
+            replyMsg.body.success = true;
+            replyMsg.body.userId = user.id;
+            replyMsg.body.permissions = permissions;
+        }
+        return replyMsg;
+    }
+
     async processBusDeviceUnknownDeviceConnectedMessageRequest(message: BusDeviceUnknownDeviceConnectedRequestMessage): Promise<void> {
         try {
             // const connectionRoundtripData = message.header.roundTripData as ConnectionRoundTripData;
@@ -728,6 +896,12 @@ export class StateManager {
             allDevices = await this.cacheAllDevices();
         }
         return allDevices;
+    }
+
+    private async cacheStaticData(): Promise<void> {
+        const storageAllPermissions = await this.storageProvider.getAllPermissions();
+        const allPermissions = storageAllPermissions.map(x => this.entityConverter.storagePermissionToPermission(x));
+        this.cacheHelper.setAllPermissions(allPermissions);
     }
 
     private async refreshDeviceStatuses(): Promise<void> {
@@ -953,54 +1127,6 @@ export class StateManager {
         await this.cacheClient.disconnect();
         await this.storageProvider.stop();
     }
-
-    // // TODO: For testing only
-    // private async addDummyDevices(): Promise<void> {
-    //     await this.storeConnector.addDevice({
-    //         deactivated: false,
-    //         certificateThumbprint: '15a74d3f019108a339ffce6b5c9b6396619878dc',
-    //         createdAt: new Date().toISOString(),
-    //         id: '',
-    //         name: 'comp-1',
-    //     });
-    //     await this.storeConnector.addDevice({
-    //         deactivated: false,
-    //         certificateThumbprint: '08:07:47:CB:CE:E6:D3:A4:79:21:31:5D:BF:7F:5A:C8:0D:77:4B:C5',
-    //         createdAt: new Date().toISOString(),
-    //         id: '',
-    //         name: 'comp-2',
-    //     });
-    //     await this.storeConnector.addDevice({
-    //         deactivated: false,
-    //         certificateThumbprint: '22:06:A8:88:04:73:3F:69:51:04:42:A4:1F:65:91:A3:B2:4D:A0:28',
-    //         createdAt: new Date().toISOString(),
-    //         id: '',
-    //         name: 'comp-3',
-    //     });
-    // }
-
-    // // TODO: For testing only
-    // private startSendingDeviceSetStatusMessage(): void {
-    //     setInterval(() => {
-    //         const msg = createBusDeviceStatusesMessage();
-    //         msg.header.source = this.messageBusIdentifier;
-    //         msg.body.deviceStatuses = [];
-    //         const activeDevices = this.allDevices.filter(x => !x.deactivated);
-    //         for (const device of activeDevices) {
-    //             const deviceStatus: DeviceStatus = {
-    //                 expectedEndAt: Math.round(Math.random() * 99999999),
-    //                 startedAt: Math.round(Math.random() * 99999999),
-    //                 state: Math.random() < 0.5 ? DeviceState.disabled : DeviceState.enabled,
-    //                 totalSum: Math.random() * 99,
-    //                 totalTime: Math.random() * 99999,
-    //                 deviceId: device.id,
-    //                 remainingSeconds: Math.round(Math.random() * 9999),
-    //             };
-    //             msg.body.deviceStatuses.push(deviceStatus);
-    //         }
-    //         this.publishMessage(ChannelName.devices, msg);
-    //     }, 5000);
-    // }
 }
 
 interface StateManagerState {

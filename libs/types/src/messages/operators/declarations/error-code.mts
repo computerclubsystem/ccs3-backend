@@ -9,4 +9,11 @@ export const enum OperatorReplyMessageErrorCode {
     unknownTariffType = 'unknown-tariff-type',
     cantFindTariff = 'cant-find-tariff',
     userIdIsRequired = 'user-id-is-required',
+    roleIdIsRequired = 'role-id-is-required',
+    cantGetAllRoles = 'cant-get-all-roles',
+    cantGetRoleWithPermissions = 'cant-get-role-with-permissions',
+    roleNotFound = 'role-not-found',
+    cantGetAllPermissions = 'cant-get-all-permissions',
+    cantCreateRoleWithPermissions = 'cant-create-role-with-permissions',
+    cantUpdateRoleWithPermissions = 'cant-update-role-with-permissions',
 }

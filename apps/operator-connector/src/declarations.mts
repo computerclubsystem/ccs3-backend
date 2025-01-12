@@ -123,7 +123,7 @@ export interface IsAuthorizedResult {
 
 export interface MessageStatItem {
     type: string;
-    replyType: string;
+    correlationId?: string;
     sentAt: number;
     completedAt: number;
     error?: any;

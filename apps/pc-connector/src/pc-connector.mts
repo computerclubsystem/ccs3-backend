@@ -18,7 +18,6 @@ import { createDeviceSetStatusMessage } from '@computerclubsystem/types/messages
 import { ConnectionRoundTripData } from '@computerclubsystem/types/messages/declarations/connection-roundtrip-data.mjs';
 import { createDeviceConfigurationMessage } from '@computerclubsystem/types/messages/devices/device-configuration.message.mjs';
 import { BusDeviceConnectionEventMessageBody, createBusDeviceConnectionEventMessage } from '@computerclubsystem/types/messages/bus/bus-device-connection-event.message.mjs';
-import { DeviceConnectionEventType } from '@computerclubsystem/types/entities/device-connection-event-type.mjs';
 import {
     ClientConnectedEventArgs, ConnectionClosedEventArgs, ConnectionErrorEventArgs,
     WssServerEventName, MessageReceivedEventArgs, WssServer, WssServerConfig
@@ -27,6 +26,7 @@ import { ExitProcessManager, ProcessExitCode } from './exit-process-manager.mjs'
 import { Logger } from './logger.mjs';
 import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
 import { CertificateHelper, CertificateIssuerSubjectInfo } from './certificate-helper.mjs';
+import { DeviceConnectionEventType } from '@computerclubsystem/types/entities/declarations/device-connection-event-type.mjs';
 
 export class PcConnector {
     wssServer!: WssServer;

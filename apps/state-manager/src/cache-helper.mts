@@ -1,5 +1,6 @@
 import { RedisCacheClient } from '@computerclubsystem/redis-client';
 import { Device } from '@computerclubsystem/types/entities/device.mjs';
+import { Permission } from '@computerclubsystem/types/entities/permission.mjs';
 import { Tariff } from '@computerclubsystem/types/entities/tariff.mjs';
 
 export class CacheHelper {
@@ -9,7 +10,16 @@ export class CacheHelper {
     private keys = {
         allTariffs: 'tariffs:all',
         allDevices: 'devices:all',
+        allPermissions: 'permissions:all',
     };
+
+    setAllPermissions(permissions: Permission[]): Promise<any> {
+        return this.cacheClient.setValue(this.keys.allPermissions, permissions);
+    }
+
+    getAllPermissions(): Promise<Permission[]> {
+        return this.cacheClient.getValue(this.keys.allPermissions);
+    }
 
     setAllTariffs(tariffs: Tariff[]): Promise<any> {
         return this.cacheClient.setValue(this.keys.allTariffs, tariffs);
