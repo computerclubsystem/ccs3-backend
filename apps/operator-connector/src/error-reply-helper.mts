@@ -1,8 +1,18 @@
 import { BusErrorCode } from '@computerclubsystem/types/messages/bus/declarations/bus-error-code.mjs';
 import { MessageError } from '@computerclubsystem/types/messages/declarations/message-error.mjs';
+import { Message } from '@computerclubsystem/types/messages/declarations/message.mjs';
 import { OperatorReplyMessageErrorCode } from '@computerclubsystem/types/messages/operators/declarations/error-code.mjs';
+import { OperatorMessage, OperatorReplyMessage } from '@computerclubsystem/types/messages/operators/declarations/operator.message.mjs';
 
 export class ErrorReplyHelper {
+    processBusMessageFailure(busMessage: Message<any>, requestMessage: OperatorMessage<any>, replyMessage: OperatorReplyMessage<any>): void {
+        if (busMessage.header.failure) {
+            const firstErrorCode = busMessage.header.errors?.[0]?.code || '';
+            replyMessage.header.failure = true;
+            replyMessage.header.errors = [{ code: firstErrorCode, description: `Can't process message '${requestMessage?.header?.type}'` }];
+        }
+    }
+
     updateUserWithRolesErrors(busMessageErrors: MessageError[] | undefined): MessageError[] {
         let messageErrors: MessageError[];
         if (busMessageErrors?.find(x => x.code === BusErrorCode.userIdIsRequired)) {

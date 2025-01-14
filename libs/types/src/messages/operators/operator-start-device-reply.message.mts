@@ -3,7 +3,6 @@ import { OperatorReplyMessageType } from './declarations/operator-message-type.m
 import { OperatorReplyMessage } from './declarations/operator.message.mjs';
 
 export interface OperatorStartDeviceReplyMessageBody {
-    // TODO: Return the new DeviceStatus ?
     deviceStatus?: DeviceStatus | null;
 }
 

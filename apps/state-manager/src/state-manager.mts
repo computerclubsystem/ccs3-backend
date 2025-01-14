@@ -74,6 +74,9 @@ import { BusGetUserWithRolesRequestMessage } from '@computerclubsystem/types/mes
 import { createBusGetUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-user-with-roles-reply.message.mjs';
 import { createBusUpdateUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-user-with-roles-reply.message.mjs';
 import { BusUpdateUserWithRolesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-user-with-roles-request.message.mjs';
+import { BusStopDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-stop-device-request.message.mjs';
+import { createBusStopDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-stop-device-reply.message.mjs';
+import { createBusDeviceUnknownDeviceConnectedReplyMessage } from '@computerclubsystem/types/messages/bus/bus-device-unknown-device-connected-reply.message.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -89,84 +92,6 @@ export class StateManager {
     private readonly tariffHelper = new TariffHelper();
     private readonly dateTimeHelper = new DateTimeHelper();
     private readonly envVars = new EnvironmentVariablesHelper().createEnvironmentVars();
-
-    async start(): Promise<boolean> {
-        this.cacheHelper.initialize(this.cacheClient);
-        this.logger.setPrefix(this.className);
-        const databaseInitialized = await this.initializeDatabase();
-        if (!databaseInitialized) {
-            this.logger.error('The database cannot be initialized');
-            return false;
-        }
-
-        await this.loadSystemSettings();
-
-        this.dateTimeHelper.setDefaultTimeZone(this.state.systemSettings[SystemSettingName.timezone]);
-        // TODO: Should we publish system settings to the shared channel ? They can contain sensitive information
-
-        this.state.mainTimerHandle = setInterval(() => this.mainTimerCallback(), 1000);
-
-        const redisHost = this.envVars.CCS3_REDIS_HOST.value;
-        const redisPort = this.envVars.CCS3_REDIS_PORT.value;
-        this.logger.log('Using Redis host', redisHost, 'and port', redisPort);
-
-        const subClientOptions: CreateConnectedRedisClientOptions = {
-            host: redisHost,
-            port: redisPort,
-            errorCallback: err => this.logger.error('SubClient error', err),
-            reconnectStrategyCallback: (retries: number, err: Error) => {
-                this.logger.error('SubClient reconnect strategy error', retries, err);
-                return 5000;
-            },
-        };
-        const subClientMessageCallback: RedisClientMessageCallback = (channelName, message) => {
-            try {
-                const messageJson = this.deserializeToMessage(message);
-                if (messageJson) {
-                    this.processReceivedBusMessage(channelName, messageJson);
-                } else {
-                    this.logger.warn('The message', message, 'deserialized to null');
-                }
-            } catch (err) {
-                this.logger.warn('Cannot deserialize channel', channelName, 'message', message);
-            }
-        };
-        await this.subClient.connect(subClientOptions, subClientMessageCallback);
-        this.logger.log('SubClient connected');
-        await this.subClient.subscribe(ChannelName.shared);
-        await this.subClient.subscribe(ChannelName.devices);
-        await this.subClient.subscribe(ChannelName.operators);
-
-        const pubClientOptions: CreateConnectedRedisClientOptions = {
-            host: redisHost,
-            port: redisPort,
-            errorCallback: err => this.logger.error('PubClient error', err),
-            reconnectStrategyCallback: (retries: number, err: Error) => {
-                this.logger.error('PubClient reconnect strategy error', retries, err);
-                return 5000;
-            },
-        };
-        this.logger.log('PubClient connecting');
-        await this.pubClient.connect(pubClientOptions);
-        this.logger.log('PubClient connected');
-
-        const redisCacheClientOptions: CreateConnectedRedisClientOptions = {
-            host: redisHost,
-            port: redisPort,
-            errorCallback: err => console.error('CacheClient error', err),
-            reconnectStrategyCallback: (retries: number, err: Error) => {
-                console.error('CacheClient reconnect strategy error', retries, err);
-                return 5000;
-            },
-        };
-        this.logger.log('CacheClient connecting');
-        await this.cacheClient.connect(redisCacheClientOptions);
-        this.logger.log('CacheClient connected');
-
-        await this.cacheStaticData();
-
-        return true;
-    }
 
     processReceivedBusMessage(channelName: string, message: Message<any>): void {
         if (this.isOwnMessage(message)) {
@@ -193,9 +118,12 @@ export class StateManager {
     processOperatorsMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busStopDeviceRequest:
+                this.processBusStopDeviceRequestMessage(message as BusStopDeviceRequestMessage);
+                break;
             case MessageType.busUpdateUserWithRolesRequest:
                 this.processBusUpdateUserWithRolesRequestMessage(message as BusUpdateUserWithRolesRequestMessage);
-                break;            
+                break;
             case MessageType.busCreateUserWithRolesRequest:
                 this.processBusCreateUserWithRolesRequestMessage(message as BusCreateUserWithRolesRequestMessage);
                 break;
@@ -265,6 +193,112 @@ export class StateManager {
             case MessageType.busDeviceConnectionEvent:
                 this.processDeviceConnectionEventMessage(message as BusDeviceConnectionEventMessage);
                 break;
+        }
+    }
+
+    async processBusStopDeviceRequestMessage(message: BusStopDeviceRequestMessage): Promise<void> {
+        const replyMsg = createBusStopDeviceReplyMessage();
+        try {
+            const deviceId = message.body.deviceId;
+            if (!deviceId) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceIdIsRequired,
+                    description: 'Device Id is required',
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const userIdIsRequiredButNotProvided = (!message.body.stoppedByCustomer && !message.body.userId);
+            if (userIdIsRequiredButNotProvided) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userIdIsRequired,
+                    description: 'User Id is required',
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const userIdProvidedButShouldnt = (message.body.stoppedByCustomer && message.body.userId);
+            if (userIdProvidedButShouldnt) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userIdMustNotBeProvided,
+                    description: 'User Id must not be provided when the device is stopped by anonymous customer',
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const storageDeviceStatus = await this.storageProvider.getDeviceStatus(deviceId);
+            if (!storageDeviceStatus?.started) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceIsNotStarted,
+                    description: `Device ${deviceId} is not started`,
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const storageDevice = await this.storageProvider.getDeviceById(deviceId);
+            if (!storageDevice) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceNotFound,
+                    description: `Device ${deviceId} is not found`,
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const isDeviceActive = storageDevice.approved && storageDevice.enabled;
+            if (!isDeviceActive) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceIsNotActive,
+                    description: `Device ${deviceId} is not active (either not approved or not enabled)`,
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+
+            const diffMs = this.dateTimeHelper.getCurrentDateTimeAsNumber() - this.dateTimeHelper.getNumberFromISOStringDateTime(storageDeviceStatus.started_at)!;
+            // totalTime must be in seconds
+            const totalTime = Math.ceil(diffMs / 1000);
+            storageDeviceStatus.started = false;
+            storageDeviceStatus.stopped_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
+            storageDeviceStatus.stopped_by_user_id = message.body.userId;
+            const deviceStatus = this.createDeviceStatusFromStorageDeviceStatus(storageDeviceStatus);
+            // totalTime must be in seconds
+            deviceStatus.totalTime = totalTime;
+            // TODO: Use transaction to change device status table and device session table
+            // TODO: Also update the device status only if the "started" is true 
+            //       or use hidden PostgreSQL column named "xmin" which contains ID (number) of the last transaction that updated the row
+            //       to avoid race conditions when after this function gets all device statuses, some other message stops a computer before this function
+            //       reaches this point. Rename this function to updateDeviceStatusIfStarted and internally add condition like "WHERE started = true"
+            //       Return result and if the result is null, the update was not performed (possibly because the row for this device had started = false)
+            await this.storageProvider.updateDeviceStatus(storageDeviceStatus);
+            const storageDeviceSession: IDeviceSession = {
+                device_id: storageDeviceStatus.device_id,
+                started_at: storageDeviceStatus.started_at,
+                stopped_at: storageDeviceStatus.stopped_at,
+                tariff_id: storageDeviceStatus.start_reason,
+                total_amount: storageDeviceStatus.total,
+                started_by_user_id: storageDeviceStatus.started_by_user_id,
+                stopped_by_user_id: storageDeviceStatus.stopped_by_user_id,
+                started_by_customer: !storageDeviceStatus.started_by_user_id,
+                stopped_by_customer: !!message.body.stoppedByCustomer,
+                note: message.body.note,
+            } as IDeviceSession;
+            await this.storageProvider.addDeviceSession(storageDeviceSession);
+            replyMsg.body.deviceStatus = deviceStatus;
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusStopDeviceRequestMessage message`, message, err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
         }
     }
 
@@ -1296,6 +1330,84 @@ export class StateManager {
 
     createUUIDString(): string {
         return randomUUID().toString();
+    }
+
+    async start(): Promise<boolean> {
+        this.cacheHelper.initialize(this.cacheClient);
+        this.logger.setPrefix(this.className);
+        const databaseInitialized = await this.initializeDatabase();
+        if (!databaseInitialized) {
+            this.logger.error('The database cannot be initialized');
+            return false;
+        }
+
+        await this.loadSystemSettings();
+
+        this.dateTimeHelper.setDefaultTimeZone(this.state.systemSettings[SystemSettingName.timezone]);
+        // TODO: Should we publish system settings to the shared channel ? They can contain sensitive information
+
+        this.state.mainTimerHandle = setInterval(() => this.mainTimerCallback(), 1000);
+
+        const redisHost = this.envVars.CCS3_REDIS_HOST.value;
+        const redisPort = this.envVars.CCS3_REDIS_PORT.value;
+        this.logger.log('Using Redis host', redisHost, 'and port', redisPort);
+
+        const subClientOptions: CreateConnectedRedisClientOptions = {
+            host: redisHost,
+            port: redisPort,
+            errorCallback: err => this.logger.error('SubClient error', err),
+            reconnectStrategyCallback: (retries: number, err: Error) => {
+                this.logger.error('SubClient reconnect strategy error', retries, err);
+                return 5000;
+            },
+        };
+        const subClientMessageCallback: RedisClientMessageCallback = (channelName, message) => {
+            try {
+                const messageJson = this.deserializeToMessage(message);
+                if (messageJson) {
+                    this.processReceivedBusMessage(channelName, messageJson);
+                } else {
+                    this.logger.warn('The message', message, 'deserialized to null');
+                }
+            } catch (err) {
+                this.logger.warn('Cannot deserialize channel', channelName, 'message', message);
+            }
+        };
+        await this.subClient.connect(subClientOptions, subClientMessageCallback);
+        this.logger.log('SubClient connected');
+        await this.subClient.subscribe(ChannelName.shared);
+        await this.subClient.subscribe(ChannelName.devices);
+        await this.subClient.subscribe(ChannelName.operators);
+
+        const pubClientOptions: CreateConnectedRedisClientOptions = {
+            host: redisHost,
+            port: redisPort,
+            errorCallback: err => this.logger.error('PubClient error', err),
+            reconnectStrategyCallback: (retries: number, err: Error) => {
+                this.logger.error('PubClient reconnect strategy error', retries, err);
+                return 5000;
+            },
+        };
+        this.logger.log('PubClient connecting');
+        await this.pubClient.connect(pubClientOptions);
+        this.logger.log('PubClient connected');
+
+        const redisCacheClientOptions: CreateConnectedRedisClientOptions = {
+            host: redisHost,
+            port: redisPort,
+            errorCallback: err => console.error('CacheClient error', err),
+            reconnectStrategyCallback: (retries: number, err: Error) => {
+                console.error('CacheClient reconnect strategy error', retries, err);
+                return 5000;
+            },
+        };
+        this.logger.log('CacheClient connecting');
+        await this.cacheClient.connect(redisCacheClientOptions);
+        this.logger.log('CacheClient connected');
+
+        await this.cacheStaticData();
+
+        return true;
     }
 
     async terminate(): Promise<void> {

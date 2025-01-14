@@ -1,0 +1,14 @@
+INSERT INTO permission
+(
+    name,
+    description
+)
+VALUES
+(
+    'devices:transfer',
+    'Allows transferring started device to another not-started device. Operators should have this permission.'
+);
+
+UPDATE db_metadata
+SET value = '15'
+WHERE name = 'database-version';
