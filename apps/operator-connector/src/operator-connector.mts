@@ -116,6 +116,10 @@ import { OperatorUpdateUserWithRolesRequestMessage } from '@computerclubsystem/t
 import { BusUpdateUserWithRolesReplyMessageBody, createBusUpdateUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-user-with-roles-reply.message.mjs';
 import { createOperatorUpdateUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/operators/operator-update-user-with-roles-reply.message.mjs';
 import { createBusUpdateUserWithRolesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-user-with-roles-request.message.mjs';
+import { OperatorStopDeviceRequestMessage } from '@computerclubsystem/types/messages/operators/operator-stop-device-request.message.mjs';
+import { createBusStopDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-stop-device-request.message.mjs';
+import { BusStopDeviceReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-stop-device-reply.message.mjs';
+import { createOperatorStopDeviceReplyMessage } from '@computerclubsystem/types/messages/operators/operator-stop-device-reply.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -142,7 +146,7 @@ export class OperatorConnector {
             connectionId: args.connectionId,
             connectionInstanceId: this.createUUIDString(),
             connectedAt: this.getNowAsNumber(),
-            operatorId: null,
+            userId: null,
             certificate: args.certificate,
             certificateThumbprint: this.getLowercasedCertificateThumbprint(args.certificate?.fingerprint),
             ipAddress: args.ipAddress,
@@ -211,6 +215,9 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorMessageType.stopDeviceRequest:
+                this.processStopDeviceRequestMessage(clientData, message as OperatorStopDeviceRequestMessage);
+                break;
             case OperatorMessageType.updateUserWithRolesRequest:
                 this.processUpdateUserWithRolesRequestMessage(clientData, message as OperatorUpdateUserWithRolesRequestMessage);
                 break;
@@ -281,12 +288,28 @@ export class OperatorConnector {
         }
     }
 
+    processStopDeviceRequestMessage(clientData: ConnectedClientData, message: OperatorStopDeviceRequestMessage): void {
+        const requestMsg = createBusStopDeviceRequestMessage();
+        requestMsg.body.deviceId = message.body.deviceId;
+        requestMsg.body.userId = clientData.userId!;
+        requestMsg.body.note = message.body.note;
+        // TODO: stoppedByCustomer is used by pc-connector to specify if the computer was requested to be stopped by customer
+        // requestMsg.body.stoppedByCustomer
+        this.publishToOperatorsChannelAndWaitForReply<BusStopDeviceReplyMessageBody>(requestMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorStopDeviceReplyMessage();
+                operatorReplyMsg.body.deviceStatus = busReplyMsg.body.deviceStatus;
+                this.errorReplyHelper.processBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
     processUpdateUserWithRolesRequestMessage(clientData: ConnectedClientData, message: OperatorUpdateUserWithRolesRequestMessage): void {
         const requestMsg = createBusUpdateUserWithRolesRequestMessage();
         requestMsg.body.user = message.body.user;
         requestMsg.body.roleIds = message.body.roleIds;
         requestMsg.body.passwordHash = message.body.passwordHash;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusUpdateUserWithRolesReplyMessageBody>(requestMsg, clientData)
+        this.publishToOperatorsChannelAndWaitForReply<BusUpdateUserWithRolesReplyMessageBody>(requestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorUpdateUserWithRolesReplyMessage();
                 operatorReplyMsg.body.user = busReplyMsg.body.user;
@@ -304,7 +327,7 @@ export class OperatorConnector {
         requestMsg.body.user = message.body.user;
         requestMsg.body.roleIds = message.body.roleIds;
         requestMsg.body.passwordHash = message.body.passwordHash;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusCreateUserWithRolesReplyMessageBody>(requestMsg, clientData)
+        this.publishToOperatorsChannelAndWaitForReply<BusCreateUserWithRolesReplyMessageBody>(requestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorCreateUserWithRolesReplyMessage();
                 operatorReplyMsg.body.user = busReplyMsg.body.user;
@@ -320,7 +343,7 @@ export class OperatorConnector {
     processGetUserWithRolesRequestMessage(clientData: ConnectedClientData, message: OperatorGetUserWithRolesRequestMessage): void {
         const requestMsg = createBusGetUserWithRolesRequestMessage();
         requestMsg.body.userId = message.body.userId;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetUserWithRolesReplyMessageBody>(requestMsg, clientData)
+        this.publishToOperatorsChannelAndWaitForReply<BusGetUserWithRolesReplyMessageBody>(requestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorGetUserWithRolesReplyMessage();
                 operatorReplyMsg.body.user = busReplyMsg.body.user;
@@ -335,7 +358,7 @@ export class OperatorConnector {
 
     processOperatorGetAllUsersRequestMessage(clientData: ConnectedClientData, message: OperatorGetAllUsersRequestMessage): void {
         const requestMsg = createBusGetAllUsersRequestMessage();
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetAllUsersReplyMessageBody>(requestMsg, clientData)
+        this.publishToOperatorsChannelAndWaitForReply<BusGetAllUsersReplyMessageBody>(requestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorGetAllUsersReplyMessage();
                 operatorReplyMsg.body.users = busReplyMsg.body.users;
@@ -351,7 +374,7 @@ export class OperatorConnector {
         const requestMsg = createBusUpdateRoleWithPermissionsRequestMessage();
         requestMsg.body.role = message.body.role;
         requestMsg.body.permissionIds = message.body.rolePermissionIds;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusUpdateRoleWithPermissionsReplyMessageBody>(requestMsg, clientData)
+        this.publishToOperatorsChannelAndWaitForReply<BusUpdateRoleWithPermissionsReplyMessageBody>(requestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorUpdateRoleWithPermissionsReplyMessage();
                 operatorReplyMsg.body.role = busReplyMsg.body.role;
@@ -367,7 +390,7 @@ export class OperatorConnector {
         const requestMsg = createBusCreateRoleWithPermissionsRequestMessage();
         requestMsg.body.role = message.body.role;
         requestMsg.body.permissionIds = message.body.rolePermissionIds;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusCreateRoleWithPermissionsReplyMessageBody>(requestMsg, clientData)
+        this.publishToOperatorsChannelAndWaitForReply<BusCreateRoleWithPermissionsReplyMessageBody>(requestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorCreateRoleWithPermissionsReplyMessage();
                 operatorReplyMsg.body.role = busReplyMsg.body.role;
@@ -381,7 +404,7 @@ export class OperatorConnector {
 
     processOperatorGetAllPermissionsRequestMessage(clientData: ConnectedClientData, message: OperatorGetAllRolesRequestMessage): void {
         const requestMsg = createBusGetAllPermissionsRequestMessage();
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetAllPermissionsReplyMessageBody>(requestMsg, clientData)
+        this.publishToOperatorsChannelAndWaitForReply<BusGetAllPermissionsReplyMessageBody>(requestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorGetAllPermissionsReplyMessage();
                 operatorReplyMsg.body.permissions = busReplyMsg.body.permissions;
@@ -396,7 +419,7 @@ export class OperatorConnector {
     processOperatorGetRoleWithPermissionsRequestMessage(clientData: ConnectedClientData, message: OperatorGetRoleWithPermissionsRequestMessage): void {
         const requestMsg = createBusGetRoleWithPermissionsRequestMessage();
         requestMsg.body.roleId = message.body.roleId;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetRoleWithPermissionsReplyMessageBody>(requestMsg, clientData)
+        this.publishToOperatorsChannelAndWaitForReply<BusGetRoleWithPermissionsReplyMessageBody>(requestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorGetRoleWithPermissionsReplyMessage();
                 operatorReplyMsg.body.allPermissions = busReplyMsg.body.allPermissions;
@@ -412,7 +435,7 @@ export class OperatorConnector {
 
     processOperatorGetAllRolesRequestMessage(clientData: ConnectedClientData, message: OperatorGetAllRolesRequestMessage): void {
         const requestMsg = createBusGetAllRolesRequestMessage();
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetAllRolesReplyMessageBody>(requestMsg, clientData)
+        this.publishToOperatorsChannelAndWaitForReply<BusGetAllRolesReplyMessageBody>(requestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorGetAllRolesReplyMessage();
                 operatorReplyMsg.body.roles = busReplyMsg.body.roles;
@@ -439,7 +462,7 @@ export class OperatorConnector {
 
         const busRequestMsg = createBusUpdateTariffRequestMessage();
         busRequestMsg.body.tariff = message.body.tariff;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetTariffByIdReplyMessageBody>(busRequestMsg, clientData)
+        this.publishToOperatorsChannelAndWaitForReply<BusGetTariffByIdReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorUpdateTariffReplyMessage();
                 operatorReplyMsg.body.tariff = busReplyMsg.body.tariff;
@@ -455,7 +478,7 @@ export class OperatorConnector {
         // Validate
         const busRequestMsg = createBusGetTariffByIdRequestMessage();
         busRequestMsg.body.tariffId = message.body.tariffId;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetTariffByIdReplyMessageBody>(busRequestMsg, clientData)
+        this.publishToOperatorsChannelAndWaitForReply<BusGetTariffByIdReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorGetTariffByIdReplyMessage();
                 operatorReplyMsg.body.tariff = busReplyMsg.body.tariff;
@@ -500,8 +523,8 @@ export class OperatorConnector {
         const busRequestMsg = createBusStartDeviceRequestMessage();
         busRequestMsg.body.deviceId = message.body.deviceId;
         busRequestMsg.body.tariffId = message.body.tariffId;
-        busRequestMsg.body.userId = clientData.operatorId!;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusStartDeviceReplyMessageBody>(busRequestMsg, clientData)
+        busRequestMsg.body.userId = clientData.userId!;
+        this.publishToOperatorsChannelAndWaitForReply<BusStartDeviceReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorStartDeviceReplyMessage();
                 operatorReplyMsg.body.deviceStatus = busReplyMsg.body.deviceStatus;
@@ -531,7 +554,7 @@ export class OperatorConnector {
 
         const busRequestMsg = createBusCreateTariffRequestMessage();
         busRequestMsg.body.tariff = requestedTariff;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusCreateTariffReplyMessageBody>(busRequestMsg, clientData)
+        this.publishToOperatorsChannelAndWaitForReply<BusCreateTariffReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorCreateTariffReplyMessage();
                 operatorReplyMsg.body.tariff = busReplyMsg.body.tariff;
@@ -554,7 +577,7 @@ export class OperatorConnector {
             connectionId: clientData.connectionId,
             connectionInstanceId: clientData.connectionInstanceId,
         } as OperatorConnectionRoundTripData;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetAllTariffsReplyMessageBody>(busRequestMsg, clientData)
+        this.publishToOperatorsChannelAndWaitForReply<BusGetAllTariffsReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMessage => {
                 const operatorReplyMsg = createOperatorGetAllTariffsReplyMessage();
                 operatorReplyMsg.body.tariffs = busReplyMessage.body.tariffs;
@@ -572,7 +595,7 @@ export class OperatorConnector {
             connectionId: clientData.connectionId,
             connectionInstanceId: clientData.connectionInstanceId,
         } as OperatorConnectionRoundTripData;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusUpdateDeviceReplyMessageBody>(busRequestMsg, clientData)
+        this.publishToOperatorsChannelAndWaitForReply<BusUpdateDeviceReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMessage => {
                 const operatorReplyMsg = createOperatorUpdateDeviceReplyMessage();
                 operatorReplyMsg.body.device = busReplyMessage.body.device;
@@ -591,7 +614,7 @@ export class OperatorConnector {
             connectionId: clientData.connectionId,
             connectionInstanceId: clientData.connectionInstanceId,
         } as OperatorConnectionRoundTripData;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusDeviceGetByIdReplyMessageBody>(busRequestMsg, clientData)
+        this.publishToOperatorsChannelAndWaitForReply<BusDeviceGetByIdReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMessage => {
                 const operatorReplyMsg = createOperatorGetDeviceByIdReplyMessage();
                 operatorReplyMsg.body.device = busReplyMessage.body.device;
@@ -605,7 +628,7 @@ export class OperatorConnector {
             connectionId: clientData.connectionId,
             connectionInstanceId: clientData.connectionInstanceId,
         } as OperatorConnectionRoundTripData;
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusOperatorGetAllDevicesReplyMessageBody>(busRequestMsg, clientData)
+        this.publishToOperatorsChannelAndWaitForReply<BusOperatorGetAllDevicesReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMessage => {
                 const operatorReplyMsg = createOperatorGetAllDevicesReplyMessage();
                 operatorReplyMsg.body.devices = busReplyMessage.body.devices;
@@ -613,17 +636,18 @@ export class OperatorConnector {
             });
     }
 
-    publishToOperatorsChannelAndWaitForReplyByType<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData): Observable<Message<TReplyBody>> {
+    publishToOperatorsChannelAndWaitForReply<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData): Observable<Message<TReplyBody>> {
         const messageStatItem: MessageStatItem = {
             sentAt: this.getNowAsNumber(),
             correlationId: busMessage.header.correlationId,
             type: busMessage.header.type,
             completedAt: 0,
-            operatorId: clientData.operatorId,
+            operatorId: clientData.userId,
         };
         if (!busMessage.header.correlationId) {
             busMessage.header.correlationId = this.createUUIDString();
         }
+        messageStatItem.correlationId = busMessage.header.correlationId;
         return this.publishToOperatorsChannel(busMessage).pipe(
             filter(msg => msg.header.correlationId === busMessage.header.correlationId),
             first(),
@@ -677,7 +701,7 @@ export class OperatorConnector {
             refreshTokenReplyMsg.body.success = false;
             this.sendMessageToOperator(refreshTokenReplyMsg, clientData, message);
             if (isTokenActiveResult.authTokenCacheValue) {
-                const operatorId = clientData.operatorId || isTokenActiveResult.authTokenCacheValue.userId;
+                const operatorId = clientData.userId || isTokenActiveResult.authTokenCacheValue.userId;
                 const note = JSON.stringify({
                     requestToken: requestToken,
                     clientData: clientData,
@@ -712,8 +736,8 @@ export class OperatorConnector {
         // Mark operator as authenticated
         clientData.isAuthenticated = true;
         clientData.permissions = new Set<string>(authTokenCacheValue.permissions);
-        const operatorId = clientData.operatorId || authTokenCacheValue.userId;
-        clientData.operatorId = operatorId;
+        const operatorId = clientData.userId || authTokenCacheValue.userId;
+        clientData.userId = operatorId;
         // Send messages back to the operator
         this.sendMessageToOperator(refreshTokenReplyMsg, clientData, message);
         const note = JSON.stringify({
@@ -759,7 +783,7 @@ export class OperatorConnector {
         requestMsg.body.passwordHash = message.body.passwordHash;
         requestMsg.body.username = message.body.username;
         requestMsg.header.roundTripData = this.createRoundTripDataFromConnectedClientData(clientData);
-        this.publishToOperatorsChannelAndWaitForReplyByType<BusOperatorAuthReplyMessageBody>(requestMsg, clientData)
+        this.publishToOperatorsChannelAndWaitForReply<BusOperatorAuthReplyMessageBody>(requestMsg, clientData)
             .subscribe(busReplyMsg => this.processBusOperatorAuthReplyMessage(clientData, busReplyMsg, message));
     }
 
@@ -782,7 +806,7 @@ export class OperatorConnector {
             authReplyMsg.body.success = false;
             this.sendReplyMessageToOperator(authReplyMsg, clientData, message);
             if (isTokenActiveResult.authTokenCacheValue) {
-                const operatorId = clientData.operatorId || isTokenActiveResult.authTokenCacheValue.userId;
+                const operatorId = clientData.userId || isTokenActiveResult.authTokenCacheValue.userId;
                 const note = JSON.stringify({
                     requestToken: requestToken,
                     clientData: clientData,
@@ -819,8 +843,8 @@ export class OperatorConnector {
         // Mark operator as authenticated
         clientData.isAuthenticated = true;
         clientData.permissions = new Set<string>(authTokenCacheValue.permissions);
-        const operatorId = clientData.operatorId || authTokenCacheValue.userId;
-        clientData.operatorId = operatorId;
+        const operatorId = clientData.userId || authTokenCacheValue.userId;
+        clientData.userId = operatorId;
         // Send messages back to the operator
         this.sendReplyMessageToOperator(authReplyMsg, clientData, message);
         const configurationMsg = this.createOperatorConfigurationMessage();
@@ -888,13 +912,13 @@ export class OperatorConnector {
         const rtData = message.header.roundTripData! as OperatorConnectionRoundTripData;
         clientData.isAuthenticated = message.body.success;
         clientData.permissions = new Set<string>(message.body.permissions);
-        clientData.operatorId = message.body.userId;
+        clientData.userId = message.body.userId;
         replyMsg.body.permissions = message.body.permissions;
         replyMsg.body.success = message.body.success;
         if (replyMsg.body.success) {
             replyMsg.body.token = this.createUUIDString();
             replyMsg.body.tokenExpiresAt = this.getNowAsNumber() + this.getTokenExpirationMilliseconds();
-            this.maintainUserAuthDataTokenCacheItem(clientData.operatorId!, replyMsg.body.permissions!, replyMsg.body.token, rtData);
+            this.maintainUserAuthDataTokenCacheItem(clientData.userId!, replyMsg.body.permissions!, replyMsg.body.token, rtData);
         }
         if (!message.body.success) {
             replyMsg.body.success = false;
@@ -914,7 +938,7 @@ export class OperatorConnector {
                 messageBody: message.body,
                 clientData: clientData,
             });
-            this.publishOperatorConnectionEventMessage(clientData.operatorId!, clientData.ipAddress, OperatorConnectionEventType.passwordAuthSuccess, note);
+            this.publishOperatorConnectionEventMessage(clientData.userId!, clientData.ipAddress, OperatorConnectionEventType.passwordAuthSuccess, note);
         }
     }
 
@@ -1036,12 +1060,12 @@ export class OperatorConnector {
         this.logger.log('Operator connection closed', args);
         // Check if we still have this connection before saving connection event - it might be already removed because of timeout
         const clientData = this.getConnectedClientData(args.connectionId);
-        if (clientData?.operatorId) {
+        if (clientData?.userId) {
             const note = JSON.stringify({
                 args: args,
                 clientData: clientData,
             });
-            this.publishOperatorConnectionEventMessage(clientData.operatorId!, clientData.ipAddress!, OperatorConnectionEventType.disconnected, note);
+            this.publishOperatorConnectionEventMessage(clientData.userId!, clientData.ipAddress!, OperatorConnectionEventType.disconnected, note);
         }
         this.removeClient(args.connectionId);
     }
@@ -1079,7 +1103,7 @@ export class OperatorConnector {
         const result: [number, ConnectedClientData][] = [];
         for (const item of this.getAllConnectedClientsData()) {
             const data = item[1];
-            if (data.operatorId === operatorId) {
+            if (data.userId === operatorId) {
                 result.push(item);
             }
         }
@@ -1285,6 +1309,9 @@ export class OperatorConnector {
                 this.state.operatorChannelMessageStatItems.shift();
             }
             this.state.operatorChannelMessageStatItems.push(messageStatItem);
+            if (messageStatItem.error) {
+                this.logger.error('Message ended with error', messageStatItem);
+            }
         });
     }
 
@@ -1367,13 +1394,13 @@ export class OperatorConnector {
             const connectionId = entry[0];
             const clientData = this.getConnectedClientData(connectionId);
             this.logger.warn('Disconnecting client', connectionId, entry[1], clientData);
-            if (clientData?.operatorId) {
+            if (clientData?.userId) {
                 const note = JSON.stringify({
                     connectionId: entry[0],
                     connectionCleanUpReason: entry[1],
                     clientData: clientData,
                 });
-                this.publishOperatorConnectionEventMessage(clientData.operatorId, clientData.ipAddress, OperatorConnectionEventType.idleTimeout, note);
+                this.publishOperatorConnectionEventMessage(clientData.userId, clientData.ipAddress, OperatorConnectionEventType.idleTimeout, note);
             }
             this.removeClient(connectionId);
             this.wssServer.closeConnection(connectionId);

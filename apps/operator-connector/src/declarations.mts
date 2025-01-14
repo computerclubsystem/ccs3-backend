@@ -11,7 +11,7 @@ export interface ConnectedClientData {
     /**
      * Operator ID in the system
      */
-    operatorId?: number | null;
+    userId?: number | null;
     /**
      * The client certificate - most likely will be empty since operators usually do not provide certificates
      * but authenticate with user/password
