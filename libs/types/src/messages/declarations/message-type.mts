@@ -47,4 +47,14 @@ export const enum MessageType {
     busUpdateRoleWithPermissionsReply = 'bus-update-role-with-permissions-reply',
     busGetAllPermissionsRequest = 'bus-get-all-permissions-request',
     busGetAllPermissionsReply = 'bus-get-all-permissions-reply',
+    busGetAllUsersRequest = 'bus-get-all-users-request',
+    busGetAllUsersReply = 'bus-get-all-users-reply',
+
+    // User with roles
+    busCreateUserWithRolesRequest = 'bus-create-user-with-roles-request',
+    busCreateUserWithRolesReply = 'bus-create-user-with-roles-reply',
+    busUpdateUserWithRolesRequest = 'bus-update-user-with-roles-request',
+    busUpdateUserWithRolesReply = 'bus-update-user-with-roles-reply',
+    busGetUserWithRolesRequest = 'bus-get-user-with-roles-request',
+    busGetUserWithRolesReply = 'bus-get-user-with-roles-reply',
 }

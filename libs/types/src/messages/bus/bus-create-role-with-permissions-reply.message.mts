@@ -9,7 +9,7 @@ export interface BusCreateRoleWithPermissionsReplyMessageBody {
 export interface BusCreateRoleWithPermissionsReplyMessage extends Message<BusCreateRoleWithPermissionsReplyMessageBody> {
 }
 
-export function createBusCreateRoleWithPermissionsReplyMessage<TBody>(sourceMessage?: Message<TBody> | null): BusCreateRoleWithPermissionsReplyMessage {
+export function createBusCreateRoleWithPermissionsReplyMessage(): BusCreateRoleWithPermissionsReplyMessage {
     const msg: BusCreateRoleWithPermissionsReplyMessage = {
         header: { type: MessageType.busCreateRoleWithPermissionsReply },
         body: {} as BusCreateRoleWithPermissionsReplyMessageBody,

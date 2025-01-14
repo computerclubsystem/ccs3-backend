@@ -1,6 +1,6 @@
 import { PermissionName } from '@computerclubsystem/types/entities/declarations/permission-name.mjs';
 import { IsAuthorizedResult, IsAuthorizedResultReason } from './declarations.mjs';
-import { OperatorMessageType } from '@computerclubsystem/types/messages/operators/declarations/operator-message-type.mjs';
+import { OperatorMessageType, OperatorNotificationMessageType } from '@computerclubsystem/types/messages/operators/declarations/operator-message-type.mjs';
 
 export class AuthorizationHelper {
     isAuthorized(permissions: Set<string>, messageType: string): IsAuthorizedResult {
@@ -17,6 +17,15 @@ export class AuthorizationHelper {
         }
 
         switch (messageType) {
+            case OperatorMessageType.createUserWithRolesRequest:
+                result.authorized = permissions.has(PermissionName.usersCreate);
+                break;
+            case OperatorMessageType.updateUserWithRolesRequest:
+                result.authorized = permissions.has(PermissionName.usersUpdate);
+                break;
+            case OperatorMessageType.getAllUsersRequest:
+                result.authorized = permissions.has(PermissionName.usersRead);
+                break;
             case OperatorMessageType.createRoleWithPermissionsRequest:
                 result.authorized = permissions.has(PermissionName.rolesCreate);
                 break;
@@ -45,6 +54,7 @@ export class AuthorizationHelper {
                 result.authorized = permissions.has(PermissionName.devicesUpdateEntity);
                 break;
             case OperatorMessageType.getDeviceStatusesRequest:
+            case OperatorNotificationMessageType.deviceStatusesNotification:
                 result.authorized = permissions.has(PermissionName.devicesReadStatus);
                 break;
             case OperatorMessageType.startDeviceRequest:

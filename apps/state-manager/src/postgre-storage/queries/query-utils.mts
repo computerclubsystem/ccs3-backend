@@ -16,6 +16,8 @@ import { RoleQueryHelper } from './role-query-helper.mjs';
 import { PermissionQueryHelper } from './permission-query-helper.mjs';
 import { PermissionInRoleQueryHelper } from './permission-in-role-query-helper.mjs';
 import { IRole } from 'src/storage/entities/role.mjs';
+import { UserQueryHelper } from './user-query-helper.mjs';
+import { IUser } from 'src/storage/entities/user.mjs';
 
 export class QueryUtils {
     private readonly helpers = {
@@ -29,7 +31,40 @@ export class QueryUtils {
         role: new RoleQueryHelper(),
         permission: new PermissionQueryHelper(),
         permissionInRole: new PermissionInRoleQueryHelper(),
+        user: new UserQueryHelper(),
     };
+
+    replaceUserRolesQueryData(userId: number, roleIds: number[]): IQueryTextWithParamsResult {
+        return this.helpers.user.replaceUserRolesQueryData(userId, roleIds);
+    }
+
+    updateUserQueryData(user: IUser, passwordHash?: string): IQueryTextWithParamsResult {
+        return this.helpers.user.updateUserQueryData(user, passwordHash);
+    }
+
+    createUserQueryData(user: IUser, passwordHash: string): IQueryTextWithParamsResult {
+        return this.helpers.user.createUserQueryData(user, passwordHash);
+    }
+
+    getUserRoleIdsQueryData(userId: number): IQueryTextWithParamsResult {
+        return this.helpers.user.getUserRoleIdsQueryData(userId);
+    }
+
+    getAllUsersQueryText(): string {
+        return this.helpers.user.getAllUsersQueryText;
+    }
+
+    getUserPermissionsQueryData(userId: number): IQueryTextWithParamsResult {
+        return this.helpers.user.getUserPermissionsQueryData(userId);
+    }
+
+    getUserByIdQueryData(userId: number): IQueryTextWithParamsResult {
+        return this.helpers.user.getUserByIdQueryData(userId);
+    }
+
+    getUserByUsernameAndPasswordHashQueryData(username: string, passwordHash: string): IQueryTextWithParamsResult {
+        return this.helpers.user.getUserByUsernameAndPasswordHashQueryData(username, passwordHash);
+    }
 
     replaceRolePermissionsQueryData(roleId: number, permissionIds: number[]): IQueryTextWithParamsResult {
         return this.helpers.permissionInRole.replaceRolePermissionsQueryData(roleId, permissionIds);
@@ -95,14 +130,8 @@ export class QueryUtils {
         };
     }
 
-    getDeviceByCertificateThumbprintQueryData(certificateThumbprint: string): IQueryTextWithParamsResult {
-        const params: unknown[] = [
-            certificateThumbprint,
-        ];
-        return {
-            text: this.getDeviceByCertificateThumbprintQueryText,
-            params,
-        };
+    createDeviceQueryData(device: IDevice): IQueryTextWithParamsResult {
+        return this.helpers.device.createDeviceQueryData(device);
     }
 
     getAllDevicesQueryText(): string {
@@ -111,6 +140,10 @@ export class QueryUtils {
 
     getDeviceQueryData(deviceId: number): IQueryTextWithParamsResult {
         return this.helpers.device.getDeviceStatusQuery(deviceId);
+    }
+
+    getDeviceByCertificateThumbprintQueryData(certificateThumbprint: string): IQueryTextWithParamsResult {
+        return this.helpers.device.getDeviceByCertificateThumbprintQueryData(certificateThumbprint);
     }
 
     getSystemSettingByNameQueryData(name: string): IQueryTextWithParamsResult {
@@ -129,54 +162,6 @@ export class QueryUtils {
 
     updateDeviceQueryData(device: IDevice): IQueryTextWithParamsResult {
         return this.helpers.device.updateDeviceQueryData(device);
-    }
-
-    createDeviceQueryData(device: IDevice): IQueryTextWithParamsResult {
-        const params: unknown[] = [
-            device.certificate_thumbprint,
-            device.created_at,
-            device.ip_address,
-            device.name,
-            device.description,
-            device.approved,
-            device.enabled,
-            device.device_group_id,
-        ];
-        return {
-            text: this.createDeviceQueryText,
-            params,
-        }
-    }
-
-    getUserByIdQueryData(userId: number): IQueryTextWithParamsResult {
-        const params: [number] = [
-            userId,
-        ];
-        return {
-            text: this.getUserByIdQueryText,
-            params,
-        };
-    }
-
-    getUserQueryData(username: string, passwordHash: string): IQueryTextWithParamsResult {
-        const params: unknown[] = [
-            username,
-            passwordHash,
-        ];
-        return {
-            text: this.getUserQueryText,
-            params,
-        };
-    }
-
-    getUserPermissionsQueryData(userId: number): IQueryTextWithParamsResult {
-        const params: [number] = [
-            userId,
-        ];
-        return {
-            text: this.getUserPermissionsQueryText,
-            params,
-        }
     }
 
     getDeviceStatusQuery(deviceId: number): IQueryTextWithParamsResult {
@@ -198,78 +183,4 @@ export class QueryUtils {
     getAllDeviceStatusesQueryText(): string {
         return this.helpers.deviceStatus.getAllDeviceStatusesQueryText;
     }
-
-    private readonly getUserPermissionsQueryText = `
-        SELECT p.name 
-        FROM permission_in_role AS pir
-        INNER JOIN role AS r ON r.id = pir.role_id
-        INNER JOIN permission AS p ON p.id = pir.permission_id
-        INNER JOIN user_in_role AS uir ON uir.role_id = r.id
-        INNER JOIN "user" AS u ON u.id = pir.role_id
-        WHERE u.id = $1
-    `;
-
-    private readonly getUserQueryText = `
-        SELECT 
-            id,
-            username,
-            enabled
-        FROM "user"
-        WHERE username = $1 AND password_hash = $2
-        LIMIT 1
-    `;
-
-    private readonly getUserByIdQueryText = `
-        SELECT 
-            id,
-            username,
-            enabled
-        FROM "user"
-        WHERE id = $1
-        LIMIT 1
-    `;
-
-    private readonly createDeviceQueryText = `
-        INSERT INTO device
-        (
-            certificate_thumbprint,
-            created_at,
-            ip_address,
-            name,
-            description,
-            approved,
-            enabled,
-            device_group_id
-        )
-        VALUES
-        (
-            $1, $2, $3, $4, $5, $6, $7, $8
-        )
-        RETURNING 
-            id,
-            certificate_thumbprint,
-            created_at,
-            ip_address,
-            name,
-            description,
-            approved,
-            enabled,
-            device_group_id
-    `;
-
-    private readonly getDeviceByCertificateThumbprintQueryText = `
-        SELECT 
-            id,
-            certificate_thumbprint,
-            ip_address,
-            name,
-            description,
-            created_at,
-            approved,
-            enabled,
-            device_group_id
-        FROM device
-        WHERE certificate_thumbprint = $1
-        LIMIT 1
-    `;
 }

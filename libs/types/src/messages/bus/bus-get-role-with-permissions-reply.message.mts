@@ -6,6 +6,7 @@ import { Permission } from 'src/entities/permission.mjs';
 export interface BusGetRoleWithPermissionsReplyMessageBody {
     role?: Role;
     rolePermissionIds?: number[];
+    // TODO: Remove this - the client can get all permissions if necessary
     allPermissions?: Permission[];
 }
 

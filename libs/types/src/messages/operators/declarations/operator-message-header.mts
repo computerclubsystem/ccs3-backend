@@ -18,6 +18,7 @@ export interface OperatorReplyMessageHeader {
     correlationId?: string;
     roundTripData?: OperatorRoundTripData;
     failure?: boolean;
+    requestType?: string;
     errors?: MessageError[];
 }
 

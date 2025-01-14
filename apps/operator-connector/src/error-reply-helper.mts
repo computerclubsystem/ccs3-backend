@@ -3,6 +3,89 @@ import { MessageError } from '@computerclubsystem/types/messages/declarations/me
 import { OperatorReplyMessageErrorCode } from '@computerclubsystem/types/messages/operators/declarations/error-code.mjs';
 
 export class ErrorReplyHelper {
+    updateUserWithRolesErrors(busMessageErrors: MessageError[] | undefined): MessageError[] {
+        let messageErrors: MessageError[];
+        if (busMessageErrors?.find(x => x.code === BusErrorCode.userIdIsRequired)) {
+            messageErrors = [{
+                code: OperatorReplyMessageErrorCode.userIdIsRequired,
+                description: `User Id is required.`,
+            }] as MessageError[];
+        } else {
+            messageErrors = [{
+                code: OperatorReplyMessageErrorCode.cantGetUserWithRoles,
+                description: `Can't create user with roles. Check if the user with specified username already exists.`,
+            }] as MessageError[];
+        }
+        return messageErrors;
+    }
+
+    createUserWithRolesErrors(busMessageErrors: MessageError[] | undefined): MessageError[] {
+        let messageErrors: MessageError[];
+        if (busMessageErrors?.find(x => x.code === BusErrorCode.usernameIsRequired)) {
+            messageErrors = [{
+                code: OperatorReplyMessageErrorCode.usernameIsRequired,
+                description: `Username is required.`,
+            }] as MessageError[];
+        } else if (busMessageErrors?.find(x => x.code === BusErrorCode.passwordHashIsRequired)) {
+            messageErrors = [{
+                code: OperatorReplyMessageErrorCode.passwordHashIsRequired,
+                description: `Password sha512 hash is required.`,
+            }] as MessageError[];
+        } else {
+            messageErrors = [{
+                code: OperatorReplyMessageErrorCode.cantCreateUserWithRoles,
+                description: `Can't create user with roles. Check if the user with specified username already exists.`,
+            }] as MessageError[];
+        }
+        return messageErrors;
+    }
+
+    getUserWithRolesErrors(busMessageErrors: MessageError[] | undefined): MessageError[] {
+        let messageErrors: MessageError[];
+        if (busMessageErrors?.find(x => x.code === BusErrorCode.userIdIsRequired)) {
+            messageErrors = [{
+                code: OperatorReplyMessageErrorCode.userIdIsRequired,
+                description: `User Id is required.`,
+            }] as MessageError[];
+        } else if (busMessageErrors?.find(x => x.code === BusErrorCode.userNotFound)) {
+            messageErrors = [{
+                code: OperatorReplyMessageErrorCode.userNotFound,
+                description: `Can't find user with specified Id.`,
+            }] as MessageError[];
+        } else {
+            messageErrors = [{
+                code: OperatorReplyMessageErrorCode.cantGetUserWithRoles,
+                description: `Can't get user with roles. Check if user with specified Id exists.`,
+            }] as MessageError[];
+        }
+        return messageErrors;
+    }
+
+    cantGetUserWithRolesErrors(busMessageErrors: MessageError[] | undefined): MessageError[] {
+        let messageErrors: MessageError[];
+        if (busMessageErrors?.find(x => x.code === BusErrorCode.userIdIsRequired)) {
+            messageErrors = [{
+                code: OperatorReplyMessageErrorCode.userIdIsRequired,
+                description: `User Id is required.`,
+            }] as MessageError[];
+        } else {
+            messageErrors = [{
+                code: OperatorReplyMessageErrorCode.cantGetUserWithRoles,
+                description: `Can't get role with permissions.`,
+            }] as MessageError[];
+        }
+        return messageErrors;
+    }
+
+    cantGetAllUsersErrors(busMessageErrors: MessageError[] | undefined): MessageError[] {
+        let messageErrors: MessageError[];
+        messageErrors = [{
+            code: OperatorReplyMessageErrorCode.cantGetAllUsers,
+            description: `Can't get all users.`,
+        }] as MessageError[];
+        return messageErrors;
+    }
+
     cantUpdateRoleWithPermissionsErrors(busMessageErrors: MessageError[] | undefined): MessageError[] {
         let messageErrors: MessageError[];
         if (busMessageErrors?.find(x => x.code === BusErrorCode.roleIdIsRequired)) {
@@ -23,6 +106,7 @@ export class ErrorReplyHelper {
         }
         return messageErrors;
     }
+
     cantCreateRoleWithPermissionsErrors(busMessageErrors: MessageError[] | undefined): MessageError[] {
         let messageErrors: MessageError[];
         messageErrors = [{

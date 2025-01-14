@@ -6,6 +6,7 @@ import { Permission } from 'src/entities/permission.mjs';
 export interface OperatorGetRoleWithPermissionsReplyMessageBody {
     role?: Role;
     rolePermissionIds?: number[];
+    // TODO: Remove this - the client can read all permission entities if necessary
     allPermissions?: Permission[];
 }
 

@@ -12,34 +12,43 @@ import { IRole } from './entities/role.mjs';
 import { IPermission } from './entities/permission.mjs';
 
 export interface StorageProvider {
-    init(config: StorageProviderConfig): Promise<StorageProviderInitResult>;
-    stop(): Promise<void>;
+    getAllUsers(): Promise<IUser[]>;
+    getUserByUsernameAndPasswordHash(username: string, passwordHash: string): Promise<IUser | undefined>;
+    getUserById(userId: number): Promise<IUser | undefined>;
+    getUserPermissions(userId: number): Promise<string[] | undefined>;
+    getUserRoleIds(userId: number): Promise<number[]>;
+    createUserWithRoles(user: IUser, passwordHash: string, roleIds: number[]): Promise<IUser | undefined>;
+    updateUserWithRoles(user: IUser, roleIds: number[], passwordHash?: string): Promise<IUser | undefined>;
+
     getDeviceByCertificateThumbprint(certificateThumbprint: string): Promise<IDevice | undefined>;
     createDevice(device: IDevice): Promise<IDevice>;
     updateDevice(device: IDevice): Promise<IDevice>;
     getAllDevices(): Promise<IDevice[]>;
     getDeviceById(deviceId: number): Promise<IDevice | undefined>;
-    getUser(username: string, passwordHash: string): Promise<IUser | undefined>;
-    getUserById(userId: number): Promise<IUser | undefined>;
-    getUserPermissions(userId: number): Promise<string[] | undefined>;
     getDeviceStatus(deviceId: number): Promise<IDeviceStatus | undefined>;
+    addDeviceConnectionEvent(deviceConnectionEvent: IDeviceConnectionEvent): Promise<IDeviceConnectionEvent | undefined>;
+    addDeviceSession(deviceSession: IDeviceSession): Promise<IDeviceSession>
     getAllDeviceStatuses(): Promise<IDeviceStatus[]>;
     addOrUpdateDeviceStatusEnabled(deviceStatus: IDeviceStatus): Promise<IDeviceStatus | undefined>;
     updateDeviceStatus(deviceStatus: IDeviceStatus): Promise<void>;
-    // setDeviceStatusEnabledFlag(deviceId: number, enabled: boolean): Promise<void>;
+
     getAllSystemSettings(): Promise<ISystemSetting[]>;
     getSystemSettingByName(name: string): Promise<ISystemSetting | undefined>;
-    addDeviceConnectionEvent(deviceConnectionEvent: IDeviceConnectionEvent): Promise<IDeviceConnectionEvent | undefined>;
+
     addOperatorConnectionEvent(addOperatorConnectionEvent: IOperatorConnectionEvent): Promise<IOperatorConnectionEvent | undefined>;
+
     getAllTariffs(): Promise<ITariff[]>;
     getTariffById(tariffId: number): Promise<ITariff | undefined>;
     createTariff(tariff: ITariff): Promise<ITariff>;
     updateTariff(tariff: ITariff): Promise<ITariff>;
-    addDeviceSession(deviceSession: IDeviceSession): Promise<IDeviceSession>
+
     getAllRoles(): Promise<IRole[]>;
     getRoleById(roleId: number): Promise<IRole | undefined>;
     getAllPermissions(): Promise<IPermission[]>
     getRolePermissionIds(roleId: number): Promise<number[]>;
     createRoleWithPermissions(role: IRole, permissionIds: number[]): Promise<IRole | undefined>;
     updateRoleWithPermissions(role: IRole, permissionIds: number[]): Promise<IRole | undefined>;
+
+    init(config: StorageProviderConfig): Promise<StorageProviderInitResult>;
+    stop(): Promise<void>;
 }

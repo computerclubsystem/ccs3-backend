@@ -7,6 +7,33 @@ import { IDevice } from 'src/storage/entities/device.mjs';
 import { IQueryTextWithParamsResult } from "./query-with-params.mjs";
 
 export class DeviceQueryHelper {
+    createDeviceQueryData(device: IDevice): IQueryTextWithParamsResult {
+        const params: unknown[] = [
+            device.certificate_thumbprint,
+            device.created_at,
+            device.ip_address,
+            device.name,
+            device.description,
+            device.approved,
+            device.enabled,
+            device.device_group_id,
+        ];
+        return {
+            text: this.createDeviceQueryText,
+            params,
+        }
+    }
+
+    getDeviceByCertificateThumbprintQueryData(certificateThumbprint: string): IQueryTextWithParamsResult {
+        const params: unknown[] = [
+            certificateThumbprint,
+        ];
+        return {
+            text: this.getDeviceByCertificateThumbprintQueryText,
+            params,
+        };
+    }
+
     updateDeviceQueryData(device: IDevice): IQueryTextWithParamsResult {
         const params: [
             string,
@@ -44,6 +71,50 @@ export class DeviceQueryHelper {
             params: params,
         };
     }
+
+    private readonly createDeviceQueryText = `
+        INSERT INTO device
+        (
+            certificate_thumbprint,
+            created_at,
+            ip_address,
+            name,
+            description,
+            approved,
+            enabled,
+            device_group_id
+        )
+        VALUES
+        (
+            $1, $2, $3, $4, $5, $6, $7, $8
+        )
+        RETURNING 
+            id,
+            certificate_thumbprint,
+            created_at,
+            ip_address,
+            name,
+            description,
+            approved,
+            enabled,
+            device_group_id
+    `;
+
+    private readonly getDeviceByCertificateThumbprintQueryText = `
+        SELECT 
+            id,
+            certificate_thumbprint,
+            ip_address,
+            name,
+            description,
+            created_at,
+            approved,
+            enabled,
+            device_group_id
+        FROM device
+        WHERE certificate_thumbprint = $1
+        LIMIT 1
+    `;
 
     private readonly updateDeviceQueryText = `
         UPDATE device

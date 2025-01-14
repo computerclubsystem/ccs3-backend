@@ -1,5 +1,5 @@
-import { OperatorMessageType } from './declarations/operator-message-type.mjs';
-import { OperatorMessage } from './declarations/operator.message.mjs';
+import { OperatorMessageType, OperatorReplyMessageType } from './declarations/operator-message-type.mjs';
+import { OperatorMessage, OperatorReplyMessage } from './declarations/operator.message.mjs';
 
 export interface OperatorAuthReplyMessageBody {
     success: boolean;
@@ -8,12 +8,12 @@ export interface OperatorAuthReplyMessageBody {
     tokenExpiresAt?: number;
 }
 
-export interface OperatorAuthReplyMessage extends OperatorMessage<OperatorAuthReplyMessageBody> {
+export interface OperatorAuthReplyMessage extends OperatorReplyMessage<OperatorAuthReplyMessageBody> {
 }
 
 export function createOperatorAuthReplyMessage(): OperatorAuthReplyMessage {
     const msg: OperatorAuthReplyMessage = {
-        header: { type: OperatorMessageType.authReply },
+        header: { type: OperatorReplyMessageType.authReply },
         body: {} as OperatorAuthReplyMessageBody,
     };
     return msg;
