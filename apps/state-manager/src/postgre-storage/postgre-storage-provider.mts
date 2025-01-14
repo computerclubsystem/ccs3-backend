@@ -59,6 +59,60 @@ export class PostgreStorageProvider implements StorageProvider {
         return result;
     }
 
+    async updateUserWithRoles(user: IUser, roleIds: number[], passwordHash?: string): Promise<IUser | undefined> {
+        let transactionClient: pg.PoolClient | undefined;
+        let updatedUser: IUser | undefined;
+        try {
+            transactionClient = await this.getPoolClient();
+            await transactionClient.query('BEGIN');
+            const updateUserQueryData = this.queryUtils.updateUserQueryData(user, passwordHash);
+            const updateUserResult = await transactionClient.query(updateUserQueryData.text, updateUserQueryData.params);
+            updatedUser = updateUserResult.rows[0] as IUser | undefined;
+            if (!updatedUser) {
+                await transactionClient?.query('ROLLBACK');
+                return undefined;
+            } else {
+                const replaceUserRolesQueryData = this.queryUtils.replaceUserRolesQueryData(updatedUser.id, roleIds);
+                await transactionClient.query(replaceUserRolesQueryData.text);
+            }
+            await transactionClient?.query('COMMIT');
+        } catch (err) {
+            updatedUser = undefined;
+            await transactionClient?.query('ROLLBACK');
+            throw err;
+        } finally {
+            transactionClient?.release();
+        }
+        return updatedUser;
+    }
+
+    async createUserWithRoles(user: IUser, passwordHash: string, roleIds: number[]): Promise<IUser | undefined> {
+        let transactionClient: pg.PoolClient | undefined;
+        let createdUser: IUser | undefined;
+        try {
+            transactionClient = await this.getPoolClient();
+            await transactionClient.query('BEGIN');
+            const createUserQueryData = this.queryUtils.createUserQueryData(user, passwordHash);
+            const createUserResult = await transactionClient.query(createUserQueryData.text, createUserQueryData.params);
+            createdUser = createUserResult.rows[0] as IUser | undefined;
+            if (!createdUser) {
+                await transactionClient?.query('ROLLBACK');
+                return undefined;
+            } else {
+                const replaceUserRolesQueryData = this.queryUtils.replaceUserRolesQueryData(createdUser.id, roleIds);
+                await transactionClient.query(replaceUserRolesQueryData.text);
+            }
+            await transactionClient?.query('COMMIT');
+        } catch (err) {
+            createdUser = undefined;
+            await transactionClient?.query('ROLLBACK');
+            throw err;
+        } finally {
+            transactionClient?.release();
+        }
+        return createdUser;
+    }
+
     async createRoleWithPermissions(role: IRole, permissionIds: number[]): Promise<IRole | undefined> {
         let transactionClient: pg.PoolClient | undefined;
         let createdRole: IRole | undefined;
@@ -220,8 +274,21 @@ export class PostgreStorageProvider implements StorageProvider {
         return res.rows[0] as ITariff;
     }
 
-    async getUser(username: string, passwordHash: string): Promise<IUser | undefined> {
-        const queryData = this.queryUtils.getUserQueryData(username, passwordHash);
+    async getUserRoleIds(userId: number): Promise<number[]> {
+        const queryData = this.queryUtils.getUserRoleIdsQueryData(userId);
+        const res = await this.execQuery(queryData.text,queryData.params);
+        return res.rows.map(x => x.role_id) as number[];
+    }
+
+
+    async getAllUsers(): Promise<IUser[]> {
+        const queryText = this.queryUtils.getAllUsersQueryText();
+        const res = await this.execQuery(queryText);
+        return res.rows as IUser[];
+    }
+
+    async getUserByUsernameAndPasswordHash(username: string, passwordHash: string): Promise<IUser | undefined> {
+        const queryData = this.queryUtils.getUserByUsernameAndPasswordHashQueryData(username, passwordHash);
         const res = await this.execQuery(queryData.text, queryData.params);
         return res.rows[0] as IUser | undefined;
     }

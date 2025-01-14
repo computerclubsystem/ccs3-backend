@@ -17,9 +17,9 @@ import {
 } from '@computerclubsystem/websocket-server';
 import { OperatorAuthRequestMessage } from '@computerclubsystem/types/messages/operators/operator-auth-request.message.mjs';
 import { createBusOperatorAuthRequestMessage } from '@computerclubsystem/types/messages/bus/bus-operator-auth-request.message.mjs';
-import { BusOperatorAuthReplyMessage, BusOperatorAuthReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-operator-auth-reply.message.mjs';
+import { BusOperatorAuthReplyMessage, BusOperatorAuthReplyMessageBody, createBusOperatorAuthReplyMessage } from '@computerclubsystem/types/messages/bus/bus-operator-auth-reply.message.mjs';
 import { createBusOperatorConnectionEventMessage } from '@computerclubsystem/types/messages/bus/bus-operator-connection-event.message.mjs';
-import { createOperatorAuthReplyMessage } from '@computerclubsystem/types/messages/operators/operator-auth-reply.message.mjs';
+import { createOperatorAuthReplyMessage, OperatorAuthReplyMessage } from '@computerclubsystem/types/messages/operators/operator-auth-reply.message.mjs';
 import { Logger } from './logger.mjs';
 import { IStaticFilesServerConfig, StaticFilesServer } from './static-files-server.mjs';
 import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
@@ -32,7 +32,7 @@ import { CacheHelper, UserAuthDataCacheValue } from './cache-helper.mjs';
 import { CanProcessOperatorMessageResult, CanProcessOperatorMessageResultErrorReason, ConnectedClientData, ConnectionCleanUpReason, IsAuthorizedResult, IsAuthorizedResultReason, IsTokenActiveResult, MessageStatItem, OperatorConnectorState, OperatorConnectorValidators } from './declarations.mjs';
 import { OperatorRefreshTokenRequestMessage } from '@computerclubsystem/types/messages/operators/operator-refresh-token-request.message.mjs';
 import { createOperatorRefreshTokenReplyMessage } from '@computerclubsystem/types/messages/operators/operator-refresh-token-reply.message.mjs';
-import { createOperatorNotAuthenticatedMessage } from '@computerclubsystem/types/messages/operators/operator-not-authenticated.message.mjs';
+import { createOperatorNotAuthenticatedMessage } from '@computerclubsystem/types/messages/operators/operator-not-authenticated-reply.message.mjs';
 import { OperatorSignOutRequestMessage } from '@computerclubsystem/types/messages/operators/operator-sign-out-request.message.mjs';
 import { createOperatorSignOutReplyMessage } from '@computerclubsystem/types/messages/operators/operator-sign-out-reply.message.mjs';
 import { AuthorizationHelper } from './authorization-helper.mjs';
@@ -99,6 +99,23 @@ import { OperatorUpdateRoleWithPermissionsRequestMessage } from '@computerclubsy
 import { createBusUpdateRoleWithPermissionsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-role-with-permissions-request.message.mjs';
 import { BusUpdateRoleWithPermissionsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-update-role-with-permissions-reply.message.mjs';
 import { createOperatorUpdateRoleWithPermissionsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-update-role-with-permissions-reply.message.mjs';
+import { OperatorGetAllUsersRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-users-request.message.mjs';
+import { createBusGetAllUsersRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-users-request.message.mjs';
+import { createOperatorGetAllUsersReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-users-reply.message.mjs';
+import { BusGetAllUsersReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-all-users-reply.message.mjs';
+import { OperatorGetUserWithRolesRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-user-with-roles-request.message.mjs';
+import { createOperatorGetUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-user-with-roles-reply.message.mjs';
+import { createBusGetUserWithRolesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-user-with-roles-request.message.mjs';
+import { BusGetUserWithRolesReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-user-with-roles-reply.message.mjs';
+import { OperatorCreateUserWithRolesRequestMessage } from '@computerclubsystem/types/messages/operators/operator-create-user-with-roles-request.message.mjs';
+import { createBusCreateUserWithRolesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-user-with-roles-request.message.mjs';
+import { BusCreateUserWithRolesReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-create-user-with-roles-reply.message.mjs';
+import { createOperatorCreateUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/operators/operator-create-user-with-roles-reply.message.mjs';
+import { createOperatorNotAuthorizedMessage } from '@computerclubsystem/types/messages/operators/operator-not-authorized-reply.message.mjs';
+import { OperatorUpdateUserWithRolesRequestMessage } from '@computerclubsystem/types/messages/operators/operator-update-user-with-roles-request.mjs';
+import { BusUpdateUserWithRolesReplyMessageBody, createBusUpdateUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-user-with-roles-reply.message.mjs';
+import { createOperatorUpdateUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/operators/operator-update-user-with-roles-reply.message.mjs';
+import { createBusUpdateUserWithRolesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-user-with-roles-request.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -163,12 +180,29 @@ export class OperatorConnector {
                 || canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.tokenNotFound
                 || canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.tokenNotProvided
                 || canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.messageRequiresAuthentication
-                || canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.notAuthorized) {
+            ) {
                 // Send not authenticated
                 const notAuthenticatedMsg = createOperatorNotAuthenticatedMessage();
                 notAuthenticatedMsg.header.correlationId = message.header?.correlationId;
                 notAuthenticatedMsg.body.requestedMessageType = message.header?.type;
-                this.sendMessageToOperator(notAuthenticatedMsg, clientData, message);
+                notAuthenticatedMsg.header.failure = true;
+                notAuthenticatedMsg.header.errors = [{
+                    code: OperatorReplyMessageErrorCode.notAuthenticated,
+                    description: 'Not authenticated. Sign in to authenticate.',
+                }] as MessageError[];
+                this.sendReplyMessageToOperator(notAuthenticatedMsg, clientData, message);
+            }
+            if (canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.notAuthorized) {
+                // Send not authorized
+                const notAuthorizedMsg = createOperatorNotAuthorizedMessage();
+                notAuthorizedMsg.header.correlationId = message.header?.correlationId;
+                notAuthorizedMsg.body.requestedMessageType = message.header?.type;
+                notAuthorizedMsg.header.failure = true;
+                notAuthorizedMsg.header.errors = [{
+                    code: OperatorReplyMessageErrorCode.notAuthorized,
+                    description: `Not enough permissions to execute ${message.header?.type}.`,
+                }] as MessageError[];
+                this.sendReplyMessageToOperator(notAuthorizedMsg, clientData, message);
             }
             return;
         }
@@ -177,6 +211,18 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorMessageType.updateUserWithRolesRequest:
+                this.processUpdateUserWithRolesRequestMessage(clientData, message as OperatorUpdateUserWithRolesRequestMessage);
+                break;
+            case OperatorMessageType.createUserWithRolesRequest:
+                this.processCreateUserWithRolesRequestMessage(clientData, message as OperatorCreateUserWithRolesRequestMessage);
+                break;
+            case OperatorMessageType.getUserWithRolesRequest:
+                this.processGetUserWithRolesRequestMessage(clientData, message as OperatorGetUserWithRolesRequestMessage);
+                break;
+            case OperatorMessageType.getAllUsersRequest:
+                this.processOperatorGetAllUsersRequestMessage(clientData, message as OperatorGetAllUsersRequestMessage);
+                break;
             case OperatorMessageType.createRoleWithPermissionsRequest:
                 this.processOperatorCreateRoleWithPermissionsRequestMessage(clientData, message as OperatorCreateRoleWithPermissionsRequestMessage);
                 break;
@@ -234,7 +280,73 @@ export class OperatorConnector {
                 break;
         }
     }
-    
+
+    processUpdateUserWithRolesRequestMessage(clientData: ConnectedClientData, message: OperatorUpdateUserWithRolesRequestMessage): void {
+        const requestMsg = createBusUpdateUserWithRolesRequestMessage();
+        requestMsg.body.user = message.body.user;
+        requestMsg.body.roleIds = message.body.roleIds;
+        requestMsg.body.passwordHash = message.body.passwordHash;
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusUpdateUserWithRolesReplyMessageBody>(requestMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorUpdateUserWithRolesReplyMessage();
+                operatorReplyMsg.body.user = busReplyMsg.body.user;
+                operatorReplyMsg.body.roleIds = busReplyMsg.body.roleIds;
+                if (busReplyMsg.header.failure) {
+                    operatorReplyMsg.header.failure = true;
+                    operatorReplyMsg.header.errors = this.errorReplyHelper.updateUserWithRolesErrors(busReplyMsg.header.errors);
+                }
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    processCreateUserWithRolesRequestMessage(clientData: ConnectedClientData, message: OperatorCreateUserWithRolesRequestMessage): void {
+        const requestMsg = createBusCreateUserWithRolesRequestMessage();
+        requestMsg.body.user = message.body.user;
+        requestMsg.body.roleIds = message.body.roleIds;
+        requestMsg.body.passwordHash = message.body.passwordHash;
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusCreateUserWithRolesReplyMessageBody>(requestMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorCreateUserWithRolesReplyMessage();
+                operatorReplyMsg.body.user = busReplyMsg.body.user;
+                operatorReplyMsg.body.roleIds = busReplyMsg.body.roleIds;
+                if (busReplyMsg.header.failure) {
+                    operatorReplyMsg.header.failure = true;
+                    operatorReplyMsg.header.errors = this.errorReplyHelper.createUserWithRolesErrors(busReplyMsg.header.errors);
+                }
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    processGetUserWithRolesRequestMessage(clientData: ConnectedClientData, message: OperatorGetUserWithRolesRequestMessage): void {
+        const requestMsg = createBusGetUserWithRolesRequestMessage();
+        requestMsg.body.userId = message.body.userId;
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetUserWithRolesReplyMessageBody>(requestMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorGetUserWithRolesReplyMessage();
+                operatorReplyMsg.body.user = busReplyMsg.body.user;
+                operatorReplyMsg.body.roleIds = busReplyMsg.body.roleIds;
+                if (busReplyMsg.header.failure) {
+                    operatorReplyMsg.header.failure = true;
+                    operatorReplyMsg.header.errors = this.errorReplyHelper.getUserWithRolesErrors(busReplyMsg.header.errors);
+                }
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    processOperatorGetAllUsersRequestMessage(clientData: ConnectedClientData, message: OperatorGetAllUsersRequestMessage): void {
+        const requestMsg = createBusGetAllUsersRequestMessage();
+        this.publishToOperatorsChannelAndWaitForReplyByType<BusGetAllUsersReplyMessageBody>(requestMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorGetAllUsersReplyMessage();
+                operatorReplyMsg.body.users = busReplyMsg.body.users;
+                if (busReplyMsg.header.failure) {
+                    operatorReplyMsg.header.failure = true;
+                    operatorReplyMsg.header.errors = this.errorReplyHelper.cantGetAllUsersErrors(busReplyMsg.header.errors);
+                }
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
     processOperatorUpdateRoleWithPermissionsRequestMessage(clientData: ConnectedClientData, message: OperatorUpdateRoleWithPermissionsRequestMessage): void {
         const requestMsg = createBusUpdateRoleWithPermissionsRequestMessage();
         requestMsg.body.role = message.body.role;
@@ -529,6 +641,8 @@ export class OperatorConnector {
     }
 
     async processOperatorSignOutRequestMessage(clientData: ConnectedClientData, message: OperatorSignOutRequestMessage): Promise<void> {
+        clientData.isAuthenticated = false;
+        clientData.permissions = new Set<string>();
         const token = message.header.token!;
         if (this.isWhiteSpace(token)) {
             return;
@@ -610,7 +724,18 @@ export class OperatorConnector {
     }
 
     async processOperatorAuthRequestMessage(clientData: ConnectedClientData, message: OperatorAuthRequestMessage): Promise<void> {
+        const sendCantAuthenticateReplyMessage = (): void => {
+            const replyMsg = createOperatorAuthReplyMessage();
+            replyMsg.body.success = false;
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: OperatorReplyMessageErrorCode.cantAuthenticate,
+            }] as MessageError[];
+            this.sendReplyMessageToOperator(replyMsg, clientData, message);
+        };
+
         if (!message?.body) {
+            sendCantAuthenticateReplyMessage();
             return;
         }
 
@@ -618,6 +743,7 @@ export class OperatorConnector {
             const isTokenProcessed = await this.processOperatorAuthRequestWithToken(clientData, message);
             if (!isTokenProcessed) {
                 // Token is invalid
+                sendCantAuthenticateReplyMessage();
                 return;
             }
         }
@@ -625,6 +751,7 @@ export class OperatorConnector {
         const isUsernameEmpty = this.isWhiteSpace(message.body.username);
         const isPasswordEmpty = this.isWhiteSpace(message.body.passwordHash);
         if (isUsernameEmpty && isPasswordEmpty) {
+            sendCantAuthenticateReplyMessage();
             return;
         }
 
@@ -653,7 +780,7 @@ export class OperatorConnector {
                 await this.cacheHelper.deleteAuthTokenKey(isTokenActiveResult.authTokenCacheValue?.token);
             }
             authReplyMsg.body.success = false;
-            this.sendMessageToOperator(authReplyMsg, clientData, message);
+            this.sendReplyMessageToOperator(authReplyMsg, clientData, message);
             if (isTokenActiveResult.authTokenCacheValue) {
                 const operatorId = clientData.operatorId || isTokenActiveResult.authTokenCacheValue.userId;
                 const note = JSON.stringify({
@@ -695,7 +822,7 @@ export class OperatorConnector {
         const operatorId = clientData.operatorId || authTokenCacheValue.userId;
         clientData.operatorId = operatorId;
         // Send messages back to the operator
-        this.sendMessageToOperator(authReplyMsg, clientData, message);
+        this.sendReplyMessageToOperator(authReplyMsg, clientData, message);
         const configurationMsg = this.createOperatorConfigurationMessage();
         this.sendMessageToOperator(configurationMsg, clientData, null);
         const note = JSON.stringify({
@@ -748,14 +875,20 @@ export class OperatorConnector {
     }
 
     processBusOperatorAuthReplyMessage(clientData: ConnectedClientData, message: BusOperatorAuthReplyMessage, operatorMessage: OperatorMessage<any>): void {
+        const replyMsg = createOperatorAuthReplyMessage();
         if (!clientData) {
+            replyMsg.body.success = false;
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: OperatorReplyMessageErrorCode.cantAuthenticate
+            }] as MessageError[];
+            this.sendReplyMessageToOperator(replyMsg, clientData, operatorMessage);
             return;
         }
         const rtData = message.header.roundTripData! as OperatorConnectionRoundTripData;
         clientData.isAuthenticated = message.body.success;
         clientData.permissions = new Set<string>(message.body.permissions);
         clientData.operatorId = message.body.userId;
-        const replyMsg = createOperatorAuthReplyMessage();
         replyMsg.body.permissions = message.body.permissions;
         replyMsg.body.success = message.body.success;
         if (replyMsg.body.success) {
@@ -763,7 +896,14 @@ export class OperatorConnector {
             replyMsg.body.tokenExpiresAt = this.getNowAsNumber() + this.getTokenExpirationMilliseconds();
             this.maintainUserAuthDataTokenCacheItem(clientData.operatorId!, replyMsg.body.permissions!, replyMsg.body.token, rtData);
         }
-        this.sendMessageToOperator(replyMsg, clientData, operatorMessage);
+        if (!message.body.success) {
+            replyMsg.body.success = false;
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: OperatorReplyMessageErrorCode.cantAuthenticate,
+            }] as MessageError[];
+        }
+        this.sendReplyMessageToOperator(replyMsg, clientData, operatorMessage);
         if (message.body.success) {
             // Send configuration message
             // TODO: Get configuration from the database
@@ -867,8 +1007,8 @@ export class OperatorConnector {
         for (const connection of connections) {
             const clientData = connection[1];
             if (clientData.isAuthenticated) {
-                const isAuthorized = this.authorizationHelper.isAuthorized(clientData.permissions, OperatorNotificationMessageType.deviceStatusesNotification);
-                if (isAuthorized) {
+                const isAuthorizedResult = this.authorizationHelper.isAuthorized(clientData.permissions, OperatorNotificationMessageType.deviceStatusesNotification);
+                if (isAuthorizedResult.authorized) {
                     clientDataToSendTo.push(clientData);
                 }
             }
@@ -1003,6 +1143,9 @@ export class OperatorConnector {
     sendReplyMessageToOperator<TBody>(message: OperatorReplyMessage<TBody>, clientData: ConnectedClientData, requestMessage?: OperatorMessage<any>): void {
         if (requestMessage) {
             message.header.correlationId = requestMessage.header.correlationId;
+        }
+        if (message.header.failure) {
+            message.header.requestType = requestMessage?.header?.type;
         }
         clientData.sentMessagesCount++;
         this.logger.log('Sending reply message to operator connection', clientData.connectionId, message.header.type, message);

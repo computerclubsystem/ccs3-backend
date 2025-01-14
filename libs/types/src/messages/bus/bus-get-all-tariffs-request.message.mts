@@ -13,6 +13,5 @@ export function createBusGetAllTariffsRequestMessage<TBody>(sourceMessage?: Mess
         header: { type: MessageType.busGetAllTariffsRequest },
         body: {} as BusGetAllTariffsRequestMessageBody,
     };
-    transferSharedMessageData(msg, sourceMessage);
     return msg;
 };

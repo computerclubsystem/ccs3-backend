@@ -1,0 +1,22 @@
+INSERT INTO permission
+(
+    name,
+    description
+)
+VALUES
+(
+    'users:create',
+    'Allows creating new users.'
+),
+(
+    'users:read',
+    'Allows reading users.'
+),
+(
+    'users:update',
+    'Allows updating users.'
+);
+
+UPDATE db_metadata
+SET value = '14'
+WHERE name = 'database-version';

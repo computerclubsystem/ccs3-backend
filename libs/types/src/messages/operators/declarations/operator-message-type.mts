@@ -1,11 +1,9 @@
 export enum OperatorMessageType {
     authRequest = 'auth-request',
-    authReply = 'auth-reply',
     configuration = 'configuration',
     pingRequest = 'ping-request',
     refreshTokenRequest = 'refresh-token-request',
     refreshTokenReply = 'refresh-token-reply',
-    notAuthenticated = 'not-authenticated',
     signOutRequest = 'sign-out-request',
     signOutReply = 'sign-out-reply',
     getAllDevicesRequest = 'get-all-devices-request',
@@ -27,9 +25,14 @@ export enum OperatorMessageType {
     createRoleWithPermissionsRequest = 'create-role-with-permissions-request',
     getAllPermissionsRequest = 'get-all-permissions-request',
     updateRoleWithPermissionsRequest = 'update-role-with-permissions-request',
+    getAllUsersRequest = 'get-all-users-request',
+    getUserWithRolesRequest = 'get-user-with-roles-request',
+    createUserWithRolesRequest = 'create-user-with-roles-request',
+    updateUserWithRolesRequest = 'update-user-with-roles-request',
 }
 
 export const enum OperatorReplyMessageType {
+    authReply = 'auth-reply',
     getTariffByIdReply = 'get-tariff-by-id-reply',
     createTariffReply = 'create-tariff-reply',
     startDeviceReply = 'start-device-reply',
@@ -40,6 +43,12 @@ export const enum OperatorReplyMessageType {
     createRoleWithPermissionsReply = 'create-role-with-permissions-reply',
     getAllPermissionsReply = 'get-all-permissions-reply',
     updateRoleWithPermissionsReply = 'update-role-with-permissions-reply',
+    getAllUsersReply = 'get-all-users-reply',
+    getUserWithRolesReply = 'get-user-with-roles-reply',
+    createUserWithRolesReply = 'create-user-with-roles-reply',
+    updateUserWithRolesReply = 'update-user-with-roles-reply',
+    notAuthenticatedReply = 'not-authenticated-reply',
+    notAuthorizedReply = 'not-authorized-reply',
 }
 
 export const enum OperatorNotificationMessageType {

@@ -13,4 +13,7 @@ export enum PermissionName {
     tariffsRead = 'tariffs:read',
     tariffsCreate = 'tariffs:create',
     tariffsUpdate = 'tariffs:update',
+    usersRead = 'users:read',
+    usersCreate = 'users:create',
+    usersUpdate = 'users:update',
 }

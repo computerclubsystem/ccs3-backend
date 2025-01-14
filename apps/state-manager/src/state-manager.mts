@@ -65,6 +65,15 @@ import { Role } from '@computerclubsystem/types/entities/role.mjs';
 import { BusUpdateRoleWithPermissionsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-role-with-permissions-request.message.mjs';
 import { createBusUpdateRoleWithPermissionsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-role-with-permissions-reply.message.mjs';
 import { MessageError } from '@computerclubsystem/types/messages/declarations/message-error.mjs';
+import { createBusGetAllUsersReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-users-reply.message.mjs';
+import { BusGetAllUsersRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-users-request.message.mjs';
+import { BusCreateUserWithRolesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-user-with-roles-request.message.mjs';
+import { createBusCreateUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-user-with-roles-reply.message.mjs';
+import { User } from '@computerclubsystem/types/entities/user.mjs';
+import { BusGetUserWithRolesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-user-with-roles-request.message.mjs';
+import { createBusGetUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-user-with-roles-reply.message.mjs';
+import { createBusUpdateUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-user-with-roles-reply.message.mjs';
+import { BusUpdateUserWithRolesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-user-with-roles-request.message.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -155,19 +164,6 @@ export class StateManager {
         this.logger.log('CacheClient connected');
 
         await this.cacheStaticData();
-        // setInterval(async () => {
-        //     try {
-        //         console.log('StoreClient writing key/value pair');
-        //         await storeClient.setValue('time', Date.now());
-        //         const value = await storeClient.getValue('time');
-        //         console.log('StoreClient read value', value);
-        //     } catch (err) {
-        //         console.log('Error while trying to write and read key/value pair', err);
-        //     }
-        // }, 1000);
-
-        // // TODO: For testing only
-        // this.startSendingDeviceSetStatusMessage();
 
         return true;
     }
@@ -197,50 +193,62 @@ export class StateManager {
     processOperatorsMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busUpdateUserWithRolesRequest:
+                this.processBusUpdateUserWithRolesRequestMessage(message as BusUpdateUserWithRolesRequestMessage);
+                break;            
+            case MessageType.busCreateUserWithRolesRequest:
+                this.processBusCreateUserWithRolesRequestMessage(message as BusCreateUserWithRolesRequestMessage);
+                break;
+            case MessageType.busGetUserWithRolesRequest:
+                this.processBusGetUserWithRolesRequestMessage(message as BusGetUserWithRolesRequestMessage);
+                break;
+            case MessageType.busGetAllUsersRequest:
+                this.processBusGetAllUsersRequestMessage(message as BusGetAllUsersRequestMessage);
+                break;
             case MessageType.busCreateRoleWithPermissionsRequest:
-                this.processCreateRoleWithPermissionsRequestMessage(message as BusCreateRoleWithPermissionsRequestMessage);
+                this.processBusCreateRoleWithPermissionsRequestMessage(message as BusCreateRoleWithPermissionsRequestMessage);
                 break;
             case MessageType.busUpdateRoleWithPermissionsRequest:
-                this.processUpdateRoleWithPermissionsRequestMessage(message as BusUpdateRoleWithPermissionsRequestMessage);
+                this.processBusUpdateRoleWithPermissionsRequestMessage(message as BusUpdateRoleWithPermissionsRequestMessage);
                 break;
             case MessageType.busGetAllPermissionsRequest:
-                this.processGetAllPermissionsRequestMessage(message as BusGetAllPermissionsRequestMessage);
+                this.processBusGetAllPermissionsRequestMessage(message as BusGetAllPermissionsRequestMessage);
                 break;
             case MessageType.busGetRoleWithPermissionsRequest:
-                this.processGetRoleWithPermissionsRequestMessage(message as BusGetRoleWithPermissionsRequestMessage);
+                this.processBusGetRoleWithPermissionsRequestMessage(message as BusGetRoleWithPermissionsRequestMessage);
                 break;
             case MessageType.busGetAllRolesRequest:
-                this.processGetAllRolesRequestMessage(message as BusGetAllRolesRequestMessage);
+                this.processBusGetAllRolesRequestMessage(message as BusGetAllRolesRequestMessage);
                 break;
             case MessageType.busStartDeviceRequest:
-                this.processStartDeviceRequestMessage(message as BusStartDeviceRequestMessage);
+                this.processBusStartDeviceRequestMessage(message as BusStartDeviceRequestMessage);
                 break;
             case MessageType.busGetTariffByIdRequest:
-                this.processGetTariffByIdRequestMessage(message as BusGetTariffByIdRequestMessage);
+                this.processBusGetTariffByIdRequestMessage(message as BusGetTariffByIdRequestMessage);
                 break;
             case MessageType.busCreateTariffRequest:
-                this.processCreateTariffRequestMessage(message as BusCreateTariffRequestMessage);
+                this.processBusCreateTariffRequestMessage(message as BusCreateTariffRequestMessage);
                 break;
             case MessageType.busUpdateTariffRequest:
-                this.processUpdateTariffRequestMessage(message as BusUpdateTariffRequestMessage);
+                this.processBusUpdateTariffRequestMessage(message as BusUpdateTariffRequestMessage);
                 break;
             case MessageType.busGetAllTariffsRequest:
-                this.processGetAllTariffsRequestMessage(message as BusGetAllTariffsRequestMessage);
+                this.processBusGetAllTariffsRequestMessage(message as BusGetAllTariffsRequestMessage);
                 break;
             case MessageType.busUpdateDeviceRequest:
-                this.processUpdateDeviceRequest(message as BusUpdateDeviceRequestMessage);
+                this.processBusUpdateDeviceRequest(message as BusUpdateDeviceRequestMessage);
                 break;
             case MessageType.busOperatorGetDeviceByIdRequest:
-                this.processOperatorGetDeviceByIdRequest(message as BusDeviceGetByIdRequestMessage);
+                this.processBusOperatorGetDeviceByIdRequest(message as BusDeviceGetByIdRequestMessage);
                 break;
             case MessageType.busOperatorGetAllDevicesRequest:
-                this.processOperatorGetAllDevicesRequest(message as BusOperatorGetAllDevicesRequestMessage);
+                this.processBusOperatorGetAllDevicesRequest(message as BusOperatorGetAllDevicesRequestMessage);
                 break;
             case MessageType.busOperatorAuthRequest:
-                this.processOperatorAuthRequest(message as BusOperatorAuthRequestMessage);
+                this.processBusOperatorAuthRequest(message as BusOperatorAuthRequestMessage);
                 break;
             case MessageType.busOperatorConnectionEvent:
-                this.processOperatorConnectionEvent(message as BusOperatorConnectionEventMessage);
+                this.processBusOperatorConnectionEvent(message as BusOperatorConnectionEventMessage);
                 break;
         }
     }
@@ -260,28 +268,148 @@ export class StateManager {
         }
     }
 
-    private getRoleValidationMessageErrors(role: Role, idRequired: boolean = false): MessageError[] | undefined {
-        let result: MessageError[] | undefined
-        if (!role?.name?.trim()) {
-            result = [{
-                code: BusErrorCode.roleNameIsRequired,
-                description: 'Role name is required',
+    async processBusUpdateUserWithRolesRequestMessage(message: BusUpdateUserWithRolesRequestMessage): Promise<void> {
+        const replyMsg = createBusUpdateUserWithRolesReplyMessage();
+        const user: User = message.body.user;
+        if (!user?.id) {
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: BusErrorCode.userIdIsRequired,
+                description: 'User Id is required',
             }] as MessageError[];
-            return result;
+            this.publishToOperatorsChannel(replyMsg, message);
+            return;
         }
-        if (idRequired) {
-            if (!role?.id) {
-                result = [{
-                    code: BusErrorCode.roleIdIsRequired,
-                    description: 'Role Id is required',
-                }] as MessageError[];
-                return result;
+        try {
+            const storageUser = this.entityConverter.userToStorageUser(user);
+            storageUser.updated_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
+            const createdStorageUser = await this.storageProvider.updateUserWithRoles(storageUser, message.body.roleIds || [], message.body.passwordHash);
+            if (createdStorageUser) {
+                replyMsg.body.user = this.entityConverter.storageUserToUser(createdStorageUser);
+                replyMsg.body.roleIds = message.body.roleIds;
+            } else {
+                this.logger.warn(`Can't process BusUpdateUserWithRolesRequestMessage message. User was not updated`, message);
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userNotUpdated,
+                    description: 'User was not updated',
+                }];
             }
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusUpdateUserWithRolesRequestMessage message`, message, err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
         }
-        return undefined;
     }
 
-    async processUpdateRoleWithPermissionsRequestMessage(message: BusUpdateRoleWithPermissionsRequestMessage): Promise<void> {
+    async processBusGetUserWithRolesRequestMessage(message: BusGetUserWithRolesRequestMessage): Promise<void> {
+        const replyMsg = createBusGetUserWithRolesReplyMessage();
+        try {
+            const userId = message.body?.userId;
+            if (!userId) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userIdIsRequired,
+                    description: 'User Id is required.',
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const storageUser = await this.storageProvider.getUserById(message.body.userId);
+            if (!storageUser) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userNotFound,
+                    description: `User with specified Id ${userId} is not found.`,
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const userRoleIds = await this.storageProvider.getUserRoleIds(userId);
+            replyMsg.body.user = this.entityConverter.storageUserToUser(storageUser);
+            replyMsg.body.roleIds = userRoleIds;
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusGetUserWithRolesRequestMessage message`, message, err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+    async processBusCreateUserWithRolesRequestMessage(message: BusCreateUserWithRolesRequestMessage): Promise<void> {
+        const replyMsg = createBusCreateUserWithRolesReplyMessage();
+        const user: User = message.body.user;
+        const messageErrors = this.getUserValidationMessageErrors(user, false);
+        if (messageErrors) {
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = messageErrors;
+            this.publishToOperatorsChannel(replyMsg, message);
+            return;
+        }
+        if (this.isWhiteSpace(message.body.passwordHash)) {
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: BusErrorCode.passwordHashIsRequired,
+                description: 'Password sha512 hash is required',
+            }] as MessageError[];
+            this.publishToOperatorsChannel(replyMsg, message);
+            return;
+        }
+        try {
+            const storageUser = this.entityConverter.userToStorageUser(user);
+            storageUser.created_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
+            const createdStorageUser = await this.storageProvider.createUserWithRoles(storageUser, message.body.passwordHash, message.body.roleIds || []);
+            if (createdStorageUser) {
+                replyMsg.body.user = this.entityConverter.storageUserToUser(createdStorageUser);
+                replyMsg.body.roleIds = message.body.roleIds;
+            } else {
+                this.logger.warn(`Can't process BusCreateUserWithRolesRequestMessage message. User was not created`, message);
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userNotCreated,
+                    description: 'User was not created',
+                }];
+            }
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusCreateUserWithRolesRequestMessage message`, message, err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+    async processBusGetAllUsersRequestMessage(message: BusGetAllUsersRequestMessage): Promise<void> {
+        const replyMsg = createBusGetAllUsersReplyMessage();
+        try {
+            const allStorageUsers = await this.storageProvider.getAllUsers();
+            const allUsers = allStorageUsers.map(x => this.entityConverter.storageUserToUser(x))
+            replyMsg.body.users = allUsers;
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusGetAllUsersRequestMessage message`, message, err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+    async processBusUpdateRoleWithPermissionsRequestMessage(message: BusUpdateRoleWithPermissionsRequestMessage): Promise<void> {
         const replyMsg = createBusUpdateRoleWithPermissionsReplyMessage();
         const role: Role = message.body.role;
         const messageErrors = this.getRoleValidationMessageErrors(role, true);
@@ -316,7 +444,7 @@ export class StateManager {
         }
     }
 
-    async processCreateRoleWithPermissionsRequestMessage(message: BusCreateRoleWithPermissionsRequestMessage): Promise<void> {
+    async processBusCreateRoleWithPermissionsRequestMessage(message: BusCreateRoleWithPermissionsRequestMessage): Promise<void> {
         const replyMsg = createBusCreateRoleWithPermissionsReplyMessage();
         const role: Role = message.body.role;
         const messageErrors = this.getRoleValidationMessageErrors(role, false);
@@ -351,7 +479,7 @@ export class StateManager {
         }
     }
 
-    async processGetAllPermissionsRequestMessage(message: BusGetAllPermissionsRequestMessage): Promise<void> {
+    async processBusGetAllPermissionsRequestMessage(message: BusGetAllPermissionsRequestMessage): Promise<void> {
         const replyMsg = createBusGetAllPermissionsReplyMessage();
         try {
             const allPermissions = await this.cacheHelper.getAllPermissions();
@@ -368,7 +496,7 @@ export class StateManager {
         }
     }
 
-    async processGetRoleWithPermissionsRequestMessage(message: BusGetRoleWithPermissionsRequestMessage): Promise<void> {
+    async processBusGetRoleWithPermissionsRequestMessage(message: BusGetRoleWithPermissionsRequestMessage): Promise<void> {
         const replyMsg = createBusGetRoleWithPermissionsReplyMessage();
         if (!message.body.roleId) {
             replyMsg.header.failure = true;
@@ -397,7 +525,7 @@ export class StateManager {
             replyMsg.body.rolePermissionIds = rolePermissionIds;
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
-            this.logger.warn(`Can't process BusGetAllRolesRequestMessage message`, message, err);
+            this.logger.warn(`Can't process BusGetRoleWithPermissionsRequestMessage message`, message, err);
             replyMsg.header.failure = true;
             replyMsg.header.errors = [{
                 code: '',
@@ -407,7 +535,7 @@ export class StateManager {
         }
     }
 
-    async processGetAllRolesRequestMessage(message: BusGetAllRolesRequestMessage): Promise<void> {
+    async processBusGetAllRolesRequestMessage(message: BusGetAllRolesRequestMessage): Promise<void> {
         const replyMsg = createBusGetAllRolesReplyMessage();
         try {
             const allStorageRoles = await this.storageProvider.getAllRoles();
@@ -425,7 +553,7 @@ export class StateManager {
         }
     }
 
-    async processStartDeviceRequestMessage(message: BusStartDeviceRequestMessage): Promise<void> {
+    async processBusStartDeviceRequestMessage(message: BusStartDeviceRequestMessage): Promise<void> {
         // TODO: This function can be called from operator-connector as well from pc-connector if the computer is started by customer
         //       We need to determine which channel to use for reply
         try {
@@ -515,7 +643,7 @@ export class StateManager {
         }
     }
 
-    async processUpdateTariffRequestMessage(message: BusUpdateTariffRequestMessage): Promise<void> {
+    async processBusUpdateTariffRequestMessage(message: BusUpdateTariffRequestMessage): Promise<void> {
         try {
             const replyMsg = createBusUpdateTariffReplyMessage();
             const tariff: Tariff = message.body.tariff;
@@ -557,7 +685,7 @@ export class StateManager {
         }
     }
 
-    async processGetTariffByIdRequestMessage(message: BusGetTariffByIdRequestMessage): Promise<void> {
+    async processBusGetTariffByIdRequestMessage(message: BusGetTariffByIdRequestMessage): Promise<void> {
         try {
             const replyMsg = createBusGetTariffByIdReplyMessage();
             const allTariffs = await this.getAndCacheAllTariffs();
@@ -589,7 +717,7 @@ export class StateManager {
         }
     }
 
-    async processCreateTariffRequestMessage(message: BusCreateTariffRequestMessage): Promise<void> {
+    async processBusCreateTariffRequestMessage(message: BusCreateTariffRequestMessage): Promise<void> {
         try {
             // TODO: Validate the tariff
             const storageTariff = this.entityConverter.tariffToStorageTariff(message.body.tariff);
@@ -611,7 +739,7 @@ export class StateManager {
         }
     }
 
-    async processGetAllTariffsRequestMessage(message: BusGetAllTariffsRequestMessage): Promise<void> {
+    async processBusGetAllTariffsRequestMessage(message: BusGetAllTariffsRequestMessage): Promise<void> {
         try {
             const allTariffs = await this.storageProvider.getAllTariffs();
             const replyMsg = createBusGetAllTariffsReplyMessage(message);
@@ -629,7 +757,7 @@ export class StateManager {
         }
     }
 
-    async processUpdateDeviceRequest(message: BusUpdateDeviceRequestMessage): Promise<void> {
+    async processBusUpdateDeviceRequest(message: BusUpdateDeviceRequestMessage): Promise<void> {
         try {
             if (!message.body.device?.id) {
                 this.logger.warn(`Can't update device without id`, message);
@@ -672,7 +800,7 @@ export class StateManager {
         }
     }
 
-    async processOperatorGetDeviceByIdRequest(message: BusDeviceGetByIdRequestMessage): Promise<void> {
+    async processBusOperatorGetDeviceByIdRequest(message: BusDeviceGetByIdRequestMessage): Promise<void> {
         try {
             const device = await this.storageProvider.getDeviceById(message.body.deviceId);
             const replyMsg = createBusDeviceGetByIdReplyMessage(message);
@@ -683,14 +811,14 @@ export class StateManager {
         }
     }
 
-    async processOperatorGetAllDevicesRequest(message: BusOperatorGetAllDevicesRequestMessage): Promise<void> {
+    async processBusOperatorGetAllDevicesRequest(message: BusOperatorGetAllDevicesRequestMessage): Promise<void> {
         const storageDevices = await this.storageProvider.getAllDevices();
         const replyMsg = createBusOperatorGetAllDevicesReplyMessage(message);
         replyMsg.body.devices = storageDevices.map(storageDevice => this.entityConverter.storageDeviceToDevice(storageDevice));
         this.publishToOperatorsChannel(replyMsg, message);
     }
 
-    async processOperatorConnectionEvent(message: BusOperatorConnectionEventMessage): Promise<void> {
+    async processBusOperatorConnectionEvent(message: BusOperatorConnectionEventMessage): Promise<void> {
         try {
             const operatorConnectionEvent: IOperatorConnectionEvent = {
                 operator_id: message.body.operatorId,
@@ -705,7 +833,7 @@ export class StateManager {
         }
     }
 
-    async processOperatorAuthRequest(message: BusOperatorAuthRequestMessage): Promise<void> {
+    async processBusOperatorAuthRequest(message: BusOperatorAuthRequestMessage): Promise<void> {
         try {
             const body = message.body;
             // const rtData = message.header.roundTripData as OperatorConnectionRoundTripData;
@@ -729,6 +857,15 @@ export class StateManager {
             // }
         } catch (err) {
             this.logger.warn(`Can't process BusOperatorAuthRequestMessage`, message, err);
+            const replyMsg = createBusOperatorAuthReplyMessage();
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [
+                {
+                    code: BusErrorCode.cantAuthenticateUser,
+                    description: (err as any)?.message,
+                }
+            ] as MessageError[];
+            this.publishToOperatorsChannel(replyMsg, message);
         }
     }
 
@@ -762,7 +899,7 @@ export class StateManager {
 
     async getBusOperatorReplyMessageForUsernameAndPasswordHash(username: string, passwordHash: string): Promise<BusOperatorAuthReplyMessage> {
         const replyMsg = createBusOperatorAuthReplyMessage();
-        const user = await this.storageProvider.getUser(username, passwordHash);
+        const user = await this.storageProvider.getUserByUsernameAndPasswordHash(username, passwordHash);
         if (!user) {
             // TODO: Send "credentials are invalid"
             replyMsg.body.success = false;
@@ -810,6 +947,48 @@ export class StateManager {
         } catch (err) {
             this.logger.warn(`Can't process BusDeviceUnknownDeviceConnectedRequestMessage message`, message, err);
         }
+    }
+
+    private getUserValidationMessageErrors(user: User, idRequired: boolean = false): MessageError[] | undefined {
+        let result: MessageError[] | undefined
+        if (this.isWhiteSpace(user?.username)) {
+            result = [{
+                code: BusErrorCode.usernameIsRequired,
+                description: 'Username is required',
+            }] as MessageError[];
+            return result;
+        }
+        if (idRequired) {
+            if (!user?.id) {
+                result = [{
+                    code: BusErrorCode.userIdIsRequired,
+                    description: 'User Id is required',
+                }] as MessageError[];
+                return result;
+            }
+        }
+        return undefined;
+    }
+
+    private getRoleValidationMessageErrors(role: Role, idRequired: boolean = false): MessageError[] | undefined {
+        let result: MessageError[] | undefined
+        if (this.isWhiteSpace(role?.name)) {
+            result = [{
+                code: BusErrorCode.roleNameIsRequired,
+                description: 'Role name is required',
+            }] as MessageError[];
+            return result;
+        }
+        if (idRequired) {
+            if (!role?.id) {
+                result = [{
+                    code: BusErrorCode.roleIdIsRequired,
+                    description: 'Role Id is required',
+                }] as MessageError[];
+                return result;
+            }
+        }
+        return undefined;
     }
 
     serializeMessage<TBody>(message: Message<TBody>): string {

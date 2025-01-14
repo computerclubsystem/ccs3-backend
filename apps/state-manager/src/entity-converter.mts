@@ -12,8 +12,32 @@ import { IRole } from './storage/entities/role.mjs';
 import { Role } from '@computerclubsystem/types/entities/role.mjs';
 import { IPermission } from './storage/entities/permission.mjs';
 import { Permission } from '@computerclubsystem/types/entities/permission.mjs';
+import { IUser } from './storage/entities/user.mjs';
+import { User } from '@computerclubsystem/types/entities/user.mjs';
 
 export class EntityConverter {
+    userToStorageUser(user: User): IUser {
+        const storageUser: IUser = {
+            created_at: user.createdAt,
+            enabled: user.enabled,
+            id: user.id,
+            username: user.username,
+            updated_at: user.updatedAt,
+        };
+        return storageUser;
+    }
+
+    storageUserToUser(storageUser: IUser): User {
+        const user: User = {
+            createdAt: storageUser.created_at,
+            enabled: storageUser.enabled,
+            id: storageUser.id,
+            username: storageUser.username,
+            updatedAt: storageUser.updated_at,
+        };
+        return user;
+    }
+
     storagePermissionToPermission(storagePermission: IPermission): Permission {
         const permission: Permission = {
             id: storagePermission.id,
