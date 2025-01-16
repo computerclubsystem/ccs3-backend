@@ -1,5 +1,4 @@
 import { Message } from '../declarations/message.mjs';
-import { transferSharedMessageData } from '../utils.mjs';
 import { MessageType } from '../declarations/message-type.mjs';
 import { DeviceStatus } from './bus-device-statuses.message.mjs';
 
@@ -15,6 +14,5 @@ export function createBusStartDeviceReplyMessage<TBody>(sourceMessage?: Message<
         header: { type: MessageType.busStartDeviceReply },
         body: {} as BusStartDeviceReplyMessageBody,
     };
-    transferSharedMessageData(msg, sourceMessage);
     return msg;
 };

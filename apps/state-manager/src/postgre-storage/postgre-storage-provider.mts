@@ -18,6 +18,7 @@ import { ITariff } from 'src/storage/entities/tariff.mjs';
 import { IDeviceSession } from 'src/storage/entities/device-session.mjs';
 import { IRole } from 'src/storage/entities/role.mjs';
 import { IPermission } from 'src/storage/entities/permission.mjs';
+import { TransferDeviceResult } from 'src/storage/results.mjs';
 
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
@@ -58,6 +59,61 @@ export class PostgreStorageProvider implements StorageProvider {
         });
         return result;
     }
+
+    async transferDevice(sourceDeviceId: number, targetDeviceId: number, userId: number): Promise<TransferDeviceResult | undefined> {
+        let transactionClient: pg.PoolClient | undefined;
+        let result: TransferDeviceResult | undefined;
+        try {
+            transactionClient = await this.getPoolClient();
+            await transactionClient.query('BEGIN');
+            const sourceDeviceStatusQueryData = this.queryUtils.getDeviceStatusQuery(sourceDeviceId);
+            const sourceDeviceStatusResult = await transactionClient.query(sourceDeviceStatusQueryData.text, sourceDeviceStatusQueryData.params);
+            const sourceDeviceStatus = sourceDeviceStatusResult.rows[0] as IDeviceStatus;
+            if (!sourceDeviceStatus) {
+                await transactionClient?.query('ROLLBACK');
+                return undefined;
+            }
+            const targetDeviceStatusQueryData = this.queryUtils.getDeviceStatusQuery(targetDeviceId);
+            const targetDeviceStatusResult = await transactionClient.query(targetDeviceStatusQueryData.text, targetDeviceStatusQueryData.params);
+            const targetDeviceStatus = targetDeviceStatusResult.rows[0] as IDeviceStatus;
+            if (!targetDeviceStatus) {
+                await transactionClient?.query('ROLLBACK');
+                return undefined;
+            }
+            // Just switch device ids
+            const tempSourceDeviceId = sourceDeviceStatus.device_id;
+            sourceDeviceStatus.device_id = targetDeviceStatus.device_id;
+            targetDeviceStatus.device_id = tempSourceDeviceId;
+            const updateSourceDeviceStatusQueryData = this.queryUtils.updateDeviceStatusQuery(sourceDeviceStatus);
+            const updatedSourceDeviceStatusResult = await transactionClient.query(updateSourceDeviceStatusQueryData.text, updateSourceDeviceStatusQueryData.params);
+            const updatedSourceDeviceStatus = updatedSourceDeviceStatusResult.rows[0] as IDeviceStatus;
+            if (!updatedSourceDeviceStatus) {
+                await transactionClient?.query('ROLLBACK');
+                return undefined;
+            }
+            const updateTargetDeviceStatusQueryData = this.queryUtils.updateDeviceStatusQuery(targetDeviceStatus);
+            const updatedTargetDeviceStatusResult = await transactionClient.query(updateTargetDeviceStatusQueryData.text, updateTargetDeviceStatusQueryData.params);
+            const updatedTargetDeviceStatus = updatedTargetDeviceStatusResult.rows[0] as IDeviceStatus;
+            if (!updatedTargetDeviceStatus) {
+                await transactionClient?.query('ROLLBACK');
+                return undefined;
+            }
+            // TODO: Save record in new table with source and target device status properties, the user id that made the transfer and current date-time
+            await transactionClient?.query('COMMIT');
+            result = {
+                sourceDeviceStatus: sourceDeviceStatus,
+                targetDeviceStatus: targetDeviceStatus,
+            };
+            return result;
+        } catch (err) {
+            result = undefined;
+            await transactionClient?.query('ROLLBACK');
+            throw err;
+        } finally {
+            transactionClient?.release();
+        }
+    }
+
 
     async updateUserWithRoles(user: IUser, roleIds: number[], passwordHash?: string): Promise<IUser | undefined> {
         let transactionClient: pg.PoolClient | undefined;
@@ -276,7 +332,7 @@ export class PostgreStorageProvider implements StorageProvider {
 
     async getUserRoleIds(userId: number): Promise<number[]> {
         const queryData = this.queryUtils.getUserRoleIdsQueryData(userId);
-        const res = await this.execQuery(queryData.text,queryData.params);
+        const res = await this.execQuery(queryData.text, queryData.params);
         return res.rows.map(x => x.role_id) as number[];
     }
 

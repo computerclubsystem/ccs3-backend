@@ -17,19 +17,22 @@ import {
 } from '@computerclubsystem/websocket-server';
 import { OperatorAuthRequestMessage } from '@computerclubsystem/types/messages/operators/operator-auth-request.message.mjs';
 import { createBusOperatorAuthRequestMessage } from '@computerclubsystem/types/messages/bus/bus-operator-auth-request.message.mjs';
-import { BusOperatorAuthReplyMessage, BusOperatorAuthReplyMessageBody, createBusOperatorAuthReplyMessage } from '@computerclubsystem/types/messages/bus/bus-operator-auth-reply.message.mjs';
+import { BusOperatorAuthReplyMessage, BusOperatorAuthReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-operator-auth-reply.message.mjs';
 import { createBusOperatorConnectionEventMessage } from '@computerclubsystem/types/messages/bus/bus-operator-connection-event.message.mjs';
-import { createOperatorAuthReplyMessage, OperatorAuthReplyMessage } from '@computerclubsystem/types/messages/operators/operator-auth-reply.message.mjs';
+import { createOperatorAuthReplyMessage } from '@computerclubsystem/types/messages/operators/operator-auth-reply.message.mjs';
 import { Logger } from './logger.mjs';
 import { IStaticFilesServerConfig, StaticFilesServer } from './static-files-server.mjs';
 import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
 import { OperatorMessage, OperatorNotificationMessage, OperatorReplyMessage } from '@computerclubsystem/types/messages/operators/declarations/operator.message.mjs';
-import { OperatorMessageType, OperatorNotificationMessageType, OperatorReplyMessageType } from '@computerclubsystem/types/messages/operators/declarations/operator-message-type.mjs';
+import { OperatorMessageType, OperatorNotificationMessageType } from '@computerclubsystem/types/messages/operators/declarations/operator-message-type.mjs';
 import { OperatorConnectionRoundTripData } from '@computerclubsystem/types/messages/operators/declarations/operator-connection-roundtrip-data.mjs';
 import { createOperatorConfigurationMessage, OperatorConfigurationMessage } from '@computerclubsystem/types/messages/operators/operator-configuration.message.mjs';
 import { OperatorPingRequestMessage } from '@computerclubsystem/types/messages/operators/operator-ping-request.message.mjs';
 import { CacheHelper, UserAuthDataCacheValue } from './cache-helper.mjs';
-import { CanProcessOperatorMessageResult, CanProcessOperatorMessageResultErrorReason, ConnectedClientData, ConnectionCleanUpReason, IsAuthorizedResult, IsAuthorizedResultReason, IsTokenActiveResult, MessageStatItem, OperatorConnectorState, OperatorConnectorValidators } from './declarations.mjs';
+import {
+    CanProcessOperatorMessageResult, CanProcessOperatorMessageResultErrorReason, ConnectedClientData,
+    ConnectionCleanUpReason, IsTokenActiveResult, MessageStatItem, OperatorConnectorState, OperatorConnectorValidators
+} from './declarations.mjs';
 import { OperatorRefreshTokenRequestMessage } from '@computerclubsystem/types/messages/operators/operator-refresh-token-request.message.mjs';
 import { createOperatorRefreshTokenReplyMessage } from '@computerclubsystem/types/messages/operators/operator-refresh-token-reply.message.mjs';
 import { createOperatorNotAuthenticatedMessage } from '@computerclubsystem/types/messages/operators/operator-not-authenticated-reply.message.mjs';
@@ -68,7 +71,6 @@ import { createBusStartDeviceRequestMessage } from '@computerclubsystem/types/me
 import { createOperatorStartDeviceReplyMessage } from '@computerclubsystem/types/messages/operators/operator-start-device-reply.message.mjs';
 import { OperatorGetDeviceStatusesRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-device-statuses-request.message.mjs';
 import { createOperatorGetDeviceStatusesReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-device-statuses-reply.message.mjs';
-import { BusErrorCode } from '@computerclubsystem/types/messages/bus/declarations/bus-error-code.mjs';
 import { BusStartDeviceReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-start-device-reply.message.mjs';
 import { OperatorGetTariffByIdRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-tariff-by-id-request.message.mjs';
 import { ErrorReplyHelper } from './error-reply-helper.mjs';
@@ -80,7 +82,7 @@ import { createBusUpdateTariffRequestMessage } from '@computerclubsystem/types/m
 import { createOperatorUpdateTariffReplyMessage } from '@computerclubsystem/types/messages/operators/operator-update-tariff-reply.message.mjs';
 import { OperatorConnectionEventType } from '@computerclubsystem/types/entities/declarations/operator-connection-event-type.mjs';
 import { OperatorGetAllRolesRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-roles-request.message.mjs';
-import { BusGetAllRolesReplyMessageBody, createBusGetAllRolesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-roles-reply.message.mjs';
+import { BusGetAllRolesReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-all-roles-reply.message.mjs';
 import { createBusGetAllRolesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-roles-request.message.mjs';
 import { createOperatorGetAllRolesReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-roles-reply.message.mjs';
 import { OperatorGetRoleWithPermissionsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-role-with-permissions-request.message.mjs';
@@ -112,14 +114,18 @@ import { createBusCreateUserWithRolesRequestMessage } from '@computerclubsystem/
 import { BusCreateUserWithRolesReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-create-user-with-roles-reply.message.mjs';
 import { createOperatorCreateUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/operators/operator-create-user-with-roles-reply.message.mjs';
 import { createOperatorNotAuthorizedMessage } from '@computerclubsystem/types/messages/operators/operator-not-authorized-reply.message.mjs';
-import { OperatorUpdateUserWithRolesRequestMessage } from '@computerclubsystem/types/messages/operators/operator-update-user-with-roles-request.mjs';
-import { BusUpdateUserWithRolesReplyMessageBody, createBusUpdateUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-user-with-roles-reply.message.mjs';
+import { OperatorUpdateUserWithRolesRequestMessage } from '@computerclubsystem/types/messages/operators/operator-update-user-with-roles-request.message.mjs';
+import { BusUpdateUserWithRolesReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-update-user-with-roles-reply.message.mjs';
 import { createOperatorUpdateUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/operators/operator-update-user-with-roles-reply.message.mjs';
 import { createBusUpdateUserWithRolesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-user-with-roles-request.message.mjs';
 import { OperatorStopDeviceRequestMessage } from '@computerclubsystem/types/messages/operators/operator-stop-device-request.message.mjs';
 import { createBusStopDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-stop-device-request.message.mjs';
 import { BusStopDeviceReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-stop-device-reply.message.mjs';
 import { createOperatorStopDeviceReplyMessage } from '@computerclubsystem/types/messages/operators/operator-stop-device-reply.message.mjs';
+import { OperatorTransferDeviceRequestMessage } from '@computerclubsystem/types/messages/operators/operator-transfer-device-request.message.mjs';
+import { createBusTransferDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-transfer-device-request.message.mjs';
+import { BusTransferDeviceReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-transfer-device-reply.message.mjs';
+import { createOperatorTransferDeviceReplyMessage } from '@computerclubsystem/types/messages/operators/operator-transfer-device-reply.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -215,6 +221,9 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorMessageType.transferDeviceRequest:
+                this.processTransfrerDeviceRequestMessage(clientData, message as OperatorTransferDeviceRequestMessage);
+                break;
             case OperatorMessageType.stopDeviceRequest:
                 this.processStopDeviceRequestMessage(clientData, message as OperatorStopDeviceRequestMessage);
                 break;
@@ -286,6 +295,21 @@ export class OperatorConnector {
                 this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    processTransfrerDeviceRequestMessage(clientData: ConnectedClientData, message: OperatorTransferDeviceRequestMessage): void {
+        const busRequestMsg = createBusTransferDeviceRequestMessage();
+        busRequestMsg.body.sourceDeviceId = message.body.sourceDeviceId;
+        busRequestMsg.body.targetDeviceId = message.body.targetDeviceId;
+        busRequestMsg.body.userId = clientData.userId!;
+        this.publishToOperatorsChannelAndWaitForReply<BusTransferDeviceReplyMessageBody>(busRequestMsg, clientData)
+        .subscribe(busReplyMsg => {
+            const operatorReplyMsg = createOperatorTransferDeviceReplyMessage();
+            operatorReplyMsg.body.sourceDeviceStatus = busReplyMsg.body.sourceDeviceStatus;
+            operatorReplyMsg.body.targetDeviceStatus = busReplyMsg.body.targetDeviceStatus;
+            this.errorReplyHelper.processBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+            this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+        });
     }
 
     processStopDeviceRequestMessage(clientData: ConnectedClientData, message: OperatorStopDeviceRequestMessage): void {
@@ -765,11 +789,7 @@ export class OperatorConnector {
 
         if (!this.isWhiteSpace(message.body.token)) {
             const isTokenProcessed = await this.processOperatorAuthRequestWithToken(clientData, message);
-            if (!isTokenProcessed) {
-                // Token is invalid
-                sendCantAuthenticateReplyMessage();
-                return;
-            }
+            return;
         }
 
         const isUsernameEmpty = this.isWhiteSpace(message.body.username);
@@ -804,6 +824,11 @@ export class OperatorConnector {
                 await this.cacheHelper.deleteAuthTokenKey(isTokenActiveResult.authTokenCacheValue?.token);
             }
             authReplyMsg.body.success = false;
+            authReplyMsg.header.failure = true;
+            authReplyMsg.header.errors = [{
+                code: OperatorReplyMessageErrorCode.invalidToken,
+                description: 'The token provided is no longer valid',
+            }] as MessageError[];
             this.sendReplyMessageToOperator(authReplyMsg, clientData, message);
             if (isTokenActiveResult.authTokenCacheValue) {
                 const operatorId = clientData.userId || isTokenActiveResult.authTokenCacheValue.userId;
