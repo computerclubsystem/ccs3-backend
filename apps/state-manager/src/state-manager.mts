@@ -77,6 +77,8 @@ import { BusUpdateUserWithRolesRequestMessage } from '@computerclubsystem/types/
 import { BusStopDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-stop-device-request.message.mjs';
 import { createBusStopDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-stop-device-reply.message.mjs';
 import { createBusDeviceUnknownDeviceConnectedReplyMessage } from '@computerclubsystem/types/messages/bus/bus-device-unknown-device-connected-reply.message.mjs';
+import { BusTransferDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-transfer-device-request.message.mjs';
+import { createBusTransferDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-transfer-device-reply.message.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -105,19 +107,22 @@ export class StateManager {
 
         switch (channelName) {
             case ChannelName.devices:
-                this.processDevicesMessage(message);
+                this.processDevicesChannelMessage(message);
                 break;
             case ChannelName.operators:
-                this.processOperatorsMessage(message);
+                this.processOperatorsChannelMessage(message);
                 break;
             case ChannelName.shared:
                 break;
         }
     }
 
-    processOperatorsMessage<TBody>(message: Message<TBody>): void {
+    processOperatorsChannelMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busTransferDeviceRequest:
+                this.processBusTransferDeviceRequestMessage(message as BusTransferDeviceRequestMessage);
+                break;
             case MessageType.busStopDeviceRequest:
                 this.processBusStopDeviceRequestMessage(message as BusStopDeviceRequestMessage);
                 break;
@@ -181,7 +186,7 @@ export class StateManager {
         }
     }
 
-    processDevicesMessage<TBody>(message: Message<TBody>): void {
+    processDevicesChannelMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
             case MessageType.busDeviceGetByCertificateRequest:
@@ -193,6 +198,92 @@ export class StateManager {
             case MessageType.busDeviceConnectionEvent:
                 this.processDeviceConnectionEventMessage(message as BusDeviceConnectionEventMessage);
                 break;
+        }
+    }
+
+    async processBusTransferDeviceRequestMessage(message: BusTransferDeviceRequestMessage): Promise<void> {
+        const replyMsg = createBusTransferDeviceReplyMessage();
+        try {
+            const { sourceDeviceId, targetDeviceId, userId } = message.body;
+            if (!sourceDeviceId || !targetDeviceId || !userId) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.allIdsAreRequired,
+                    description: 'Source device id, target device id and user id are required',
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const sourceDeviceStoreStatus = await this.storageProvider.getDeviceStatus(sourceDeviceId);
+            if (!sourceDeviceStoreStatus) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceNotFound,
+                    description: 'Source device not found',
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            if (!sourceDeviceStoreStatus.started) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.sourceDeviceMustBeStarted,
+                    description: 'Source device must be started',
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const targetDeviceStoreStatus = await this.storageProvider.getDeviceStatus(targetDeviceId);
+            if (!targetDeviceStoreStatus) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceNotFound,
+                    description: 'Target device not found',
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            if (targetDeviceStoreStatus.started) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.targetDeviceMustBeStopped,
+                    description: 'Target device must be stopped',
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const user = await this.storageProvider.getUserById(userId);
+            if (!user || !user.enabled) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userNotFound,
+                    description: 'User not found',
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const transferDeviceResult = await this.storageProvider.transferDevice(sourceDeviceStoreStatus.device_id, targetDeviceStoreStatus.device_id, userId);
+            if (!transferDeviceResult) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: '',
+                    description: `Can't transfer device ${sourceDeviceId} to ${targetDeviceId}`,
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            replyMsg.body.sourceDeviceStatus = this.entityConverter.storageDeviceStatusToDeviceStatus(transferDeviceResult.sourceDeviceStatus);
+            replyMsg.body.targetDeviceStatus = this.entityConverter.storageDeviceStatusToDeviceStatus(transferDeviceResult.targetDeviceStatus);
+            this.publishToOperatorsChannel(replyMsg, message);
+            this.refreshDeviceStatuses();
+        } catch (err) {
+            this.logger.warn(`Can't process BusTransferDeviceRequestMessage message`, message, err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
         }
     }
 
@@ -291,6 +382,7 @@ export class StateManager {
             await this.storageProvider.addDeviceSession(storageDeviceSession);
             replyMsg.body.deviceStatus = deviceStatus;
             this.publishToOperatorsChannel(replyMsg, message);
+            this.refreshDeviceStatuses();
         } catch (err) {
             this.logger.warn(`Can't process BusStopDeviceRequestMessage message`, message, err);
             replyMsg.header.failure = true;
@@ -665,6 +757,7 @@ export class StateManager {
             const replyMsg = createBusStartDeviceReplyMessage();
             replyMsg.body.deviceStatus = this.createAndCalculateDeviceStatusFromStorageDeviceStatus(currentStorageDeviceStatus, tariff);
             this.publishToOperatorsChannel(replyMsg, message);
+            this.refreshDeviceStatuses();
         } catch (err) {
             this.logger.warn(`Can't process BusStartDeviceRequestMessage message`, message, err);
             const replyMsg = createBusStartDeviceReplyMessage(message);
@@ -1076,7 +1169,6 @@ export class StateManager {
         }
         const diff = now - this.state.lastDeviceStatusRefreshAt;
         if (diff > this.state.systemSettings[SystemSettingName.device_status_refresh_interval]) {
-            this.state.lastDeviceStatusRefreshAt = now;
             this.refreshDeviceStatuses();
         }
     }
@@ -1119,6 +1211,8 @@ export class StateManager {
 
     private async refreshDeviceStatuses(): Promise<void> {
         try {
+            const now = this.dateTimeHelper.getCurrentDateTimeAsNumber();
+            this.state.lastDeviceStatusRefreshAt = now;
             this.state.deviceStatusRefreshInProgress = true;
             const storageDeviceStatuses = await this.storageProvider.getAllDeviceStatuses();
             const allTariffs = await this.getAndCacheAllTariffs();
@@ -1136,7 +1230,7 @@ export class StateManager {
                     if (storageDeviceStatus.started && !calculatedDeviceStatus.started) {
                         // After the calculation, if device was started but no longer, it must be stopped
                         storageDeviceStatus.started = calculatedDeviceStatus.started;
-                        storageDeviceStatus.stopped_at = this.dateTimeHelper.getUTCDateTimeAsISOStringFromNumber(calculatedDeviceStatus.stoppedAt!);
+                        storageDeviceStatus.stopped_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
                         storageDeviceStatus.total = calculatedDeviceStatus.totalSum;
                         // TODO: Use transaction to change device status table and device session table
                         // TODO: Also update the device status only if the "started" is true 

@@ -30,6 +30,7 @@ export enum OperatorMessageType {
     getUserWithRolesRequest = 'get-user-with-roles-request',
     createUserWithRolesRequest = 'create-user-with-roles-request',
     updateUserWithRolesRequest = 'update-user-with-roles-request',
+    transferDeviceRequest = 'transfer-device-request',
 }
 
 export const enum OperatorReplyMessageType {
@@ -51,6 +52,7 @@ export const enum OperatorReplyMessageType {
     updateUserWithRolesReply = 'update-user-with-roles-reply',
     notAuthenticatedReply = 'not-authenticated-reply',
     notAuthorizedReply = 'not-authorized-reply',
+    transferDeviceReply = 'transfer-device-reply',
 }
 
 export const enum OperatorNotificationMessageType {

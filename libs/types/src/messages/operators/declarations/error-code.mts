@@ -26,4 +26,5 @@ export const enum OperatorReplyMessageErrorCode {
     notAuthenticated = 'not-authenticated',
     notAuthorized = 'not-authorized',
     cantAuthenticate = 'cant-authenticate',
+    invalidToken = 'invalid-token',
 }

@@ -86,6 +86,16 @@ export class DeviceStatusQueryHelper {
             started_by_user_id = $7,
             stopped_by_user_id = $8
         WHERE device_id = $9
+        RETURNING
+            device_id,
+            started,
+            start_reason,
+            started_at,
+            stopped_at,
+            total,
+            enabled,
+            started_by_user_id,
+            stopped_by_user_id
     `;
 
     private readonly addDeviceStatusQueryText = `

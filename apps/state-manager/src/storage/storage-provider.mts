@@ -10,6 +10,7 @@ import { ITariff } from './entities/tariff.mjs';
 import { IDeviceSession } from './entities/device-session.mjs';
 import { IRole } from './entities/role.mjs';
 import { IPermission } from './entities/permission.mjs';
+import { TransferDeviceResult } from './results.mjs';
 
 export interface StorageProvider {
     getAllUsers(): Promise<IUser[]>;
@@ -31,6 +32,7 @@ export interface StorageProvider {
     getAllDeviceStatuses(): Promise<IDeviceStatus[]>;
     addOrUpdateDeviceStatusEnabled(deviceStatus: IDeviceStatus): Promise<IDeviceStatus | undefined>;
     updateDeviceStatus(deviceStatus: IDeviceStatus): Promise<void>;
+    transferDevice(sourceDeviceId: number, targetDeviceId: number, userId: number): Promise<TransferDeviceResult | undefined>;
 
     getAllSystemSettings(): Promise<ISystemSetting[]>;
     getSystemSettingByName(name: string): Promise<ISystemSetting | undefined>;
