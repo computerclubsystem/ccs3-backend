@@ -1315,6 +1315,9 @@ export class StateManager {
             tariff: storageDeviceStatus.start_reason,
             startedByUserId: storageDeviceStatus.started_by_user_id,
         } as DeviceStatus;
+        if (deviceStatus.startedAt && deviceStatus.stoppedAt) {
+            deviceStatus.totalTime = Math.floor((deviceStatus.stoppedAt - deviceStatus.startedAt) / 1000);
+        }
         return deviceStatus;
     }
 
