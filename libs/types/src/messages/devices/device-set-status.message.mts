@@ -3,11 +3,12 @@ import { MessageType } from '../declarations/message-type.mjs';
 import { Message } from '../declarations/message.mjs';
 
 export interface DeviceStatusAmounts {
-    totalSum: number;
-    totalTime: number;
-    startedAt: number;
-    expectedEndAt: number;
-    remainingSeconds: number;
+    totalSum?: number | null;
+    totalTime?: number | null;
+    startedAt?: number | null;
+    stoppedAt?: number | null;
+    expectedEndAt?: number | null;
+    remainingSeconds?: number | null;
 }
 
 export interface DeviceSetStatusMessageBody {

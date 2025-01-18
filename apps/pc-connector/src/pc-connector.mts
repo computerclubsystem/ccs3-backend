@@ -81,6 +81,7 @@ export class PcConnector {
             connectionId: args.connectionId,
             connectedAt: this.getNow(),
             deviceId: null,
+            device: null,
             certificate: args.certificate,
             certificateThumbprint: this.getLowercasedCertificateThumbprint(clientCertificateFingerprint),
             ipAddress: args.ipAddress,
@@ -197,28 +198,30 @@ export class PcConnector {
     }
 
     sendStatusToDevices(deviceStatuses: DeviceStatus[]): void {
-        // for (const status of deviceStatuses) {
-        //     const connections = this.getConnectedClientsDataByDeviceId(status.deviceId);
-        //     if (connections.length > 0) {
-        //         for (const connection of connections) {
-        //             const connectionId = connection[0];
-        //             const msg = createDeviceSetStatusMessage();
-        //             msg.body.state = status.state;
-        //             msg.body.amounts = {
-        //                 expectedEndAt: status.expectedEndAt,
-        //                 remainingSeconds: status.remainingSeconds,
-        //                 startedAt: status.startedAt,
-        //                 totalSum: status.totalSum,
-        //                 totalTime: status.totalTime,
-        //             };
-        //             try {
-        //                 this.sendToDevice(msg, connectionId);
-        //             } catch (err) {
-        //                 this.logger.warn(`Can't send to device`, connectionId, msg, err);
-        //             }
-        //         }
-        //     }
-        // }
+        for (const status of deviceStatuses) {
+            const connections = this.getConnectedClientsDataByDeviceId(status.deviceId);
+            if (connections.length > 0) {
+                for (const connection of connections) {
+                    const connectionId = connection[0];
+                    const msg = createDeviceSetStatusMessage();
+                    msg.body.started = status.started;
+                    // TODO: Also return the tariff name
+                    msg.body.amounts = {
+                        expectedEndAt: status.expectedEndAt,
+                        remainingSeconds: status.remainingSeconds,
+                        startedAt: status.startedAt,
+                        stoppedAt: status.stoppedAt,
+                        totalSum: status.totalSum,
+                        totalTime: status.totalTime,
+                    };
+                    try {
+                        this.sendToDevice(msg, connectionId);
+                    } catch (err) {
+                        this.logger.warn(`Can't send to device`, connectionId, msg, err);
+                    }
+                }
+            }
+        }
     }
 
     processDeviceGetByCertificateReply(message: BusDeviceGetByCertificateReplyMessage): void {
@@ -249,7 +252,7 @@ export class PcConnector {
         const clientData = this.getConnectedClientData(connectionId);
         if (clientData) {
             clientData.deviceId = device.id;
-            // clientData.isAuthenticated = true;
+            clientData.device = device;
             this.sendDeviceMessageDeviceConfiguration(clientData.connectionId);
         }
     }
@@ -521,6 +524,10 @@ interface ConnectedClientData {
      * Device ID in the system
      */
     deviceId: number | null;
+    /**
+     * The device entity
+     */
+    device: Device | null;
     /**
      * The client certificate
      */
