@@ -2,8 +2,9 @@ export const enum MessageType {
     // Devices
     deviceSetStatus = 'device-set-status',
     deviceConfiguration = 'device-configuration',
-
+    
     // Internal message bus
+    busDeviceConnectivitiesNotification = 'bus-device-connectivities-notification',
     busDeviceGetByCertificateRequest = 'bus-device-get-by-certificate-request',
     busDeviceGetByCertificateReply = 'bus-device-get-by-certificate-reply',
     busDeviceStatuses = 'bus-device-statuses',
@@ -21,7 +22,7 @@ export const enum MessageType {
     busOperatorGetAllDevicesReply = 'bus-operator-get-all-devices-reply',
     busOperatorGetDeviceByIdRequest = 'bus-operator-get-device-by-id-request',
     busOperatorGetDeviceByIdReply = 'bus-operator-get-device-by-id-reply',
-    
+
     busUpdateDeviceRequest = 'bus-update-device-request',
     busUpdateDeviceReply = 'bus-update-device-reply',
 
