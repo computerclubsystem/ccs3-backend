@@ -27,6 +27,8 @@ import { Logger } from './logger.mjs';
 import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
 import { CertificateHelper, CertificateIssuerSubjectInfo } from './certificate-helper.mjs';
 import { DeviceConnectionEventType } from '@computerclubsystem/types/entities/declarations/device-connection-event-type.mjs';
+import { ConnectivityHelper } from './connectivity-helper.mjs';
+import { BusDeviceConnectivityItem, createBusDeviceConnectivitiesNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-device-connectivities-notification.message.mjs';
 
 export class PcConnector {
     wssServer!: WssServer;
@@ -43,6 +45,7 @@ export class PcConnector {
     private exitProcessManager = new ExitProcessManager();
     private issuerSubjectInfo!: CertificateIssuerSubjectInfo;
     private readonly certificateHelper = new CertificateHelper();
+    private readonly connectivityHelper = new ConnectivityHelper();
 
     async start(): Promise<void> {
         this.issuerSubjectInfo = this.certificateHelper.createIssuerSubjectInfo(this.envVars.CCS3_CA_ISSUER_CERTIFICATE_SUBJECT.value!);
@@ -51,11 +54,15 @@ export class PcConnector {
         await this.joinMessageBus();
         this.startWebSocketServer();
         this.startClientConnectionsMonitor();
+        this.startMainTimer();
     }
 
     private processClientConnected(args: ClientConnectedEventArgs): void {
         this.logger.log('Client connected', args);
-        const clientCertificateFingerprint = args.certificate?.fingerprint;
+        const clientCertificateFingerprint = this.getLowercasedCertificateThumbprint(args.certificate?.fingerprint);
+        if (clientCertificateFingerprint) {
+            this.connectivityHelper.setDeviceConnected(clientCertificateFingerprint, args.certificate);
+        }
         if (!args.ipAddress || !clientCertificateFingerprint) {
             // The args.ipAddress can be undefined if the client already closed the connection
             this.logger.warn(
@@ -63,7 +70,7 @@ export class PcConnector {
                 'IP address:',
                 args.ipAddress,
                 ', Certificate thumbprint:',
-                clientCertificateFingerprint,
+                args.certificate?.fingerprint,
                 ', Connection Id:', args.connectionId
             );
             this.wssServer.closeConnection(args.connectionId);
@@ -101,7 +108,10 @@ export class PcConnector {
         this.publishToDevicesChannel(msg);
     }
 
-    private getLowercasedCertificateThumbprint(certificateFingerprint: string): string {
+    private getLowercasedCertificateThumbprint(certificateFingerprint?: string | null): string {
+        if (!certificateFingerprint) {
+            return '';
+        }
         return certificateFingerprint.replaceAll(':', '').toLowerCase();
     }
 
@@ -109,9 +119,13 @@ export class PcConnector {
         this.logger.log('Device connection closed', args);
         // Check if we still have this connection before saving connection event - it might be already removed because of timeout
         const clientData = this.getConnectedClientData(args.connectionId);
-        if (clientData?.deviceId) {
-            const note = `Code: ${args.code}, connection id: ${args.connectionId}`;
-            this.publishDeviceConnectionEventMessage(clientData.deviceId, clientData.ipAddress, DeviceConnectionEventType.disconnected, note);
+        if (clientData) {
+            this.connectivityHelper.setDeviceDisconnected(clientData.certificateThumbprint);
+            if (clientData?.deviceId) {
+                this.connectivityHelper.setDeviceDisconnected(clientData.certificateThumbprint);
+                const note = `Code: ${args.code}, connection id: ${args.connectionId}`;
+                this.publishDeviceConnectionEventMessage(clientData.deviceId, clientData.ipAddress, DeviceConnectionEventType.disconnected, note);
+            }
         }
         this.removeClient(args.connectionId);
     }
@@ -131,6 +145,7 @@ export class PcConnector {
             this.logger.warn('Message is received by connection ID ', args.connectionId, 'which is not found as active.', `. Can't process the message`);
             return;
         }
+        this.connectivityHelper.setDeviceMessageReceived(clientData.certificateThumbprint, clientData.deviceId, clientData.device?.name);
         clientData.lastMessageReceivedAt = this.getNow();
         let msg: Message<any> | null;
         let type: MessageType | undefined;
@@ -452,6 +467,42 @@ export class PcConnector {
         this.state.clientConnectionsMonitorTimerHandle = setInterval(() => this.cleanUpClientConnections(), 10000);
     }
 
+    private startMainTimer(): void {
+        setInterval(() => this.processMainTimerTick(), 1000);
+    }
+
+    processMainTimerTick(): void {
+        this.processConnectivityData();
+    }
+
+    private processConnectivityData(): void {
+        const now = this.getNow();
+        const diff = now - this.state.lastConnectivitySnapshotTimestamp;
+        if (diff > this.state.connectivitySnapshotInterval) {
+            this.state.lastConnectivitySnapshotTimestamp = now;
+            const snapshot = this.connectivityHelper.getSnapshot();
+            if (snapshot.length > 0) {
+                const busConnectivityItems: BusDeviceConnectivityItem[] = [];
+                for (const snapshotItem of snapshot) {
+                    const busItem: BusDeviceConnectivityItem = {
+                        certificateThumbprint: snapshotItem.certificateThumbprint,
+                        connectionsCount: snapshotItem.connectionsCount,
+                        lastConnectionSince: snapshotItem.lastConnectionSince,
+                        lastMessageSince: snapshotItem.lastMessageSince,
+                        messagesCount: snapshotItem.messagesCount,
+                        deviceId: snapshotItem.deviceId,
+                        deviceName: snapshotItem.deviceName,
+                        isConnected: snapshotItem.isConnected,
+                    };
+                    busConnectivityItems.push(busItem);
+                }
+                const busMsg = createBusDeviceConnectivitiesNotificationMessage();
+                busMsg.body.connectivityItems = busConnectivityItems;
+                this.publishToDevicesChannel(busMsg);
+            }
+        }
+    }
+
     private cleanUpClientConnections(): void {
         const connectionIdsWithCleanUpReason = new Map<number, ConnectionCleanUpReason>();
         const now = this.getNow();
@@ -482,8 +533,11 @@ export class PcConnector {
             const connectionId = entry[0];
             const data = this.getConnectedClientData(connectionId);
             this.logger.warn('Disconnecting client', connectionId, entry[1], data);
-            if (data?.deviceId) {
-                this.publishDeviceConnectionEventMessage(data.deviceId, data.ipAddress, DeviceConnectionEventType.idleTimeout, entry[1].toString());
+            if (data) {
+                this.connectivityHelper.setDeviceDisconnected(data.certificateThumbprint);
+                if (data.deviceId) {
+                    this.publishDeviceConnectionEventMessage(data.deviceId, data.ipAddress, DeviceConnectionEventType.idleTimeout, entry[1].toString());
+                }
             }
             this.removeClient(connectionId);
             this.wssServer.closeConnection(connectionId);
@@ -504,6 +558,9 @@ export class PcConnector {
             pubClientPublishErrorsCount: 0,
             maxAllowedPubClientPublishErrorsCount: 10,
             clientConnectionsMonitorTimerHandle: undefined,
+            mainTimerHandle: undefined,
+            lastConnectivitySnapshotTimestamp: this.getNow(),
+            connectivitySnapshotInterval: 10000,
         };
         return state;
     }
@@ -511,6 +568,7 @@ export class PcConnector {
     async terminate(): Promise<void> {
         this.logger.warn('Terminating');
         clearInterval(this.state.clientConnectionsMonitorTimerHandle);
+        clearInterval(this.state.mainTimerHandle);
         this.wssServer.stop();
         await this.subClient.disconnect();
         await this.pubClient.disconnect();
@@ -567,4 +625,8 @@ interface PcConnectorState {
     maxAllowedPubClientPublishErrorsCount: number;
 
     clientConnectionsMonitorTimerHandle?: NodeJS.Timeout;
+    mainTimerHandle?: NodeJS.Timeout;
+
+    lastConnectivitySnapshotTimestamp: number;
+    connectivitySnapshotInterval: number;
 }

@@ -126,6 +126,8 @@ import { OperatorTransferDeviceRequestMessage } from '@computerclubsystem/types/
 import { createBusTransferDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-transfer-device-request.message.mjs';
 import { BusTransferDeviceReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-transfer-device-reply.message.mjs';
 import { createOperatorTransferDeviceReplyMessage } from '@computerclubsystem/types/messages/operators/operator-transfer-device-reply.message.mjs';
+import { BusDeviceConnectivitiesNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-device-connectivities-notification.message.mjs';
+import { createOperatorDeviceConnectivitiesNotificationMessage, OperatorDeviceConnectivityItem } from '@computerclubsystem/types/messages/operators/operator-device-connectivities-notification.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -303,13 +305,13 @@ export class OperatorConnector {
         busRequestMsg.body.targetDeviceId = message.body.targetDeviceId;
         busRequestMsg.body.userId = clientData.userId!;
         this.publishToOperatorsChannelAndWaitForReply<BusTransferDeviceReplyMessageBody>(busRequestMsg, clientData)
-        .subscribe(busReplyMsg => {
-            const operatorReplyMsg = createOperatorTransferDeviceReplyMessage();
-            operatorReplyMsg.body.sourceDeviceStatus = busReplyMsg.body.sourceDeviceStatus;
-            operatorReplyMsg.body.targetDeviceStatus = busReplyMsg.body.targetDeviceStatus;
-            this.errorReplyHelper.processBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
-            this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
-        });
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorTransferDeviceReplyMessage();
+                operatorReplyMsg.body.sourceDeviceStatus = busReplyMsg.body.sourceDeviceStatus;
+                operatorReplyMsg.body.targetDeviceStatus = busReplyMsg.body.targetDeviceStatus;
+                this.errorReplyHelper.processBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
     }
 
     processStopDeviceRequestMessage(clientData: ConnectedClientData, message: OperatorStopDeviceRequestMessage): void {
@@ -1025,9 +1027,37 @@ export class OperatorConnector {
     processDevicesBusMessage<TBody>(message: Message<TBody>): void {
         const type = message.header.type;
         switch (type) {
+            case MessageType.busDeviceConnectivitiesNotification:
+                this.processBusDeviceConnectivitiesNotificationMessage(message as BusDeviceConnectivitiesNotificationMessage);
+                break;
             case MessageType.busDeviceStatuses:
                 this.processBusDeviceStatusesMessage(message as BusDeviceStatusesMessage);
                 break;
+        }
+    }
+
+    processBusDeviceConnectivitiesNotificationMessage(message: BusDeviceConnectivitiesNotificationMessage): void {
+        const clientDataToSendTo = this.getConnectedClientsDataToSendDeviceConnectivitiesNotificationMessageTo();
+        if (clientDataToSendTo.length > 0) {
+            const operatorNotificationMsg = createOperatorDeviceConnectivitiesNotificationMessage();
+            const operatorDeviceConnectivityItems = message.body.connectivityItems.map(x => ({
+                certificateThumbprint: x.certificateThumbprint,
+                connectionsCount: x.connectionsCount,
+                lastConnectionSince: x.lastConnectionSince,
+                messagesCount: x.messagesCount,
+                deviceId: x.deviceId,
+                deviceName: x.deviceName,
+                lastMessageSince: x.lastMessageSince,
+                isConnected: x.isConnected,
+            } as OperatorDeviceConnectivityItem));
+            operatorNotificationMsg.body.connectivityItems = operatorDeviceConnectivityItems;
+            for (const clientData of clientDataToSendTo) {
+                try {
+                    this.sendNotificationMessageToOperator(operatorNotificationMsg, clientData);
+                } catch (err) {
+                    this.logger.warn(`Can't send to operator`, clientData, operatorNotificationMsg, err);
+                }
+            }
         }
     }
 
@@ -1057,6 +1087,21 @@ export class OperatorConnector {
             const clientData = connection[1];
             if (clientData.isAuthenticated) {
                 const isAuthorizedResult = this.authorizationHelper.isAuthorized(clientData.permissions, OperatorNotificationMessageType.deviceStatusesNotification);
+                if (isAuthorizedResult.authorized) {
+                    clientDataToSendTo.push(clientData);
+                }
+            }
+        }
+        return clientDataToSendTo;
+    }
+
+    getConnectedClientsDataToSendDeviceConnectivitiesNotificationMessageTo(): ConnectedClientData[] {
+        const clientDataToSendTo: ConnectedClientData[] = [];
+        const connections = this.getAllConnectedClientsData();
+        for (const connection of connections) {
+            const clientData = connection[1];
+            if (clientData.isAuthenticated) {
+                const isAuthorizedResult = this.authorizationHelper.isAuthorized(clientData.permissions, OperatorNotificationMessageType.deviceConnectivitiesNotification);
                 if (isAuthorizedResult.authorized) {
                     clientDataToSendTo.push(clientData);
                 }
