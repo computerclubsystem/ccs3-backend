@@ -126,7 +126,7 @@ import { OperatorTransferDeviceRequestMessage } from '@computerclubsystem/types/
 import { createBusTransferDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-transfer-device-request.message.mjs';
 import { BusTransferDeviceReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-transfer-device-reply.message.mjs';
 import { createOperatorTransferDeviceReplyMessage } from '@computerclubsystem/types/messages/operators/operator-transfer-device-reply.message.mjs';
-import { BusDeviceConnectivitiesNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-device-connectivities-notification.message.mjs';
+import { BusDeviceConnectivitiesNotificationMessage, BusDeviceConnectivityItem } from '@computerclubsystem/types/messages/bus/bus-device-connectivities-notification.message.mjs';
 import { createOperatorDeviceConnectivitiesNotificationMessage, OperatorDeviceConnectivityItem } from '@computerclubsystem/types/messages/operators/operator-device-connectivities-notification.message.mjs';
 
 export class OperatorConnector {
@@ -1040,16 +1040,7 @@ export class OperatorConnector {
         const clientDataToSendTo = this.getConnectedClientsDataToSendDeviceConnectivitiesNotificationMessageTo();
         if (clientDataToSendTo.length > 0) {
             const operatorNotificationMsg = createOperatorDeviceConnectivitiesNotificationMessage();
-            const operatorDeviceConnectivityItems = message.body.connectivityItems.map(x => ({
-                certificateThumbprint: x.certificateThumbprint,
-                connectionsCount: x.connectionsCount,
-                lastConnectionSince: x.lastConnectionSince,
-                messagesCount: x.messagesCount,
-                deviceId: x.deviceId,
-                deviceName: x.deviceName,
-                lastMessageSince: x.lastMessageSince,
-                isConnected: x.isConnected,
-            } as OperatorDeviceConnectivityItem));
+            const operatorDeviceConnectivityItems = message.body.connectivityItems.map(x => this.convertBusDeviceConnectivityItemtoOperatorDeviceConnectivityItem(x));
             operatorNotificationMsg.body.connectivityItems = operatorDeviceConnectivityItems;
             for (const clientData of clientDataToSendTo) {
                 try {
@@ -1059,6 +1050,20 @@ export class OperatorConnector {
                 }
             }
         }
+    }
+
+    convertBusDeviceConnectivityItemtoOperatorDeviceConnectivityItem(busItem: BusDeviceConnectivityItem): OperatorDeviceConnectivityItem {
+        const result: OperatorDeviceConnectivityItem = {
+            certificateThumbprint: busItem.certificateThumbprint,
+            connectionsCount: busItem.connectionsCount,
+            messagesCount: busItem.messagesCount,
+            deviceId: busItem.deviceId,
+            deviceName: busItem.deviceName,
+            isConnected: busItem.isConnected,
+            secondsSinceLastConnected: busItem.secondsSinceLastConnected,
+            secondsSinceLastMessage: busItem.secondsSinceLastMessage
+        };
+        return result;
     }
 
     processBusDeviceStatusesMessage(message: BusDeviceStatusesMessage): void {

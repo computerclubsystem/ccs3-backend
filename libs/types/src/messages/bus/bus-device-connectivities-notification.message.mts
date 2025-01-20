@@ -7,8 +7,10 @@ export interface BusDeviceConnectivityItem {
     certificateThumbprint: string;
     connectionsCount: number;
     lastConnectionSince: number;
+    secondsSinceLastConnected: number;
     messagesCount: number;
     lastMessageSince?: number | null;
+    secondsSinceLastMessage?: number | null;
     isConnected: boolean;
 }
 

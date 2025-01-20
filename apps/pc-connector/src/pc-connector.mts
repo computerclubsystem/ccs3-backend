@@ -488,7 +488,9 @@ export class PcConnector {
                         certificateThumbprint: snapshotItem.certificateThumbprint,
                         connectionsCount: snapshotItem.connectionsCount,
                         lastConnectionSince: snapshotItem.lastConnectionSince,
+                        secondsSinceLastConnected: this.getDiffInSeconds(now, snapshotItem.lastConnectionSince),
                         lastMessageSince: snapshotItem.lastMessageSince,
+                        secondsSinceLastMessage: snapshotItem.lastMessageSince ? this.getDiffInSeconds(now, snapshotItem.lastMessageSince) : undefined,
                         messagesCount: snapshotItem.messagesCount,
                         deviceId: snapshotItem.deviceId,
                         deviceName: snapshotItem.deviceName,
@@ -501,6 +503,11 @@ export class PcConnector {
                 this.publishToDevicesChannel(busMsg);
             }
         }
+    }
+
+    getDiffInSeconds(now: number, otherValue: number): number {
+        const seconds = Math.floor((now - otherValue) / 1000)
+        return seconds;
     }
 
     private cleanUpClientConnections(): void {

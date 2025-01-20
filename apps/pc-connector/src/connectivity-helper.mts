@@ -33,17 +33,18 @@ export class ConnectivityHelper {
 
     setDeviceConnected(certificateThumbprint: string, certificate: DetailedPeerCertificate): void {
         let mapItem = this.connectionItemsMap.get(certificateThumbprint);
+        const now = this.getNow();
         if (!mapItem) {
             mapItem = {
                 connectionsCount: 1,
-                timestamp: this.getNow(),
+                timestamp: now,
                 certificateThumbprint: certificateThumbprint,
                 certificate: certificate,
                 isConnected: true,
             };
             this.connectionItemsMap.set(certificateThumbprint, mapItem);
         } else {
-            mapItem.timestamp = this.getNow();
+            mapItem.timestamp = now;
             mapItem.connectionsCount++;
             mapItem.certificate = certificate;
             mapItem.isConnected = true;
