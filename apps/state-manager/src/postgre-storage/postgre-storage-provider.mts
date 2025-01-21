@@ -9,7 +9,7 @@ import { Logger } from '../logger.mjs';
 import { IMetadata } from 'src/storage/entities/metadata.mjs';
 import { IDevice } from 'src/storage/entities/device.mjs';
 import { IUser } from 'src/storage/entities/user.mjs';
-import { IDeviceStatus } from 'src/storage/entities/device-status.mjs';
+import { IDeviceStatus, IDeviceStatusWithContinuationData } from 'src/storage/entities/device-status.mjs';
 import { QueryUtils } from './queries/query-utils.mjs';
 import { ISystemSetting } from 'src/storage/entities/system-setting.mjs';
 import { IDeviceConnectionEvent } from 'src/storage/entities/device-connection-event.mjs';
@@ -18,7 +18,8 @@ import { ITariff } from 'src/storage/entities/tariff.mjs';
 import { IDeviceSession } from 'src/storage/entities/device-session.mjs';
 import { IRole } from 'src/storage/entities/role.mjs';
 import { IPermission } from 'src/storage/entities/permission.mjs';
-import { TransferDeviceResult } from 'src/storage/results.mjs';
+import { CompleteDeviceStatusUpdateResult, TransferDeviceResult } from 'src/storage/results.mjs';
+import { DeviceStatus } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
 
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
@@ -283,6 +284,12 @@ export class PostgreStorageProvider implements StorageProvider {
         return res.rows as IDeviceStatus[];
     }
 
+    async getAllDeviceStatusesWithContinuationData(): Promise<IDeviceStatusWithContinuationData[]> {
+        const query = this.queryUtils.getAllDeviceStatusesWithContinuationDataQueryText();
+        const res = await this.execQuery(query);
+        return res.rows as IDeviceStatusWithContinuationData[];
+    }
+
     async getDeviceStatus(deviceId: number): Promise<IDeviceStatus | undefined> {
         const query = this.queryUtils.getDeviceStatusQuery(deviceId);
         const res = await this.execQuery(query.text, query.params);
@@ -298,6 +305,49 @@ export class PostgreStorageProvider implements StorageProvider {
     async updateDeviceStatus(deviceStatus: IDeviceStatus): Promise<void> {
         const query = this.queryUtils.updateDeviceStatusQuery(deviceStatus);
         await this.execQuery(query.text, query.params);
+    }
+
+    async completeDeviceStatusUpdate(deviceStatus: IDeviceStatusWithContinuationData, deviceSession: IDeviceSession): Promise<CompleteDeviceStatusUpdateResult | undefined> {
+        let transactionClient: pg.PoolClient | undefined;
+        let result: CompleteDeviceStatusUpdateResult | undefined;
+        try {
+            transactionClient = await this.getPoolClient();
+            await transactionClient.query('BEGIN');
+            const updateDeviceStatusQuery = this.queryUtils.updateDeviceStatusQuery(deviceStatus);
+            const updateDeviceStatusResult = await transactionClient.query(updateDeviceStatusQuery.text, updateDeviceStatusQuery.params);
+            const updatedDeviceStatus = updateDeviceStatusResult.rows[0] as IDeviceStatus | undefined;
+            if (!updatedDeviceStatus) {
+                await transactionClient?.query('ROLLBACK');
+                return undefined;
+            }
+            const addDeviceSessionQuery = this.queryUtils.addDeviceSessionQueryData(deviceSession);
+            const addDeviceSessionResult = await transactionClient.query(addDeviceSessionQuery.text, addDeviceSessionQuery.params);
+            const addedDeviceSession = addDeviceSessionResult.rows[0] as IDeviceSession | undefined;
+            if (!addedDeviceSession) {
+                await transactionClient?.query('ROOLBACK');
+                return undefined;
+            }
+            const deleteDeviceContinuationQuery = this.queryUtils.deleteDeviceContinuationQueryData(deviceStatus.device_id);
+            const deleteDeviceContinuationResult = await transactionClient.query(deleteDeviceContinuationQuery.text, deleteDeviceContinuationQuery.params);
+
+            await transactionClient?.query('COMMIT');
+            result = {
+                deviceSession: addedDeviceSession,
+                deviceStatus: updatedDeviceStatus,
+            };
+            return result;
+        } catch (err) {
+            result = undefined;
+            await transactionClient?.query('ROLLBACK');
+            throw err;
+        } finally {
+            transactionClient?.release();
+        }
+    }
+
+    async deleteDeviceContinuation(deviceId: number): Promise<void> {
+        const queryData = this.queryUtils.deleteDeviceContinuationQueryData(deviceId);
+        await this.execQuery(queryData.text, queryData.params);
     }
 
     // async setDeviceStatusEnabledFlag(deviceId: number, enabled: boolean): Promise<void> {

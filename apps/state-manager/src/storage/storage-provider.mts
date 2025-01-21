@@ -1,6 +1,6 @@
 import { IDevice } from './entities/device.mjs';
 import { IDeviceConnectionEvent } from './entities/device-connection-event.mjs';
-import { IDeviceStatus } from './entities/device-status.mjs';
+import { IDeviceStatus, IDeviceStatusWithContinuationData } from './entities/device-status.mjs';
 import { ISystemSetting } from './entities/system-setting.mjs';
 import { IUser } from './entities/user.mjs';
 import { StorageProviderConfig } from './storage-provider-config.mjs';
@@ -10,7 +10,7 @@ import { ITariff } from './entities/tariff.mjs';
 import { IDeviceSession } from './entities/device-session.mjs';
 import { IRole } from './entities/role.mjs';
 import { IPermission } from './entities/permission.mjs';
-import { TransferDeviceResult } from './results.mjs';
+import { CompleteDeviceStatusUpdateResult, TransferDeviceResult } from './results.mjs';
 
 export interface StorageProvider {
     getAllUsers(): Promise<IUser[]>;
@@ -30,9 +30,14 @@ export interface StorageProvider {
     addDeviceConnectionEvent(deviceConnectionEvent: IDeviceConnectionEvent): Promise<IDeviceConnectionEvent | undefined>;
     addDeviceSession(deviceSession: IDeviceSession): Promise<IDeviceSession>
     getAllDeviceStatuses(): Promise<IDeviceStatus[]>;
+    getAllDeviceStatusesWithContinuationData(): Promise<IDeviceStatusWithContinuationData[]>;
     addOrUpdateDeviceStatusEnabled(deviceStatus: IDeviceStatus): Promise<IDeviceStatus | undefined>;
     updateDeviceStatus(deviceStatus: IDeviceStatus): Promise<void>;
     transferDevice(sourceDeviceId: number, targetDeviceId: number, userId: number): Promise<TransferDeviceResult | undefined>;
+    // Updates device status, adds device session and clears device continuation if any
+    completeDeviceStatusUpdate(storageDeviceStatus: IDeviceStatusWithContinuationData, storageDeviceSession: IDeviceSession): Promise<CompleteDeviceStatusUpdateResult | undefined>;
+
+    deleteDeviceContinuation(deviceId: number): Promise<void>;
 
     getAllSystemSettings(): Promise<ISystemSetting[]>;
     getSystemSettingByName(name: string): Promise<ISystemSetting | undefined>;

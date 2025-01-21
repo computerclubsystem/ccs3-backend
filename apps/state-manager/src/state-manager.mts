@@ -37,7 +37,7 @@ import { BusDeviceGetByIdRequestMessage } from '@computerclubsystem/types/messag
 import { createBusDeviceGetByIdReplyMessage } from '@computerclubsystem/types/messages/bus/bus-device-get-by-id-reply.message.mjs';
 import { BusUpdateDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-device-request.message.mjs';
 import { createBusUpdateDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-device-reply.message.mjs';
-import { IDeviceStatus } from './storage/entities/device-status.mjs';
+import { IDeviceStatus, IDeviceStatusWithContinuationData } from './storage/entities/device-status.mjs';
 import { BusGetAllTariffsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-tariffs-request.message.mjs';
 import { createBusGetAllTariffsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-tariffs-reply.message.mjs';
 import { BusCreateTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-tariff-request.message.mjs';
@@ -76,9 +76,9 @@ import { createBusUpdateUserWithRolesReplyMessage } from '@computerclubsystem/ty
 import { BusUpdateUserWithRolesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-user-with-roles-request.message.mjs';
 import { BusStopDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-stop-device-request.message.mjs';
 import { createBusStopDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-stop-device-reply.message.mjs';
-import { createBusDeviceUnknownDeviceConnectedReplyMessage } from '@computerclubsystem/types/messages/bus/bus-device-unknown-device-connected-reply.message.mjs';
 import { BusTransferDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-transfer-device-request.message.mjs';
 import { createBusTransferDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-transfer-device-reply.message.mjs';
+import { SystemNotes } from './system-notes.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -93,6 +93,7 @@ export class StateManager {
     private readonly entityConverter = new EntityConverter();
     private readonly tariffHelper = new TariffHelper();
     private readonly dateTimeHelper = new DateTimeHelper();
+    private readonly systemNotes = new SystemNotes();
     private readonly envVars = new EnvironmentVariablesHelper().createEnvironmentVars();
 
     processReceivedBusMessage(channelName: string, message: Message<any>): void {
@@ -360,13 +361,6 @@ export class StateManager {
             const deviceStatus = this.createDeviceStatusFromStorageDeviceStatus(storageDeviceStatus);
             // totalTime must be in seconds
             deviceStatus.totalTime = totalTime;
-            // TODO: Use transaction to change device status table and device session table
-            // TODO: Also update the device status only if the "started" is true 
-            //       or use hidden PostgreSQL column named "xmin" which contains ID (number) of the last transaction that updated the row
-            //       to avoid race conditions when after this function gets all device statuses, some other message stops a computer before this function
-            //       reaches this point. Rename this function to updateDeviceStatusIfStarted and internally add condition like "WHERE started = true"
-            //       Return result and if the result is null, the update was not performed (possibly because the row for this device had started = false)
-            await this.storageProvider.updateDeviceStatus(storageDeviceStatus);
             const storageDeviceSession: IDeviceSession = {
                 device_id: storageDeviceStatus.device_id,
                 started_at: storageDeviceStatus.started_at,
@@ -379,7 +373,10 @@ export class StateManager {
                 stopped_by_customer: !!message.body.stoppedByCustomer,
                 note: message.body.note,
             } as IDeviceSession;
-            await this.storageProvider.addDeviceSession(storageDeviceSession);
+            const completeDeviceStatusUpdateResult = await this.storageProvider.completeDeviceStatusUpdate(storageDeviceStatus, storageDeviceSession);
+            if (!completeDeviceStatusUpdateResult) {
+                throw new Error(`Can't stop the device`);
+            }
             replyMsg.body.deviceStatus = deviceStatus;
             this.publishToOperatorsChannel(replyMsg, message);
             this.refreshDeviceStatuses();
@@ -760,7 +757,7 @@ export class StateManager {
             this.refreshDeviceStatuses();
         } catch (err) {
             this.logger.warn(`Can't process BusStartDeviceRequestMessage message`, message, err);
-            const replyMsg = createBusStartDeviceReplyMessage(message);
+            const replyMsg = createBusStartDeviceReplyMessage();
             replyMsg.header.failure = true;
             replyMsg.header.errors = [{
                 code: '',
@@ -1214,7 +1211,8 @@ export class StateManager {
             const now = this.dateTimeHelper.getCurrentDateTimeAsNumber();
             this.state.lastDeviceStatusRefreshAt = now;
             this.state.deviceStatusRefreshInProgress = true;
-            const storageDeviceStatuses = await this.storageProvider.getAllDeviceStatuses();
+            //            const storageDeviceStatuses = await this.storageProvider.getAllDeviceStatuses();
+            const storageDeviceStatusesWithContinuationData = await this.storageProvider.getAllDeviceStatusesWithContinuationData();
             const allTariffs = await this.getAndCacheAllTariffs();
             let allDevices = await this.getAndCacheAllDevices();
             // TODO: We will process only enabled devices
@@ -1223,22 +1221,26 @@ export class StateManager {
             const enabledDevices = allDevices.filter(x => x.approved && x.enabled);
             const deviceStatuses: DeviceStatus[] = [];
             for (const enabledDevice of enabledDevices) {
-                const storageDeviceStatus = storageDeviceStatuses.find(x => x.device_id === enabledDevice.id);
+                const storageDeviceStatus = storageDeviceStatusesWithContinuationData.find(x => x.device_id === enabledDevice.id);
                 if (storageDeviceStatus) {
                     const tariff = allTariffs.find(x => x.id === storageDeviceStatus.start_reason)!;
-                    const calculatedDeviceStatus = this.createAndCalculateDeviceStatusFromStorageDeviceStatus(storageDeviceStatus, tariff);
+                    let calculatedDeviceStatus = this.createAndCalculateDeviceStatusFromStorageDeviceStatus(storageDeviceStatus, tariff);
                     if (storageDeviceStatus.started && !calculatedDeviceStatus.started) {
                         // After the calculation, if device was started but no longer, it must be stopped
                         storageDeviceStatus.started = calculatedDeviceStatus.started;
                         storageDeviceStatus.stopped_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
                         storageDeviceStatus.total = calculatedDeviceStatus.totalSum;
-                        // TODO: Use transaction to change device status table and device session table
-                        // TODO: Also update the device status only if the "started" is true 
-                        //       or use hidden PostgreSQL column named "xmin" which contains ID (number) of the last transaction that updated the row
-                        //       to avoid race conditions when after this function gets all device statuses, some other message stops a computer before this function
-                        //       reaches this point. Rename this function to updateDeviceStatusIfStarted and internally add condition like "WHERE started = true"
-                        //       Return result and if the result is null, the update was not performed (possibly because the row for this device had started = false)
-                        await this.storageProvider.updateDeviceStatus(storageDeviceStatus);
+                        const shouldStartForContinuationTariffResult = this.shouldStartForContinuationTariff(storageDeviceStatus, allTariffs);
+                        const continuationTariff = shouldStartForContinuationTariffResult.continuationTariff;
+
+                        let storageDeviceSessionNote: string | null = null;
+                        if (shouldStartForContinuationTariffResult.shouldStart && continuationTariff) {
+                            // Continuation is configured and the tariff can be used at this moment
+                            storageDeviceSessionNote = this.systemNotes.getContinuationTariffNote(continuationTariff.id, continuationTariff.name);
+                        } else if (!shouldStartForContinuationTariffResult.shouldStart && shouldStartForContinuationTariffResult.canUseTariff === false && continuationTariff) {
+                            // Continuation is configured but the tariff can't be used at this moment
+                            storageDeviceSessionNote = this.systemNotes.getTariffCantBeCurrentlyUsedToContinuationNote(continuationTariff.id, continuationTariff.name);
+                        }
                         const storageDeviceSession: IDeviceSession = {
                             device_id: storageDeviceStatus.device_id,
                             started_at: storageDeviceStatus.started_at,
@@ -1250,9 +1252,37 @@ export class StateManager {
                             started_by_customer: !storageDeviceStatus.started_by_user_id,
                             // This will always be false, because the system is stopping the computer
                             stopped_by_customer: false,
+                            note: storageDeviceSessionNote,
                         } as IDeviceSession;
-                        await this.storageProvider.addDeviceSession(storageDeviceSession);
-                        // TODO: See if we need to switch to another tariff
+                        // TODO: If the continuation is configured but the tariff cannot be used right now - send notification message
+                        // See if we need to switch to another tariff
+                        let shouldPerformContinuation = false;
+                        if (shouldStartForContinuationTariffResult.shouldStart && continuationTariff) {
+                            storageDeviceStatus.enabled = true;
+                            storageDeviceStatus.start_reason = continuationTariff.id;
+                            storageDeviceStatus.started = true;
+                            storageDeviceStatus.started_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
+                            storageDeviceStatus.stopped_at = null;
+                            storageDeviceStatus.total = continuationTariff.price;
+                            storageDeviceStatus.started_by_user_id = storageDeviceStatus.continuation_user_id;
+                            storageDeviceStatus.stopped_by_user_id = null;
+                            // TODO: Delete the device continuation record in the database table
+                            shouldPerformContinuation = true;
+                            calculatedDeviceStatus = this.createAndCalculateDeviceStatusFromStorageDeviceStatus(storageDeviceStatus, continuationTariff);
+                        }
+                        // TODO: Use transaction to change device status table, device session table, device_continuation table
+                        // TODO: Also update the device status only if the "started" is true 
+                        //       or use hidden PostgreSQL column named "xmin" which contains ID (number) of the last transaction that updated the row
+                        //       to avoid race conditions when after this function gets all device statuses, some other message stops a computer before this function
+                        //       reaches this point. Rename this function to updateDeviceStatusIfStarted and internally add condition like "WHERE started = true"
+                        //       Return result and if the result is null, the update was not performed (possibly because the row for this device had started = false)
+                        // await this.storageProvider.updateDeviceStatus(storageDeviceStatus);
+                        // await this.storageProvider.addDeviceSession(storageDeviceSession);
+                        const completeDeviceStatusUpdateResult = await this.storageProvider.completeDeviceStatusUpdate(storageDeviceStatus, storageDeviceSession);
+                        if (!completeDeviceStatusUpdateResult) {
+                            // Update failed
+                            throw new Error(`Can't complete device status update`);
+                        }
                     }
                     deviceStatuses.push(calculatedDeviceStatus);
                 } else {
@@ -1276,11 +1306,60 @@ export class StateManager {
             this.publishToDevicesChannel(deviceStatusMsg);
         } catch (err) {
             // TODO: Count database errors and eventually send system notification
-            this.logger.error(`Can't get all device statuses`, err);
+            this.logger.error(`Can't refresh device statuses`, err);
         } finally {
             this.state.deviceStatusRefreshInProgress = false;
             this.state.lastDeviceStatusRefreshAt = this.dateTimeHelper.getCurrentDateTimeAsNumber();
         }
+    }
+
+    shouldStartForContinuationTariff(storageDeviceStatus: IDeviceStatusWithContinuationData, allTariffs: Tariff[]): { continuationTariff: Tariff | null, canUseTariff: boolean | null, shouldStart: boolean } {
+        if (storageDeviceStatus.continuation_tariff_id) {
+            const tariff = allTariffs.find(x => x.id === storageDeviceStatus.continuation_tariff_id);
+            if (tariff?.enabled) {
+                const canUseTariffResult = this.canUseTariff(tariff);
+                if (canUseTariffResult.canUse) {
+                    return { continuationTariff: tariff, canUseTariff: true, shouldStart: true };
+                } else {
+                    return { continuationTariff: tariff, canUseTariff: false, shouldStart: false };
+                }
+            }
+        }
+        return { continuationTariff: null, canUseTariff: null, shouldStart: false };
+    }
+    // TODO: Return result object describing why the tariff can not be used
+    canUseTariff(tariff: Tariff): { canUse: boolean } {
+        if (tariff.type === TariffType.fromTo) {
+            const isCurrentMinuteInPeriodResult = this.dateTimeHelper.isCurrentMinuteInMinutePeriod(tariff.fromTime!, tariff.toTime!);
+            this.logger.log('isCurrentMinuteInMinutePeriod: Tariff id', tariff.id, 'fromTime', tariff.fromTime, 'toTime', tariff.toTime, 'result', isCurrentMinuteInPeriodResult);
+            if (!isCurrentMinuteInPeriodResult.isInPeriod) {
+                return { canUse: false };
+                // const replyMsg = createBusStartDeviceReplyMessage();
+                // replyMsg.header.failure = true;
+                // replyMsg.header.errors = [
+                //     { code: BusErrorCode.cantUseTheTariffNow, description: `Can't use the tariff right now` },
+                // ];
+                // this.publishToOperatorsChannel(replyMsg);
+                // return;
+            }
+        }
+
+        if (tariff.type === TariffType.duration) {
+            if (tariff.restrictStartTime) {
+                const isCurrentMinuteInPeriodResult = this.dateTimeHelper.isCurrentMinuteInMinutePeriod(tariff.restrictStartFromTime!, tariff.restrictStartToTime!);
+                if (!isCurrentMinuteInPeriodResult.isInPeriod) {
+                    return { canUse: false };
+                    // const replyMsg = createBusStartDeviceReplyMessage();
+                    // replyMsg.header.failure = true;
+                    // replyMsg.header.errors = [
+                    //     { code: BusErrorCode.cantStartTheTariffNow, description: `Can't start the tariff right now` },
+                    // ];
+                    // this.publishToOperatorsChannel(replyMsg);
+                }
+            }
+        }
+
+        return { canUse: true };
     }
 
     createAndCalculateDeviceStatusFromStorageDeviceStatus(storageDeviceStatus: IDeviceStatus, tariff: Tariff): DeviceStatus {
@@ -1301,19 +1380,20 @@ export class StateManager {
         return calculatedDeviceStatus;
     }
 
-    createDeviceStatusFromStorageDeviceStatus(storageDeviceStatus: IDeviceStatus): DeviceStatus {
+    createDeviceStatusFromStorageDeviceStatus(storageDeviceStatusWithContinuationData: IDeviceStatusWithContinuationData): DeviceStatus {
         const deviceStatus: DeviceStatus = {
-            deviceId: storageDeviceStatus.device_id,
-            enabled: storageDeviceStatus.enabled,
-            started: storageDeviceStatus.started,
+            deviceId: storageDeviceStatusWithContinuationData.device_id,
+            enabled: storageDeviceStatusWithContinuationData.enabled,
+            started: storageDeviceStatusWithContinuationData.started,
             expectedEndAt: null,
             remainingSeconds: null,
-            startedAt: this.dateTimeHelper.getNumberFromISOStringDateTime(storageDeviceStatus.started_at),
-            stoppedAt: this.dateTimeHelper.getNumberFromISOStringDateTime(storageDeviceStatus.stopped_at),
-            totalSum: storageDeviceStatus.total,
+            startedAt: this.dateTimeHelper.getNumberFromISOStringDateTime(storageDeviceStatusWithContinuationData.started_at),
+            stoppedAt: this.dateTimeHelper.getNumberFromISOStringDateTime(storageDeviceStatusWithContinuationData.stopped_at),
+            totalSum: storageDeviceStatusWithContinuationData.total,
             totalTime: null,
-            tariff: storageDeviceStatus.start_reason,
-            startedByUserId: storageDeviceStatus.started_by_user_id,
+            tariff: storageDeviceStatusWithContinuationData.start_reason,
+            startedByUserId: storageDeviceStatusWithContinuationData.started_by_user_id,
+            continuationTariffId: storageDeviceStatusWithContinuationData.continuation_tariff_id,
         } as DeviceStatus;
         if (deviceStatus.startedAt && deviceStatus.stoppedAt) {
             deviceStatus.totalTime = Math.floor((deviceStatus.stoppedAt - deviceStatus.startedAt) / 1000);

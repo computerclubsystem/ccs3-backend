@@ -1,12 +1,77 @@
-// INSERT INTO table_name (column1, column2, ...)
-// VALUES (value1, value2, ...)
-// ON CONFLICT (conflict_column)
-// DO NOTHING | DO UPDATE SET column1 = value1, column2 = value2, ...;
-
-import { IDeviceStatus } from 'src/storage/entities/device-status.mjs';
+import { IDeviceStatus, IDeviceStatusWithContinuationData } from 'src/storage/entities/device-status.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
+import { IDeviceSession } from 'src/storage/entities/device-session.mjs';
 
 export class DeviceStatusQueryHelper {
+    completeDeviceStatusUpdateQuery(deviceStatus: IDeviceStatusWithContinuationData, deviceSession: IDeviceSession): IQueryTextWithParamsResult {
+        const params = [
+            deviceStatus.started,
+            deviceStatus.start_reason,
+            deviceStatus.started_at,
+            deviceStatus.stopped_at,
+            deviceStatus.total,
+            deviceStatus.enabled,
+            deviceStatus.started_by_user_id,
+            deviceStatus.stopped_by_user_id,
+            deviceStatus.device_id,
+
+            deviceSession.device_id,
+            deviceSession.tariff_id,
+            deviceSession.total_amount,
+            deviceSession.started_at,
+            deviceSession.stopped_at,
+            deviceSession.started_by_user_id,
+            deviceSession.stopped_by_user_id,
+            deviceSession.started_by_customer,
+            deviceSession.stopped_by_customer,
+            deviceSession.note,
+        ];
+        return {
+            text: this.completeDeviceStatusUpdateQueryText,
+            params: params,
+        };
+    }
+
+    private readonly completeDeviceStatusUpdateQueryText = `
+        UPDATE device_status
+        SET started = $1,
+            start_reason = $2,
+            started_at = $3,
+            stopped_at = $4,
+            total = $5,
+            enabled = $6,
+            started_by_user_id = $7,
+            stopped_by_user_id = $8
+        WHERE device_id = $9;
+
+        INSERT INTO device_session
+        (
+            device_id,
+            tariff_id,
+            total_amount,
+            started_at,
+            stopped_at,
+            started_by_user_id,
+            stopped_by_user_id,
+            started_by_customer,
+            stopped_by_customer,
+            note
+        )
+        VALUES
+        (
+            $10,
+            $11,
+            $12,
+            $13,
+            $14,
+            $15,
+            $16,
+            $17,
+            $18,
+            $19
+        );
+    `;
+
     updateDeviceStatusQuery(deviceStatus: IDeviceStatus): IQueryTextWithParamsResult {
         const params = [
             deviceStatus.started,
@@ -27,16 +92,16 @@ export class DeviceStatusQueryHelper {
 
     addOrUpdateDeviceStatusEnabledQuery(deviceStatus: IDeviceStatus): IQueryTextWithParamsResult {
         const params = [
-                deviceStatus.device_id,
-                deviceStatus.started,
-                deviceStatus.start_reason,
-                deviceStatus.started_at,
-                deviceStatus.stopped_at,
-                deviceStatus.total,
-                deviceStatus.enabled,
-                deviceStatus.started_by_user_id,
-                deviceStatus.stopped_by_user_id,
-            ];
+            deviceStatus.device_id,
+            deviceStatus.started,
+            deviceStatus.start_reason,
+            deviceStatus.started_at,
+            deviceStatus.stopped_at,
+            deviceStatus.total,
+            deviceStatus.enabled,
+            deviceStatus.started_by_user_id,
+            deviceStatus.stopped_by_user_id,
+        ];
         return {
             text: this.addDeviceStatusQueryText,
             params,
@@ -125,6 +190,24 @@ export class DeviceStatusQueryHelper {
         )
         ON CONFLICT (device_id) DO
             UPDATE SET enabled = $7
+    `;
+
+    public readonly getAllDeviceStatusesWithContinuationDataQueryText = `
+        SELECT 
+            d.device_id,
+            d.started,
+            d.start_reason,
+            d.started_at,
+            d.stopped_at,
+            d.total,
+            d.enabled,
+            d.started_by_user_id,
+            d.stopped_by_user_id,
+            dc.tariff_id AS continuation_tariff_id,
+            dc.user_id AS continuation_user_id
+        FROM device_status AS d
+        LEFT JOIN device_continuation AS dc
+             ON dc.device_id = d.device_id
     `;
 
     public readonly getAllDeviceStatusesQueryText = `

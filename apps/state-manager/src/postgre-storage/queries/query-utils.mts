@@ -18,6 +18,7 @@ import { PermissionInRoleQueryHelper } from './permission-in-role-query-helper.m
 import { IRole } from 'src/storage/entities/role.mjs';
 import { UserQueryHelper } from './user-query-helper.mjs';
 import { IUser } from 'src/storage/entities/user.mjs';
+import { DeviceContinuationQueryHelper } from './device-continuation-query-helper.mjs';
 
 export class QueryUtils {
     private readonly helpers = {
@@ -32,7 +33,12 @@ export class QueryUtils {
         permission: new PermissionQueryHelper(),
         permissionInRole: new PermissionInRoleQueryHelper(),
         user: new UserQueryHelper(),
+        deviceContinuation: new DeviceContinuationQueryHelper(),
     };
+
+    deleteDeviceContinuationQueryData(deviceId: number): IQueryTextWithParamsResult {
+        return this.helpers.deviceContinuation.deleteDeviceContinuationQuery(deviceId);
+    }
 
     replaceUserRolesQueryData(userId: number, roleIds: number[]): IQueryTextWithParamsResult {
         return this.helpers.user.replaceUserRolesQueryData(userId, roleIds);
@@ -176,11 +182,19 @@ export class QueryUtils {
         return this.helpers.deviceStatus.updateDeviceStatusQuery(deviceStatus);
     }
 
+    completeDeviceStatusUpdateQuery(deviceStatus: IDeviceStatus, deviceSession: IDeviceSession): IQueryTextWithParamsResult {
+        return this.helpers.deviceStatus.completeDeviceStatusUpdateQuery(deviceStatus, deviceSession);
+    }
+
     // setDeviceStatusEnabledFlag(deviceId: number, enabled: boolean): IQueryTextWithParamsResult {
     //     return this.helpers.deviceStatus.setDeviceStatusEnabledFlagQuery(deviceId, enabled);
     // }
 
     getAllDeviceStatusesQueryText(): string {
         return this.helpers.deviceStatus.getAllDeviceStatusesQueryText;
+    }
+
+    getAllDeviceStatusesWithContinuationDataQueryText(): string {
+        return this.helpers.deviceStatus.getAllDeviceStatusesWithContinuationDataQueryText;
     }
 }
