@@ -6,6 +6,7 @@ export interface DeviceStatus {
     deviceId: number;
     started: boolean;
     tariff?: number | null;
+    continuationTariffId?: number | null;
     totalSum: number | null;
     totalTime: number | null;
     startedAt: number | null;

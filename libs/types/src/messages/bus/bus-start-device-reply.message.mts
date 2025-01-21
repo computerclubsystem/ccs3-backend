@@ -9,7 +9,7 @@ export interface BusStartDeviceReplyMessageBody {
 export interface BusStartDeviceReplyMessage extends Message<BusStartDeviceReplyMessageBody> {
 }
 
-export function createBusStartDeviceReplyMessage<TBody>(sourceMessage?: Message<TBody> | null): BusStartDeviceReplyMessage {
+export function createBusStartDeviceReplyMessage(): BusStartDeviceReplyMessage {
     const msg: BusStartDeviceReplyMessage = {
         header: { type: MessageType.busStartDeviceReply },
         body: {} as BusStartDeviceReplyMessageBody,

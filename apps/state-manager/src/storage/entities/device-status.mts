@@ -9,3 +9,8 @@ export interface IDeviceStatus {
     started_by_user_id?: number | null;
     stopped_by_user_id?: number | null;
 }
+
+export interface IDeviceStatusWithContinuationData extends IDeviceStatus {
+    continuation_tariff_id?: number | null;
+    continuation_user_id?: number | null;
+}
