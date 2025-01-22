@@ -11,6 +11,7 @@ import { IDeviceSession } from './entities/device-session.mjs';
 import { IRole } from './entities/role.mjs';
 import { IPermission } from './entities/permission.mjs';
 import { CompleteDeviceStatusUpdateResult, TransferDeviceResult } from './results.mjs';
+import { IDeviceContinuation } from './entities/device-continuation.mjs';
 
 export interface StorageProvider {
     getAllUsers(): Promise<IUser[]>;
@@ -36,7 +37,7 @@ export interface StorageProvider {
     transferDevice(sourceDeviceId: number, targetDeviceId: number, userId: number): Promise<TransferDeviceResult | undefined>;
     // Updates device status, adds device session and clears device continuation if any
     completeDeviceStatusUpdate(storageDeviceStatus: IDeviceStatusWithContinuationData, storageDeviceSession: IDeviceSession): Promise<CompleteDeviceStatusUpdateResult | undefined>;
-
+    createDeviceContinuation(deviceContinuation: IDeviceContinuation): Promise<IDeviceContinuation>;
     deleteDeviceContinuation(deviceId: number): Promise<void>;
 
     getAllSystemSettings(): Promise<ISystemSetting[]>;

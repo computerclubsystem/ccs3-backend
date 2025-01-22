@@ -128,6 +128,15 @@ import { BusTransferDeviceReplyMessageBody } from '@computerclubsystem/types/mes
 import { createOperatorTransferDeviceReplyMessage } from '@computerclubsystem/types/messages/operators/operator-transfer-device-reply.message.mjs';
 import { BusDeviceConnectivitiesNotificationMessage, BusDeviceConnectivityItem } from '@computerclubsystem/types/messages/bus/bus-device-connectivities-notification.message.mjs';
 import { createOperatorDeviceConnectivitiesNotificationMessage, OperatorDeviceConnectivityItem } from '@computerclubsystem/types/messages/operators/operator-device-connectivities-notification.message.mjs';
+import { OperatorCreateDeviceContinuationRequestMessage } from '@computerclubsystem/types/messages/operators/operator-create-device-continuation-request.message.mjs';
+import { createBusCreateDeviceContinuationRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-continuation-request.message.mjs';
+import { DeviceContinuation } from '@computerclubsystem/types/entities/device-continuation.mjs';
+import { BusCreateDeviceContinuationReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-create-device-continuation-reply.message.mjs';
+import { createOperatorCreateDeviceContinuationReplyMessage } from '@computerclubsystem/types/messages/operators/operator-create-device-continuation-reply.message.mjs';
+import { OperatorDeleteDeviceContinuationRequestMessage } from '@computerclubsystem/types/messages/operators/operator-delete-device-continuation-request.message.mjs';
+import { createBusDeleteDeviceContinuationRequestMessage } from '@computerclubsystem/types/messages/bus/bus-delete-device-continuation-request.message.mjs';
+import { BusDeleteDeviceContinuationReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-delete-device-continuation-reply.message.mjs';
+import { createOperatorDeleteDeviceContinuationReplyMessage } from '@computerclubsystem/types/messages/operators/operator-delete-device-continuation-reply.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -223,6 +232,12 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorMessageType.deleteDeviceContinuationRequest:
+                this.processDeleteDeviceContinuationRequestMessage(clientData, message as OperatorDeleteDeviceContinuationRequestMessage);
+                break;
+            case OperatorMessageType.createDeviceContinuationRequest:
+                this.processCreateDeviceContinuationRequestMessage(clientData, message as OperatorCreateDeviceContinuationRequestMessage);
+                break;
             case OperatorMessageType.transferDeviceRequest:
                 this.processTransfrerDeviceRequestMessage(clientData, message as OperatorTransferDeviceRequestMessage);
                 break;
@@ -297,6 +312,31 @@ export class OperatorConnector {
                 this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    processDeleteDeviceContinuationRequestMessage(clientData: ConnectedClientData, message: OperatorDeleteDeviceContinuationRequestMessage): void {
+        const busRequestMsg = createBusDeleteDeviceContinuationRequestMessage();
+        busRequestMsg.body.deviceId = message.body.deviceId;
+        this.publishToOperatorsChannelAndWaitForReply<BusDeleteDeviceContinuationReplyMessageBody>(busRequestMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorDeleteDeviceContinuationReplyMessage();
+                this.errorReplyHelper.processBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    processCreateDeviceContinuationRequestMessage(clientData: ConnectedClientData, message: OperatorCreateDeviceContinuationRequestMessage): void {
+        const busRequestMsg = createBusCreateDeviceContinuationRequestMessage();
+        const deviceContinuation: DeviceContinuation = message.body.deviceContinuation;
+        deviceContinuation.userId = clientData.userId!;
+        busRequestMsg.body.deviceContinuation = deviceContinuation;
+        this.publishToOperatorsChannelAndWaitForReply<BusCreateDeviceContinuationReplyMessageBody>(busRequestMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorCreateDeviceContinuationReplyMessage();
+                operatorReplyMsg.body.deviceContinuation = operatorReplyMsg.body.deviceContinuation;
+                this.errorReplyHelper.processBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
     }
 
     processTransfrerDeviceRequestMessage(clientData: ConnectedClientData, message: OperatorTransferDeviceRequestMessage): void {
@@ -1127,8 +1167,20 @@ export class OperatorConnector {
             tariff: deviceStatus.tariff,
             totalSum: deviceStatus.totalSum,
             totalTime: deviceStatus.totalTime,
+            continuationTariffId: deviceStatus.continuationTariffId,
         };
+        this.removeNullAndUndefinedKeys(opDeviceStatus);
         return opDeviceStatus;
+    }
+
+    removeNullAndUndefinedKeys(obj: Record<string, any>): void {
+        const keys = Object.keys(obj);
+        keys.forEach(key => {
+            const value = obj[key];
+            if (value === null || value === undefined) {
+                delete obj[key];
+            }
+        });
     }
 
     processOperatorConnectionClosed(args: ConnectionClosedEventArgs): void {

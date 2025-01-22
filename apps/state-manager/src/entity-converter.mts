@@ -14,8 +14,38 @@ import { IPermission } from './storage/entities/permission.mjs';
 import { Permission } from '@computerclubsystem/types/entities/permission.mjs';
 import { IUser } from './storage/entities/user.mjs';
 import { User } from '@computerclubsystem/types/entities/user.mjs';
+import { IDeviceContinuation } from './storage/entities/device-continuation.mjs';
+import { DeviceContinuation } from '@computerclubsystem/types/entities/device-continuation.mjs';
 
 export class EntityConverter {
+    /**
+     * Converts DeviceContinuation to IDeviceContinuation without requestedAt
+     * @param deviceContinuation 
+     * @returns IDeviceContinuation without requestedAt set
+     */
+    storageDeviceContinuationToDeviceContinuation(storageDeviceContinuation: IDeviceContinuation): DeviceContinuation {
+        const result: DeviceContinuation = {
+            deviceId: storageDeviceContinuation.deviceId,
+            tariffId: storageDeviceContinuation.tariffId,
+            userId: storageDeviceContinuation.userId,
+        } as DeviceContinuation;
+        return result;
+    }
+
+    /**
+     * Converts DeviceContinuation to IDeviceContinuation without requestedAt
+     * @param deviceContinuation 
+     * @returns IDeviceContinuation without requestedAt set
+     */
+    deviceContinuationToStorageDeviceContinuation(deviceContinuation: DeviceContinuation): IDeviceContinuation {
+        const result: IDeviceContinuation = {
+            deviceId: deviceContinuation.deviceId,
+            tariffId: deviceContinuation.tariffId,
+            userId: deviceContinuation.userId,
+        } as IDeviceContinuation;
+        return result;
+    }
+
     userToStorageUser(user: User): IUser {
         const storageUser: IUser = {
             created_at: user.createdAt,

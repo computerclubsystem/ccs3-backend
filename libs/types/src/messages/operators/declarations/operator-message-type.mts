@@ -31,9 +31,11 @@ export enum OperatorMessageType {
     createUserWithRolesRequest = 'create-user-with-roles-request',
     updateUserWithRolesRequest = 'update-user-with-roles-request',
     transferDeviceRequest = 'transfer-device-request',
+    createDeviceContinuationRequest = 'create-device-continuation-request',
+    deleteDeviceContinuationRequest = 'delete-device-continuation-request',
 }
 
-export const enum OperatorReplyMessageType {
+export enum OperatorReplyMessageType {
     authReply = 'auth-reply',
     getTariffByIdReply = 'get-tariff-by-id-reply',
     createTariffReply = 'create-tariff-reply',
@@ -53,9 +55,11 @@ export const enum OperatorReplyMessageType {
     notAuthenticatedReply = 'not-authenticated-reply',
     notAuthorizedReply = 'not-authorized-reply',
     transferDeviceReply = 'transfer-device-reply',
+    createDeviceContinuationReply = 'create-device-continuation-reply',
+    deleteDeviceContinuationReply = 'delete-device-continuation-reply',
 }
 
-export const enum OperatorNotificationMessageType {
+export enum OperatorNotificationMessageType {
     deviceStatusesNotification = 'device-statuses-notification',
     deviceConnectivitiesNotification = 'device-connectivities-notification',
 }

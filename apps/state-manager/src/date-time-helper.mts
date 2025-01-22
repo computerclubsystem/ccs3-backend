@@ -1,6 +1,5 @@
 import { DateTime, Duration, Settings } from 'luxon';
 import { Valid } from 'luxon/src/_util.js';
-import { isDataView } from 'util/types';
 
 export class DateTimeHelper {
     /**
@@ -86,6 +85,12 @@ export class DateTimeHelper {
     getCurrentMinute(): number {
         const now = this.getNow();
         const currentMinute = now.hour * 60 + now.minute;
+        return currentMinute;
+    }
+
+    getDateTimeMinute(dateTime: number): number {
+        const dt = DateTime.fromMillis(dateTime);
+        const currentMinute = dt.hour * 60 + dt.minute;
         return currentMinute;
     }
 

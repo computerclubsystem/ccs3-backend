@@ -32,6 +32,10 @@ export const enum MessageType {
     busStopDeviceReply = 'bus-stop-device-reply',
     busTransferDeviceRequest = 'bus-transfer-device-request',
     busTransferDeviceReply = 'bus-transfer-device-reply',
+    busCreateDeviceContinuationRequest = 'bus-create-device-continuation-request',
+    busCreateDeviceContinuationReply = 'bus-create-device-continuation-reply',
+    busDeleteDeviceContinuationRequest = 'bus-delete-device-continuation-request',
+    busDeleteDeviceContinuationReply = 'bus-delete-device-continuation-reply',
 
     busGetTariffByIdRequest = 'bus-get-tariff-by-id-request',
     busGetTariffByIdReply = 'bus-get-tariff-by-id-reply',

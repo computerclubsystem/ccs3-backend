@@ -19,6 +19,7 @@ import { IRole } from 'src/storage/entities/role.mjs';
 import { UserQueryHelper } from './user-query-helper.mjs';
 import { IUser } from 'src/storage/entities/user.mjs';
 import { DeviceContinuationQueryHelper } from './device-continuation-query-helper.mjs';
+import { IDeviceContinuation } from 'src/storage/entities/device-continuation.mjs';
 
 export class QueryUtils {
     private readonly helpers = {
@@ -35,6 +36,14 @@ export class QueryUtils {
         user: new UserQueryHelper(),
         deviceContinuation: new DeviceContinuationQueryHelper(),
     };
+
+    updateDeviceContinuationDeviceIdQuery(sourceDeviceId: number, targetDeviceId: number): IQueryTextWithParamsResult {
+        return this.helpers.deviceContinuation.updateDeviceContinuationDeviceIdQuery(sourceDeviceId, targetDeviceId);
+    }
+
+    upsertDeviceContinuationQueryData(deviceContinuation: IDeviceContinuation): IQueryTextWithParamsResult {
+        return this.helpers.deviceContinuation.upsertDeviceContinuationQuery(deviceContinuation);
+    }
 
     deleteDeviceContinuationQueryData(deviceId: number): IQueryTextWithParamsResult {
         return this.helpers.deviceContinuation.deleteDeviceContinuationQuery(deviceId);

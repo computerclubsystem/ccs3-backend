@@ -20,6 +20,7 @@ import { IRole } from 'src/storage/entities/role.mjs';
 import { IPermission } from 'src/storage/entities/permission.mjs';
 import { CompleteDeviceStatusUpdateResult, TransferDeviceResult } from 'src/storage/results.mjs';
 import { DeviceStatus } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
+import { IDeviceContinuation } from 'src/storage/entities/device-continuation.mjs';
 
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
@@ -99,6 +100,11 @@ export class PostgreStorageProvider implements StorageProvider {
                 await transactionClient?.query('ROLLBACK');
                 return undefined;
             }
+
+            // Also change device continuation if any
+            const updateDeviceContinuationDeviceIdQueryData = this.queryUtils.updateDeviceContinuationDeviceIdQuery(sourceDeviceId, targetDeviceId);
+            const updateDeviceContinuationDeviceIdResult = await transactionClient.query(updateDeviceContinuationDeviceIdQueryData.text, updateDeviceContinuationDeviceIdQueryData.params);
+            
             // TODO: Save record in new table with source and target device status properties, the user id that made the transfer and current date-time
             await transactionClient?.query('COMMIT');
             result = {
@@ -305,6 +311,12 @@ export class PostgreStorageProvider implements StorageProvider {
     async updateDeviceStatus(deviceStatus: IDeviceStatus): Promise<void> {
         const query = this.queryUtils.updateDeviceStatusQuery(deviceStatus);
         await this.execQuery(query.text, query.params);
+    }
+
+    async createDeviceContinuation(deviceContinuation: IDeviceContinuation): Promise<IDeviceContinuation> {
+        const queryData = this.queryUtils.upsertDeviceContinuationQueryData(deviceContinuation);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows[0] as IDeviceContinuation;
     }
 
     async completeDeviceStatusUpdate(deviceStatus: IDeviceStatusWithContinuationData, deviceSession: IDeviceSession): Promise<CompleteDeviceStatusUpdateResult | undefined> {

@@ -27,6 +27,7 @@ export class AuthorizationHelper {
         map.set(OperatorNotificationMessageType.deviceConnectivitiesNotification, [PermissionName.devicesReadStatus]);
         map.set(OperatorMessageType.startDeviceRequest, [PermissionName.devicesStart]);
         map.set(OperatorMessageType.transferDeviceRequest, [PermissionName.devicesStart]);
+        map.set(OperatorMessageType.createDeviceContinuationRequest, [PermissionName.devicesStart]);
         map.set(OperatorMessageType.stopDeviceRequest, [PermissionName.devicesStop]);
         this.messageTypeToPermissionMap = map;
     }

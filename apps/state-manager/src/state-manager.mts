@@ -79,6 +79,12 @@ import { createBusStopDeviceReplyMessage } from '@computerclubsystem/types/messa
 import { BusTransferDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-transfer-device-request.message.mjs';
 import { createBusTransferDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-transfer-device-reply.message.mjs';
 import { SystemNotes } from './system-notes.mjs';
+import { IDeviceContinuation } from './storage/entities/device-continuation.mjs';
+import { DeviceContinuation } from '@computerclubsystem/types/entities/device-continuation.mjs';
+import { BusCreateDeviceContinuationRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-continuation-request.message.mjs';
+import { createBusCreateDeviceContinuationReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-continuation-reply.message.mjs';
+import { BusDeleteDeviceContinuationRequestMessage } from '@computerclubsystem/types/messages/bus/bus-delete-device-continuation-request.message.mjs';
+import { createBusDeleteDeviceContinuationReplyMessage } from '@computerclubsystem/types/messages/bus/bus-delete-device-continuation-reply.message.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -121,6 +127,12 @@ export class StateManager {
     processOperatorsChannelMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busDeleteDeviceContinuationRequest:
+                this.processBusDeleteDeviceContinuationRequestMessage(message as BusDeleteDeviceContinuationRequestMessage);
+                break;
+            case MessageType.busCreateDeviceContinuationRequest:
+                this.processBusCreateDeviceContinuationRequestMessage(message as BusCreateDeviceContinuationRequestMessage);
+                break;
             case MessageType.busTransferDeviceRequest:
                 this.processBusTransferDeviceRequestMessage(message as BusTransferDeviceRequestMessage);
                 break;
@@ -202,6 +214,216 @@ export class StateManager {
         }
     }
 
+    async processBusDeleteDeviceContinuationRequestMessage(message: BusDeleteDeviceContinuationRequestMessage): Promise<void> {
+        const replyMsg = createBusDeleteDeviceContinuationReplyMessage();
+        try {
+            if (!message.body.deviceId) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceIdIsRequired,
+                    description: 'Device Id is required',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            await this.storageProvider.deleteDeviceContinuation(message.body.deviceId);
+            await this.refreshDeviceStatuses();
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusDeleteDeviceContinuationRequestMessage message`, message, err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+    async processBusCreateDeviceContinuationRequestMessage(message: BusCreateDeviceContinuationRequestMessage): Promise<void> {
+        const replyMsg = createBusCreateDeviceContinuationReplyMessage();
+        try {
+            const deviceContinuation: DeviceContinuation = message.body?.deviceContinuation;
+            if (!deviceContinuation) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.objectIsRequired,
+                    description: 'Device continuation is required',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            if (!deviceContinuation.deviceId) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceIdIsRequired,
+                    description: 'Device Id is required',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            if (!deviceContinuation.tariffId) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.tariffIdIsRequired,
+                    description: 'Tariff Id is required',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            if (!deviceContinuation.userId) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userIdIsRequired,
+                    description: 'User Id is required',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const allDevices = await this.getAndCacheAllDevices();
+            const device = allDevices.find(x => x.id === deviceContinuation.deviceId);
+            if (!device) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceNotFound,
+                    description: `Device with Id ${deviceContinuation.deviceId} not found`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            if (!device?.approved || !device?.enabled) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceIsNotActive,
+                    description: `Device with Id ${deviceContinuation.deviceId} is not active`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const allTariffs = await this.getAndCacheAllTariffs();
+            const tariff = allTariffs.find(x => x.id === deviceContinuation.tariffId);
+            if (!tariff) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.tariffNotFound,
+                    description: `Tariff with Id ${deviceContinuation.tariffId} not found`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            if (!tariff.enabled) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.tariffIsNotActive,
+                    description: `Tariff with Id ${deviceContinuation.tariffId} is not active`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const user = await this.storageProvider.getUserById(deviceContinuation.userId);
+            if (!user) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userNotFound,
+                    description: `User with Id ${deviceContinuation.userId} not found`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            if (!user.enabled) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userIsNotActive,
+                    description: `User with Id ${deviceContinuation.userId} not found`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            // TODO: Check if at the time of starting the selected tariff it will be valid to be used
+            const storageDeviceStatus = await this.storageProvider.getDeviceStatus(deviceContinuation.deviceId);
+            if (!storageDeviceStatus?.started) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceIsNotStarted,
+                    description: `Device with Id ${deviceContinuation.tariffId} is not started`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const currentDeviceTariff = allTariffs.find(x => x.id === storageDeviceStatus.start_reason)!;
+            const isTariffAvailableAtResult = this.isTariffAvailableAfterDeviceStop(currentDeviceTariff, tariff, storageDeviceStatus);
+            if (!isTariffAvailableAtResult.isAvailable) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.cantStartTheTariffNow,
+                    description: `The tariff ${deviceContinuation.tariffId} is not available at the specified time`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const storageDeviceContinuation = this.entityConverter.deviceContinuationToStorageDeviceContinuation(deviceContinuation);
+            storageDeviceContinuation.requestedAt = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
+            const createdDeviceContinuation = await this.storageProvider.createDeviceContinuation(storageDeviceContinuation);
+            const replyDeviceContinuation = this.entityConverter.storageDeviceContinuationToDeviceContinuation(createdDeviceContinuation);
+            replyDeviceContinuation.requestedAt = this.dateTimeHelper.getNumberFromISOStringDateTime(createdDeviceContinuation.requestedAt)!;
+            // TODO: Refresh only this device status
+            await this.refreshDeviceStatuses()
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusCreateDeviceContinuationRequestMessage message`, message, err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+    getExpectedEndAt(tariff: Tariff, startedAt: number): number | null | undefined {
+        switch (tariff.type) {
+            case TariffType.duration:
+                const tariffDurationMs = tariff.duration! * 60 * 1000;
+                const expectedEndAt = startedAt + tariffDurationMs;
+                return expectedEndAt;
+            case TariffType.fromTo:
+                const res = this.dateTimeHelper.compareCurrentDateWithMinutePeriod(startedAt, tariff.fromTime!, tariff.toTime!);
+                return res.expectedEndAt;
+        }
+    }
+
+    isTariffAvailableAfterDeviceStop(currentDeviceTariff: Tariff, continuationTariff: Tariff, storageDeviceStatus: IDeviceStatus): { isAvailable: boolean } {
+        const startedAt = this.dateTimeHelper.getNumberFromISOStringDateTime(storageDeviceStatus.started_at)!;
+        switch (continuationTariff.type) {
+            case TariffType.duration:
+                if (continuationTariff.restrictStartTime) {
+                    // Calculate when the current device session will end
+                    const expectedEndAt = this.getExpectedEndAt(currentDeviceTariff, startedAt);
+                    if (expectedEndAt) {
+                        const expectedEndMinute = this.dateTimeHelper.getDateTimeMinute(expectedEndAt);
+                        const isInMinutePeriod = this.dateTimeHelper.isInMinutePeriod(continuationTariff.restrictStartFromTime!, continuationTariff.restrictStartToTime!, expectedEndMinute);
+                        return { isAvailable: isInMinutePeriod };
+                    } else {
+                        return { isAvailable: false };
+                    }
+                } else {
+                    // Duration tariff which is not restricted can be started any time
+                    return { isAvailable: true };
+                }
+            case TariffType.fromTo:
+                const expectedEndAt = this.getExpectedEndAt(currentDeviceTariff, startedAt);
+                if (expectedEndAt) {
+                    const expectedEndMinute = this.dateTimeHelper.getDateTimeMinute(expectedEndAt);
+                    const isInMinutePeriod = this.dateTimeHelper.isInMinutePeriod(continuationTariff.fromTime!, continuationTariff.toTime!, expectedEndMinute);
+                    return { isAvailable: isInMinutePeriod };
+                } else {
+                    // Cannot determine extpectedEndAt means the current datetime is out of the tariff period and the device must be stopped
+                    return { isAvailable: false };
+                }
+        }
+        return { isAvailable: false };
+    }
+
     async processBusTransferDeviceRequestMessage(message: BusTransferDeviceRequestMessage): Promise<void> {
         const replyMsg = createBusTransferDeviceReplyMessage();
         try {
@@ -275,8 +497,8 @@ export class StateManager {
             }
             replyMsg.body.sourceDeviceStatus = this.entityConverter.storageDeviceStatusToDeviceStatus(transferDeviceResult.sourceDeviceStatus);
             replyMsg.body.targetDeviceStatus = this.entityConverter.storageDeviceStatusToDeviceStatus(transferDeviceResult.targetDeviceStatus);
+            await this.refreshDeviceStatuses();
             this.publishToOperatorsChannel(replyMsg, message);
-            this.refreshDeviceStatuses();
         } catch (err) {
             this.logger.warn(`Can't process BusTransferDeviceRequestMessage message`, message, err);
             replyMsg.header.failure = true;
@@ -378,8 +600,8 @@ export class StateManager {
                 throw new Error(`Can't stop the device`);
             }
             replyMsg.body.deviceStatus = deviceStatus;
+            await this.refreshDeviceStatuses();
             this.publishToOperatorsChannel(replyMsg, message);
-            this.refreshDeviceStatuses();
         } catch (err) {
             this.logger.warn(`Can't process BusStopDeviceRequestMessage message`, message, err);
             replyMsg.header.failure = true;
@@ -753,8 +975,8 @@ export class StateManager {
             await this.storageProvider.updateDeviceStatus(currentStorageDeviceStatus);
             const replyMsg = createBusStartDeviceReplyMessage();
             replyMsg.body.deviceStatus = this.createAndCalculateDeviceStatusFromStorageDeviceStatus(currentStorageDeviceStatus, tariff);
+            await this.refreshDeviceStatuses();
             this.publishToOperatorsChannel(replyMsg, message);
-            this.refreshDeviceStatuses();
         } catch (err) {
             this.logger.warn(`Can't process BusStartDeviceRequestMessage message`, message, err);
             const replyMsg = createBusStartDeviceReplyMessage();
@@ -1266,9 +1488,10 @@ export class StateManager {
                             storageDeviceStatus.total = continuationTariff.price;
                             storageDeviceStatus.started_by_user_id = storageDeviceStatus.continuation_user_id;
                             storageDeviceStatus.stopped_by_user_id = null;
-                            // TODO: Delete the device continuation record in the database table
                             shouldPerformContinuation = true;
                             calculatedDeviceStatus = this.createAndCalculateDeviceStatusFromStorageDeviceStatus(storageDeviceStatus, continuationTariff);
+                            // Set the device will no longer continue - it was already updated to the continuation tariff
+                            calculatedDeviceStatus.continuationTariffId = null;
                         }
                         // TODO: Use transaction to change device status table, device session table, device_continuation table
                         // TODO: Also update the device status only if the "started" is true 
@@ -1378,6 +1601,16 @@ export class StateManager {
                 break;
         }
         return calculatedDeviceStatus;
+    }
+
+    createDeviceContinuationFromStorageDeviceContinuation(storageDeviceContinuation: IDeviceContinuation): DeviceContinuation {
+        const deviceContinuation: DeviceContinuation = {
+            deviceId: storageDeviceContinuation.deviceId,
+            requestedAt: this.dateTimeHelper.getNumberFromISOStringDateTime(storageDeviceContinuation.requestedAt)!,
+            tariffId: storageDeviceContinuation.tariffId,
+            userId: storageDeviceContinuation.userId,
+        };
+        return deviceContinuation;
     }
 
     createDeviceStatusFromStorageDeviceStatus(storageDeviceStatusWithContinuationData: IDeviceStatusWithContinuationData): DeviceStatus {
