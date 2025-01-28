@@ -1,0 +1,30 @@
+INSERT INTO permission
+(
+    name,
+    description
+)
+VALUES
+(
+    'tariffs:recharge-duration',
+    'Allows recharging prepaid tariffs. Operators should have this permission.'
+);
+
+CREATE TABLE tariff_recharge
+(
+    id serial NOT NULL,
+    tariff_id integer NOT NULL,
+    remaining_seconds_before_recharge integer NOT NULL,
+    recharge_seconds integer NOT NULL,
+    recharge_price numeric(10, 2) NOT NULL,
+    user_id integer NOT NULL,
+    recharged_at timestamp without time zone NOT NULL,
+    PRIMARY KEY (id),
+    FOREIGN KEY (tariff_id)
+        REFERENCES tariff (id),
+    FOREIGN KEY (user_id)
+        REFERENCES "user" (id)
+);
+
+UPDATE db_metadata
+SET value = '18'
+WHERE name = 'database-version';

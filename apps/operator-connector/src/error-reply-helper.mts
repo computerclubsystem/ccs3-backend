@@ -5,7 +5,7 @@ import { OperatorReplyMessageErrorCode } from '@computerclubsystem/types/message
 import { OperatorMessage, OperatorReplyMessage } from '@computerclubsystem/types/messages/operators/declarations/operator.message.mjs';
 
 export class ErrorReplyHelper {
-    processBusMessageFailure(busMessage: Message<any>, requestMessage: OperatorMessage<any>, replyMessage: OperatorReplyMessage<any>): void {
+    setBusMessageFailure(busMessage: Message<any>, requestMessage: OperatorMessage<any>, replyMessage: OperatorReplyMessage<any>): void {
         if (busMessage.header.failure) {
             const firstErrorCode = busMessage.header.errors?.[0]?.code || '';
             replyMessage.header.failure = true;
@@ -208,6 +208,11 @@ export class ErrorReplyHelper {
             messageErrors = [{
                 code: OperatorReplyMessageErrorCode.cantUseTheTariffNow,
                 description: `Can't start the device. The tariff can't be used right now.`,
+            }] as MessageError[];
+        } else if (busMessageErrors?.find(x => x.code === BusErrorCode.noRemainingTimeLeft)) {
+            messageErrors = [{
+                code: OperatorReplyMessageErrorCode.noRemainingTimeLeft,
+                description: `The tariff does not have remaining time.`,
             }] as MessageError[];
         } else if (busMessageErrors?.find(x => x.code === BusErrorCode.cantStartTheTariffNow)) {
             messageErrors = [{

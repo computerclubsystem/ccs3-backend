@@ -3,7 +3,6 @@ export const enum MessageType {
     deviceSetStatus = 'device-set-status',
     deviceConfiguration = 'device-configuration',
     
-    // Internal message bus
     busDeviceConnectivitiesNotification = 'bus-device-connectivities-notification',
     busDeviceGetByCertificateRequest = 'bus-device-get-by-certificate-request',
     busDeviceGetByCertificateReply = 'bus-device-get-by-certificate-reply',
@@ -13,19 +12,19 @@ export const enum MessageType {
     busDeviceUnknownDeviceConnectedRequest = 'bus-device-unknown-device-connected-request',
     busDeviceUnknownDeviceConnectedReply = 'bus-device-unknown-device-connected-reply',
 
+    // Authentication
     busOperatorAuthRequest = 'bus-operator-auth-request',
     busOperatorAuthReply = 'bus-operator-auth-reply',
 
     busOperatorConnectionEvent = 'bus-operator-connection-event',
 
+    // Devices
     busOperatorGetAllDevicesRequest = 'bus-operator-get-all-devices-request',
     busOperatorGetAllDevicesReply = 'bus-operator-get-all-devices-reply',
     busOperatorGetDeviceByIdRequest = 'bus-operator-get-device-by-id-request',
     busOperatorGetDeviceByIdReply = 'bus-operator-get-device-by-id-reply',
-
     busUpdateDeviceRequest = 'bus-update-device-request',
     busUpdateDeviceReply = 'bus-update-device-reply',
-
     busStartDeviceRequest = 'bus-start-device-request',
     busStartDeviceReply = 'bus-start-device-reply',
     busStopDeviceRequest = 'bus-stop-device-request',
@@ -37,6 +36,7 @@ export const enum MessageType {
     busDeleteDeviceContinuationRequest = 'bus-delete-device-continuation-request',
     busDeleteDeviceContinuationReply = 'bus-delete-device-continuation-reply',
 
+    // Tariffs
     busGetTariffByIdRequest = 'bus-get-tariff-by-id-request',
     busGetTariffByIdReply = 'bus-get-tariff-by-id-reply',
     busGetAllTariffsRequest = 'bus-get-all-tariffs-request',
@@ -45,7 +45,10 @@ export const enum MessageType {
     busCreateTariffReply = 'bus-create-tariff-reply',
     busUpdateTariffRequest = 'bus-update-tariff-request',
     busUpdateTariffReply = 'bus-update-tariff-reply',
+    busRechargeTariffDurationRequest = 'bus-recharge-tariff-duration-request',
+    busRechargeTariffDurationReply = 'bus-recharge-tariff-duration-reply',
 
+    // Roles and permissions
     busGetAllRolesRequest = 'bus-get-all-roles-request',
     busGetAllRolesReply = 'bus-get-all-roles-reply',
     busGetRoleWithPermissionsRequest = 'bus-get-role-with-permissions-request',

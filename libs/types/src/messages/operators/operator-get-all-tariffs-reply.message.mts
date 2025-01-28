@@ -1,17 +1,17 @@
-import { OperatorMessageType } from './declarations/operator-message-type.mjs';
-import { OperatorMessage } from './declarations/operator.message.mjs';
+import { OperatorReplyMessageType } from './declarations/operator-message-type.mjs';
+import { OperatorReplyMessage } from './declarations/operator.message.mjs';
 import { Tariff } from 'src/entities/tariff.mjs';
 
 export interface OperatorGetAllTariffsReplyMessageBody {
     tariffs: Tariff[];
 }
 
-export interface OperatorGetAllTariffsReplyMessage extends OperatorMessage<OperatorGetAllTariffsReplyMessageBody> {
+export interface OperatorGetAllTariffsReplyMessage extends OperatorReplyMessage<OperatorGetAllTariffsReplyMessageBody> {
 }
 
 export function createOperatorGetAllTariffsReplyMessage(): OperatorGetAllTariffsReplyMessage {
     const msg: OperatorGetAllTariffsReplyMessage = {
-        header: { type: OperatorMessageType.getAllTariffsReply },
+        header: { type: OperatorReplyMessageType.getAllTariffsReply },
         body: {} as OperatorGetAllTariffsReplyMessageBody,
     };
     return msg;

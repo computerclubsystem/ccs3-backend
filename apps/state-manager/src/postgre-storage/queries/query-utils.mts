@@ -20,6 +20,8 @@ import { UserQueryHelper } from './user-query-helper.mjs';
 import { IUser } from 'src/storage/entities/user.mjs';
 import { DeviceContinuationQueryHelper } from './device-continuation-query-helper.mjs';
 import { IDeviceContinuation } from 'src/storage/entities/device-continuation.mjs';
+import { ITariffRecharge } from 'src/storage/entities/tariff-recharge.mjs';
+import { TariffRechargeQueryHelper } from './tariff-recharge-query-helper.mjs';
 
 export class QueryUtils {
     private readonly helpers = {
@@ -35,6 +37,7 @@ export class QueryUtils {
         permissionInRole: new PermissionInRoleQueryHelper(),
         user: new UserQueryHelper(),
         deviceContinuation: new DeviceContinuationQueryHelper(),
+        tariffRecharge: new TariffRechargeQueryHelper(),
     };
 
     updateDeviceContinuationDeviceIdQuery(sourceDeviceId: number, targetDeviceId: number): IQueryTextWithParamsResult {
@@ -113,20 +116,32 @@ export class QueryUtils {
         return this.helpers.deviceSession.addDeviceSessionQueryData(deviceSession);
     }
 
-    getAllTariffsQueryText(): string {
-        return this.helpers.tariff.getAllTariffsQueryText;
+    getAllTariffsQueryData(types?: number[]): IQueryTextWithParamsResult {
+        return this.helpers.tariff.getAllTariffsQueryData(types);
     }
 
     getTariffByIdQueryData(tariffId: number): IQueryTextWithParamsResult {
         return this.helpers.tariff.getTariffByIdQueryData(tariffId);
     }
 
-    createTariffQueryData(tariff: ITariff): IQueryTextWithParamsResult {
-        return this.helpers.tariff.createTariffQueryData(tariff);
+    createTariffQueryData(tariff: ITariff, passwordHash?: string): IQueryTextWithParamsResult {
+        return this.helpers.tariff.createTariffQueryData(tariff, passwordHash);
     }
 
-    updateTariffQueryData(tariff: ITariff): IQueryTextWithParamsResult {
-        return this.helpers.tariff.updateTariffQueryData(tariff);
+    updateTariffQueryData(tariff: ITariff, passwordHash?: string): IQueryTextWithParamsResult {
+        return this.helpers.tariff.updateTariffQueryData(tariff, passwordHash);
+    }
+
+    updateTariffRemainingSeconds(tariffId: number, remainingSeconds: number): IQueryTextWithParamsResult {
+        return this.helpers.tariff.updateTariffRemainingSecondsQueryData(tariffId, remainingSeconds);
+    }
+
+    increaseTariffRemainingSeconds(tariffId: number, secondsToAdd: number): IQueryTextWithParamsResult {
+        return this.helpers.tariff.increaseTariffRemainingSecondsQueryData(tariffId, secondsToAdd);
+    }
+
+    addTariffRechargeQueryData(tariffRecharge: ITariffRecharge): IQueryTextWithParamsResult {
+        return this.helpers.tariffRecharge.addTariffRechargeQueryData(tariffRecharge);
     }
 
     addOperatorConnectionEventQueryData(operatorConnectionEvent: IOperatorConnectionEvent): IQueryTextWithParamsResult {

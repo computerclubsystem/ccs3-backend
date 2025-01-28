@@ -18,9 +18,10 @@ import { ITariff } from 'src/storage/entities/tariff.mjs';
 import { IDeviceSession } from 'src/storage/entities/device-session.mjs';
 import { IRole } from 'src/storage/entities/role.mjs';
 import { IPermission } from 'src/storage/entities/permission.mjs';
-import { CompleteDeviceStatusUpdateResult, TransferDeviceResult } from 'src/storage/results.mjs';
+import { CompleteDeviceStatusUpdateResult, IncreaseTariffRemainingSecondsResult, TransferDeviceResult } from 'src/storage/results.mjs';
 import { DeviceStatus } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
 import { IDeviceContinuation } from 'src/storage/entities/device-continuation.mjs';
+import { ITariffRecharge } from 'src/storage/entities/tariff-recharge.mjs';
 
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
@@ -104,7 +105,7 @@ export class PostgreStorageProvider implements StorageProvider {
             // Also change device continuation if any
             const updateDeviceContinuationDeviceIdQueryData = this.queryUtils.updateDeviceContinuationDeviceIdQuery(sourceDeviceId, targetDeviceId);
             const updateDeviceContinuationDeviceIdResult = await transactionClient.query(updateDeviceContinuationDeviceIdQueryData.text, updateDeviceContinuationDeviceIdQueryData.params);
-            
+
             // TODO: Save record in new table with source and target device status properties, the user id that made the transfer and current date-time
             await transactionClient?.query('COMMIT');
             result = {
@@ -367,9 +368,9 @@ export class PostgreStorageProvider implements StorageProvider {
     //     await this.execQuery(query.text, query.params);
     // }
 
-    async getAllTariffs(): Promise<ITariff[]> {
-        const queryText = this.queryUtils.getAllTariffsQueryText();
-        const res = await this.execQuery(queryText);
+    async getAllTariffs(types?: number[]): Promise<ITariff[]> {
+        const queryData = this.queryUtils.getAllTariffsQueryData(types);
+        const res = await this.execQuery(queryData.text, queryData.params);
         return res.rows as ITariff[];
     }
 
@@ -380,16 +381,79 @@ export class PostgreStorageProvider implements StorageProvider {
     }
 
 
-    async createTariff(tariff: ITariff): Promise<ITariff> {
-        const queryData = this.queryUtils.createTariffQueryData(tariff);
+    async createTariff(tariff: ITariff, passwordHash?: string): Promise<ITariff> {
+        const queryData = this.queryUtils.createTariffQueryData(tariff, passwordHash);
         const res = await this.execQuery(queryData.text, queryData.params);
         return res.rows[0] as ITariff;
     }
 
-    async updateTariff(tariff: ITariff): Promise<ITariff> {
-        const queryData = this.queryUtils.updateTariffQueryData(tariff);
+    async updateTariff(tariff: ITariff, passwordHash?: string): Promise<ITariff> {
+        const queryData = this.queryUtils.updateTariffQueryData(tariff, passwordHash);
         const res = await this.execQuery(queryData.text, queryData.params);
         return res.rows[0] as ITariff;
+    }
+
+    async updateTariffRemainingSeconds(tariffId: number, remainingSeconds: number): Promise<ITariff | undefined> {
+        const queryData = this.queryUtils.updateTariffRemainingSeconds(tariffId, remainingSeconds);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows[0] as ITariff;
+    }
+
+    async increaseTariffRemainingSeconds(tariffId: number, secondsToAdd: number, userId: number, increasedAt: string): Promise<IncreaseTariffRemainingSecondsResult | undefined> {
+        let transactionClient: pg.PoolClient | undefined;
+        let result: IncreaseTariffRemainingSecondsResult | undefined;
+        try {
+            transactionClient = await this.getPoolClient();
+            await transactionClient.query('BEGIN');
+
+            // Get the tariff first to check if it exists
+            const getTariffByIdQueryData = this.queryUtils.getTariffByIdQueryData(tariffId);
+            const tariffResult = await transactionClient.query(getTariffByIdQueryData.text, getTariffByIdQueryData.params);
+            const tariff = tariffResult.rows[0] as ITariff | undefined;
+            if (!tariff) {
+                await transactionClient?.query('ROOLBACK');
+                return undefined;
+            }
+
+            // Increase the remaining seconds
+            const increaseTariffRemainingSecondsQuery = this.queryUtils.increaseTariffRemainingSeconds(tariffId, secondsToAdd);
+            const increaseTariffRemainingSecondsResult = await transactionClient.query(increaseTariffRemainingSecondsQuery.text, increaseTariffRemainingSecondsQuery.params);
+            const updatedTariff = increaseTariffRemainingSecondsResult.rows[0] as ITariff | undefined;
+            if (!updatedTariff) {
+                await transactionClient?.query('ROLLBACK');
+                return undefined;
+            }
+
+            // Create record about the increase
+            const tariffRecharge: ITariffRecharge = {
+                recharge_price: tariff.price,
+                recharge_seconds: secondsToAdd,
+                recharged_at: increasedAt,
+                remaining_seconds_before_recharge: tariff.remaining_seconds!,
+                tariff_id: tariff.id,
+                user_id: userId,
+            } as ITariffRecharge;
+            const addTariffRechargeQueryData = this.queryUtils.addTariffRechargeQueryData(tariffRecharge);
+            const addTariffRechargeResult = await transactionClient.query(addTariffRechargeQueryData.text, addTariffRechargeQueryData.params);
+            const addedTariffRecharge = addTariffRechargeResult.rows[0] as ITariffRecharge | undefined;
+            if (!addedTariffRecharge) {
+                await transactionClient?.query('ROLLBACK');
+                return undefined;
+            }
+
+            await transactionClient?.query('COMMIT');
+            result = {
+                tariff: updatedTariff,
+                tariffRecharge: addedTariffRecharge,
+            };
+            return result;
+        } catch (err) {
+            result = undefined;
+            await transactionClient?.query('ROLLBACK');
+            throw err;
+        } finally {
+            transactionClient?.release();
+        }
     }
 
     async getUserRoleIds(userId: number): Promise<number[]> {

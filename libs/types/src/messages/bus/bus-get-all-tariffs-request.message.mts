@@ -1,14 +1,15 @@
+import { TariffType } from 'src/entities/tariff.mjs';
 import { MessageType } from '../declarations/message-type.mjs';
 import { Message } from '../declarations/message.mjs';
-import { transferSharedMessageData } from '../utils.mjs';
 
 export interface BusGetAllTariffsRequestMessageBody {
+    types?: TariffType[];
 }
 
 export interface BusGetAllTariffsRequestMessage extends Message<BusGetAllTariffsRequestMessageBody> {
 }
 
-export function createBusGetAllTariffsRequestMessage<TBody>(sourceMessage?: Message<TBody> | null): BusGetAllTariffsRequestMessage {
+export function createBusGetAllTariffsRequestMessage(): BusGetAllTariffsRequestMessage {
     const msg: BusGetAllTariffsRequestMessage = {
         header: { type: MessageType.busGetAllTariffsRequest },
         body: {} as BusGetAllTariffsRequestMessageBody,

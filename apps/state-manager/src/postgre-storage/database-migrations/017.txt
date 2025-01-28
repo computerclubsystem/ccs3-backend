@@ -1,0 +1,12 @@
+ALTER TABLE tariff
+    ADD COLUMN remaining_seconds integer;
+
+ALTER TABLE tariff
+    ADD COLUMN can_be_started_by_customer boolean;
+
+ALTER TABLE tariff
+    ADD COLUMN password_hash text;
+
+UPDATE db_metadata
+SET value = '17'
+WHERE name = 'database-version';

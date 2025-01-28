@@ -137,6 +137,10 @@ import { OperatorDeleteDeviceContinuationRequestMessage } from '@computerclubsys
 import { createBusDeleteDeviceContinuationRequestMessage } from '@computerclubsystem/types/messages/bus/bus-delete-device-continuation-request.message.mjs';
 import { BusDeleteDeviceContinuationReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-delete-device-continuation-reply.message.mjs';
 import { createOperatorDeleteDeviceContinuationReplyMessage } from '@computerclubsystem/types/messages/operators/operator-delete-device-continuation-reply.message.mjs';
+import { OperatorRechargeTariffDurationRequestMessage } from '@computerclubsystem/types/messages/operators/operator-recharge-tariff-duration-request.message.mjs';
+import { createBusRechargeTariffDurationRequestMessage } from '@computerclubsystem/types/messages/bus/bus-recharge-tariff-duration-request.message.mjs';
+import { BusRechargeTariffDurationReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-recharge-tariff-duration-reply.message.mjs';
+import { createOperatorRechargeTariffDurationReplyMessage } from '@computerclubsystem/types/messages/operators/operator-recharge-tariff-duration-reply.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -232,6 +236,8 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorMessageType.rechargeTariffDurationRequest:
+                this.processRechargeTariffDurationRequestMessage(clientData, message as OperatorRechargeTariffDurationRequestMessage); break;
             case OperatorMessageType.deleteDeviceContinuationRequest:
                 this.processDeleteDeviceContinuationRequestMessage(clientData, message as OperatorDeleteDeviceContinuationRequestMessage);
                 break;
@@ -314,13 +320,27 @@ export class OperatorConnector {
         }
     }
 
+    processRechargeTariffDurationRequestMessage(clientData: ConnectedClientData, message: OperatorRechargeTariffDurationRequestMessage): void {
+        const busRequestMsg = createBusRechargeTariffDurationRequestMessage();
+        busRequestMsg.body.tariffId = message.body.tariffId;
+        busRequestMsg.body.userId = clientData.userId!;
+        this.publishToOperatorsChannelAndWaitForReply<BusRechargeTariffDurationReplyMessageBody>(busRequestMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorRechargeTariffDurationReplyMessage();
+                const tariff: Tariff = busReplyMsg.body.tariff;
+                operatorReplyMsg.body.remainingSeconds = tariff?.remainingSeconds;
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
     processDeleteDeviceContinuationRequestMessage(clientData: ConnectedClientData, message: OperatorDeleteDeviceContinuationRequestMessage): void {
         const busRequestMsg = createBusDeleteDeviceContinuationRequestMessage();
         busRequestMsg.body.deviceId = message.body.deviceId;
         this.publishToOperatorsChannelAndWaitForReply<BusDeleteDeviceContinuationReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorDeleteDeviceContinuationReplyMessage();
-                this.errorReplyHelper.processBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
                 this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
             });
     }
@@ -334,7 +354,7 @@ export class OperatorConnector {
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorCreateDeviceContinuationReplyMessage();
                 operatorReplyMsg.body.deviceContinuation = operatorReplyMsg.body.deviceContinuation;
-                this.errorReplyHelper.processBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
                 this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
             });
     }
@@ -349,7 +369,7 @@ export class OperatorConnector {
                 const operatorReplyMsg = createOperatorTransferDeviceReplyMessage();
                 operatorReplyMsg.body.sourceDeviceStatus = busReplyMsg.body.sourceDeviceStatus;
                 operatorReplyMsg.body.targetDeviceStatus = busReplyMsg.body.targetDeviceStatus;
-                this.errorReplyHelper.processBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
                 this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
             });
     }
@@ -365,7 +385,7 @@ export class OperatorConnector {
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorStopDeviceReplyMessage();
                 operatorReplyMsg.body.deviceStatus = busReplyMsg.body.deviceStatus;
-                this.errorReplyHelper.processBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
                 this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
             });
     }
@@ -528,6 +548,7 @@ export class OperatorConnector {
 
         const busRequestMsg = createBusUpdateTariffRequestMessage();
         busRequestMsg.body.tariff = message.body.tariff;
+        busRequestMsg.body.passwordHash = message.body.passwordHash;
         this.publishToOperatorsChannelAndWaitForReply<BusGetTariffByIdReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorUpdateTariffReplyMessage();
@@ -620,6 +641,7 @@ export class OperatorConnector {
 
         const busRequestMsg = createBusCreateTariffRequestMessage();
         busRequestMsg.body.tariff = requestedTariff;
+        busRequestMsg.body.passwordHash = message.body.passwordHash;
         this.publishToOperatorsChannelAndWaitForReply<BusCreateTariffReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorCreateTariffReplyMessage();
@@ -638,7 +660,8 @@ export class OperatorConnector {
 
     processOperatorGetAllTariffsRequestMessage(clientData: ConnectedClientData, message: OperatorGetAllTariffsRequestMessage): void {
         // TODO: Remove "as any"
-        const busRequestMsg = createBusGetAllTariffsRequestMessage(message as any);
+        const busRequestMsg = createBusGetAllTariffsRequestMessage();
+        busRequestMsg.body.types = message.body.types;
         busRequestMsg.header.roundTripData = {
             connectionId: clientData.connectionId,
             connectionInstanceId: clientData.connectionInstanceId,
@@ -647,10 +670,8 @@ export class OperatorConnector {
             .subscribe(busReplyMessage => {
                 const operatorReplyMsg = createOperatorGetAllTariffsReplyMessage();
                 operatorReplyMsg.body.tariffs = busReplyMessage.body.tariffs;
-                if (busReplyMessage.header.failure) {
-                    // TODO: Set error in the response header. For this to work we need to have different request and reply headers
-                }
-                this.sendMessageToOperator(operatorReplyMsg, clientData, message);
+                this.errorReplyHelper.setBusMessageFailure(busReplyMessage, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
             });
     }
 

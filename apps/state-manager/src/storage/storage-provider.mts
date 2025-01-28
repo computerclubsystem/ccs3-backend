@@ -10,7 +10,7 @@ import { ITariff } from './entities/tariff.mjs';
 import { IDeviceSession } from './entities/device-session.mjs';
 import { IRole } from './entities/role.mjs';
 import { IPermission } from './entities/permission.mjs';
-import { CompleteDeviceStatusUpdateResult, TransferDeviceResult } from './results.mjs';
+import { CompleteDeviceStatusUpdateResult, IncreaseTariffRemainingSecondsResult, TransferDeviceResult } from './results.mjs';
 import { IDeviceContinuation } from './entities/device-continuation.mjs';
 
 export interface StorageProvider {
@@ -45,10 +45,12 @@ export interface StorageProvider {
 
     addOperatorConnectionEvent(addOperatorConnectionEvent: IOperatorConnectionEvent): Promise<IOperatorConnectionEvent | undefined>;
 
-    getAllTariffs(): Promise<ITariff[]>;
+    getAllTariffs(types?: number[]): Promise<ITariff[]>;
     getTariffById(tariffId: number): Promise<ITariff | undefined>;
-    createTariff(tariff: ITariff): Promise<ITariff>;
-    updateTariff(tariff: ITariff): Promise<ITariff>;
+    createTariff(tariff: ITariff, passwordHash?: string): Promise<ITariff>;
+    updateTariff(tariff: ITariff, passwordHash?: string): Promise<ITariff>;
+    updateTariffRemainingSeconds(tariffId: number, remainingSeconds: number): Promise<ITariff | undefined>;
+    increaseTariffRemainingSeconds(tariffId: number, secondsToAdd: number, userId: number, increasedAt: string): Promise<IncreaseTariffRemainingSecondsResult | undefined>;
 
     getAllRoles(): Promise<IRole[]>;
     getRoleById(roleId: number): Promise<IRole | undefined>;

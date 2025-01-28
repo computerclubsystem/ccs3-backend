@@ -133,6 +133,8 @@ export class EntityConverter {
             restrictStartFromTime: storageTariff.restrict_start_from_time,
             restrictStartTime: storageTariff.restrict_start_time,
             restrictStartToTime: storageTariff.restrict_start_to_time,
+            canBeStartedByCustomer: storageTariff.can_be_started_by_customer,
+            remainingSeconds: storageTariff.remaining_seconds,
         };
         return tariff;
     }
@@ -153,6 +155,8 @@ export class EntityConverter {
             restrict_start_from_time: tariff.restrictStartFromTime,
             restrict_start_time: tariff.restrictStartTime,
             restrict_start_to_time: tariff.restrictStartToTime,
+            can_be_started_by_customer: tariff.canBeStartedByCustomer,
+            remaining_seconds: tariff.remainingSeconds,
         };
         return storageTariff;
     }
