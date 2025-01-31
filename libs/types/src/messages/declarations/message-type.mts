@@ -1,8 +1,4 @@
 export const enum MessageType {
-    // Devices
-    deviceSetStatus = 'device-set-status',
-    deviceConfiguration = 'device-configuration',
-    
     busDeviceConnectivitiesNotification = 'bus-device-connectivities-notification',
     busDeviceGetByCertificateRequest = 'bus-device-get-by-certificate-request',
     busDeviceGetByCertificateReply = 'bus-device-get-by-certificate-reply',
@@ -35,6 +31,9 @@ export const enum MessageType {
     busCreateDeviceContinuationReply = 'bus-create-device-continuation-reply',
     busDeleteDeviceContinuationRequest = 'bus-delete-device-continuation-request',
     busDeleteDeviceContinuationReply = 'bus-delete-device-continuation-reply',
+
+    busStartDeviceOnPrepaidTariffByCustomerRequest = 'bus-start-device-on-prepaid-tariff-by-customer-request',
+    busStartDeviceOnPrepaidTariffByCustomerReply = 'bus-start-device-on-prepaid-tariff-by-customer-reply',
 
     // Tariffs
     busGetTariffByIdRequest = 'bus-get-tariff-by-id-request',

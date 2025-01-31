@@ -1,6 +1,7 @@
 import { DetailedPeerCertificate } from 'node:tls';
 import { EventEmitter } from 'node:events';
 import * as fs from 'node:fs';
+import { randomUUID } from 'node:crypto';
 
 import { Message } from '@computerclubsystem/types/messages/declarations/message.mjs';
 import { Device } from '@computerclubsystem/types/entities/device.mjs';
@@ -10,14 +11,11 @@ import {
 import { ChannelName } from '@computerclubsystem/types/channels/channel-name.mjs';
 import { createBusDeviceGetByCertificateRequestMessage } from '@computerclubsystem/types/messages/bus/bus-device-get-by-certificate-request.message.mjs';
 import { createBusDeviceUnknownDeviceConnectedRequestMessage } from '@computerclubsystem/types/messages/bus/bus-device-unknown-device-connected-request.message.mjs';
-import { BusDeviceGetByCertificateReplyMessage } from '@computerclubsystem/types/messages/bus/bus-device-get-by-certificate-reply.message.mjs';
+import { BusDeviceGetByCertificateReplyMessage, BusDeviceGetByCertificateReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-device-get-by-certificate-reply.message.mjs';
 import { MessageType } from '@computerclubsystem/types/messages/declarations/message-type.mjs';
-import { RoundTripData } from '@computerclubsystem/types/messages/declarations/round-trip-data.mjs';
 import { BusDeviceStatusesMessage, DeviceStatus } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
-import { createDeviceSetStatusMessage } from '@computerclubsystem/types/messages/devices/device-set-status.message.mjs';
 import { ConnectionRoundTripData } from '@computerclubsystem/types/messages/declarations/connection-roundtrip-data.mjs';
-import { createDeviceConfigurationMessage } from '@computerclubsystem/types/messages/devices/device-configuration.message.mjs';
-import { BusDeviceConnectionEventMessageBody, createBusDeviceConnectionEventMessage } from '@computerclubsystem/types/messages/bus/bus-device-connection-event.message.mjs';
+import { createBusDeviceConnectionEventMessage } from '@computerclubsystem/types/messages/bus/bus-device-connection-event.message.mjs';
 import {
     ClientConnectedEventArgs, ConnectionClosedEventArgs, ConnectionErrorEventArgs,
     WssServerEventName, MessageReceivedEventArgs, WssServer, WssServerConfig
@@ -29,6 +27,21 @@ import { CertificateHelper, CertificateIssuerSubjectInfo } from './certificate-h
 import { DeviceConnectionEventType } from '@computerclubsystem/types/entities/declarations/device-connection-event-type.mjs';
 import { ConnectivityHelper } from './connectivity-helper.mjs';
 import { BusDeviceConnectivityItem, createBusDeviceConnectivitiesNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-device-connectivities-notification.message.mjs';
+import { createServerToDeviceCurrentStatusNotificationMessageMessage } from '@computerclubsystem/types/messages/devices/server-to-device-current-status-notification.message.mjs';
+import { ServerToDeviceNotificationMessage } from '@computerclubsystem/types/messages/devices/declarations/server-to-device-notification-message.mjs';
+import { createServerToDeviceDeviceConfigurationNotificationMessage } from '@computerclubsystem/types/messages/devices/server-to-device-device-configuration-notification.message.mjs';
+import { catchError, filter, finalize, first, Observable, of, ReplaySubject, timeout } from 'rxjs';
+import { SubjectsService } from './subjects-service.mjs';
+import { MessageStatItem } from './declarations.mjs';
+import { DevicePartialMessage } from '@computerclubsystem/types/messages/devices/declarations/device-partial-message.mjs';
+import { DeviceToServerNotificationMessageType } from '@computerclubsystem/types/messages/devices/declarations/device-to-server-notification-message-type.mjs';
+import { DeviceToServerRequestMessageType } from '@computerclubsystem/types/messages/devices/declarations/device-to-server-request-message-type.mjs';
+import { DeviceToServerStartOnPrepaidTariffRequestMessage } from '@computerclubsystem/types/messages/devices/device-to-server-start-on-prepaid-tariff-request.message.mjs';
+import { createServerToDeviceStartOnPrepaidTariffReplyMessage } from '@computerclubsystem/types/messages/devices/server-to-device-start-on-prepaid-tariff-reply.message.mjs';
+import { BusStartDeviceOnPrepaidTariffByCustomerReplyMessageBody, createBusStartDeviceOnPrepaidTariffByCustomerReplyMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer-reply.message.mjs';
+import { createBusStartDeviceOnPrepaidTariffByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer-request.message.mjs';
+import { ServerToDeviceReplyMessage } from '@computerclubsystem/types/messages/devices/declarations/server-to-device-reply-message.mjs';
+import { DeviceToServerRequestMessage } from '@computerclubsystem/types/messages/devices/declarations/device-to-server-request-message.mjs';
 
 export class PcConnector {
     wssServer!: WssServer;
@@ -46,6 +59,7 @@ export class PcConnector {
     private issuerSubjectInfo!: CertificateIssuerSubjectInfo;
     private readonly certificateHelper = new CertificateHelper();
     private readonly connectivityHelper = new ConnectivityHelper();
+    private readonly subjectsService = new SubjectsService();
 
     async start(): Promise<void> {
         this.issuerSubjectInfo = this.certificateHelper.createIssuerSubjectInfo(this.envVars.CCS3_CA_ISSUER_CERTIFICATE_SUBJECT.value!);
@@ -57,7 +71,7 @@ export class PcConnector {
         this.startMainTimer();
     }
 
-    private processClientConnected(args: ClientConnectedEventArgs): void {
+    private processDeviceConnected(args: ClientConnectedEventArgs): void {
         this.logger.log('Client connected', args);
         const clientCertificateFingerprint = this.getLowercasedCertificateThumbprint(args.certificate?.fingerprint);
         if (clientCertificateFingerprint) {
@@ -84,9 +98,9 @@ export class PcConnector {
             return;
         }
 
-        const data: ConnectedClientData = {
+        const clientData: ConnectedClientData = {
             connectionId: args.connectionId,
-            connectedAt: this.getNow(),
+            connectedAt: this.getNowAsNumber(),
             deviceId: null,
             device: null,
             certificate: args.certificate,
@@ -96,23 +110,78 @@ export class PcConnector {
             receivedMessagesCount: 0,
             // isAuthenticated: false,
         };
-        this.connectedClients.set(args.connectionId, data);
+        this.connectedClients.set(args.connectionId, clientData);
         const msg = createBusDeviceGetByCertificateRequestMessage();
-        const roundTripData: ConnectionRoundTripData = {
-            connectionId: data.connectionId,
-            certificateThumbprint: data.certificateThumbprint,
-            ipAddress: args.ipAddress,
-        };
-        msg.header.roundTripData = roundTripData;
-        msg.body.certificateThumbprint = data.certificateThumbprint;
-        this.publishToDevicesChannel(msg);
+        // const roundTripData: ConnectionRoundTripData = {
+        //     connectionId: clientData.connectionId,
+        //     certificateThumbprint: clientData.certificateThumbprint,
+        //     ipAddress: args.ipAddress,
+        // };
+        // msg.header.roundTripData = roundTripData;
+        msg.body.certificateThumbprint = clientData.certificateThumbprint;
+        this.publishToDevicesChannelAndWaitForReply<BusDeviceGetByCertificateReplyMessageBody>(msg, clientData)
+            .subscribe(busReplyMsg => this.processDeviceGetByCertificateReply(busReplyMsg, clientData));
     }
 
-    private getLowercasedCertificateThumbprint(certificateFingerprint?: string | null): string {
-        if (!certificateFingerprint) {
-            return '';
+    private processDeviceMessageReceived(args: MessageReceivedEventArgs): void {
+        const clientData = this.getConnectedClientData(args.connectionId);
+        if (!clientData) {
+            this.logger.warn('Message is received by connection ID ', args.connectionId, 'which is not found as active.', `. Can't process the message`);
+            return;
         }
-        return certificateFingerprint.replaceAll(':', '').toLowerCase();
+        this.connectivityHelper.setDeviceMessageReceived(clientData.certificateThumbprint, clientData.deviceId, clientData.device?.name);
+        clientData.lastMessageReceivedAt = this.getNowAsNumber();
+        let msg: DevicePartialMessage<any> | null;
+        try {
+            msg = this.deserializeWebSocketBufferToMessage(args.buffer);
+            this.logger.log(
+                'Received message from device connection', args.connectionId,
+                ', device Id', clientData.deviceId,
+                ', IP address', clientData.ipAddress,
+                ', message', msg,
+            );
+            const type = msg?.header?.type;
+            if (!msg || !type) {
+                this.logger.warn('The message does not have type', msg);
+                return;
+            }
+        } catch (err) {
+            this.logger.warn(`Can't deserialize device connection message`, args, err);
+            return;
+        }
+
+        this.processDeviceMessage(msg, clientData);
+    }
+
+    processDeviceMessage(message: DevicePartialMessage<any>, clientData: ConnectedClientData): void {
+        const type = message.header.type;
+        switch (type) {
+            case DeviceToServerNotificationMessageType.ping: {
+                break;
+            }
+            case DeviceToServerRequestMessageType.startOnPrepaidTariff: {
+                this.processDeviceToServerStartOnPrepaidTariffRequestMessage(message as DeviceToServerStartOnPrepaidTariffRequestMessage, clientData);
+                break;
+            }
+        }
+    }
+
+    processDeviceToServerStartOnPrepaidTariffRequestMessage(message: DeviceToServerStartOnPrepaidTariffRequestMessage, clientData: ConnectedClientData): void {
+        const reqMsg = createBusStartDeviceOnPrepaidTariffByCustomerRequestMessage();
+        reqMsg.body.deviceId = clientData.deviceId!;
+        reqMsg.body.passwordHash = message.body.passwordHash;
+        reqMsg.body.tariffId = message.body.tariffId;
+        this.publishToDevicesChannelAndWaitForReply<BusStartDeviceOnPrepaidTariffByCustomerReplyMessageBody>(reqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const replyMsg = createServerToDeviceStartOnPrepaidTariffReplyMessage();
+                replyMsg.body.alreadyInUse = busReplyMsg.body.alreadyInUse;
+                replyMsg.body.notAllowed = busReplyMsg.body.notAllowed;
+                replyMsg.body.passwordDoesNotMatch = busReplyMsg.body.passwordDoesNotMatch;
+                replyMsg.body.remainingSeconds = busReplyMsg.body.remainingSeconds;
+                replyMsg.body.success = busReplyMsg.body.success;
+                replyMsg.header.failure = busReplyMsg.header.failure;
+                this.sendReplyMessageToDevice(replyMsg, message, clientData.connectionId);
+            });
     }
 
     private processClientConnectionClosed(args: ConnectionClosedEventArgs): void {
@@ -139,44 +208,6 @@ export class PcConnector {
         this.removeClient(args.connectionId);
     }
 
-    private processClientMessageReceived(args: MessageReceivedEventArgs): void {
-        const clientData = this.getConnectedClientData(args.connectionId);
-        if (!clientData) {
-            this.logger.warn('Message is received by connection ID ', args.connectionId, 'which is not found as active.', `. Can't process the message`);
-            return;
-        }
-        this.connectivityHelper.setDeviceMessageReceived(clientData.certificateThumbprint, clientData.deviceId, clientData.device?.name);
-        clientData.lastMessageReceivedAt = this.getNow();
-        let msg: Message<any> | null;
-        let type: MessageType | undefined;
-        try {
-            msg = this.deserializeWebSocketBufferToMessage(args.buffer);
-            this.logger.log(
-                'Received message from device connection', args.connectionId,
-                ', device Id', clientData.deviceId,
-                ', IP address', clientData.ipAddress,
-                ', message', msg,
-            );
-            type = msg?.header?.type;
-            if (!type) {
-                this.logger.warn('The message does not have type', msg);
-                return;
-            }
-        } catch (err) {
-            this.logger.warn(`Can't deserialize device connection message`, args, err);
-            return;
-        }
-
-        switch (type) {
-        }
-
-        // switch (type) {
-        //     case MessageType....:
-        //         this.process...Message(msg, args.connectionId);
-        //         break;
-        // }
-    }
-
     processBusMessageReceived(channelName: string, message: Message<any>): void {
         if (this.isOwnMessage(message)) {
             return;
@@ -197,10 +228,11 @@ export class PcConnector {
     }
 
     processDevicesBusMessage<TBody>(message: Message<TBody>): void {
+        this.subjectsService.setDevicesChannelBusMessageReceived(message);
         const type = message.header.type;
         switch (type) {
             case MessageType.busDeviceGetByCertificateReply:
-                this.processDeviceGetByCertificateReply(message as BusDeviceGetByCertificateReplyMessage);
+                // this.processDeviceGetByCertificateReply(message as BusDeviceGetByCertificateReplyMessage);
                 break;
             case MessageType.busDeviceStatuses:
                 this.processDeviceStatusesMessage(message as BusDeviceStatusesMessage);
@@ -218,7 +250,7 @@ export class PcConnector {
             if (connections.length > 0) {
                 for (const connection of connections) {
                     const connectionId = connection[0];
-                    const msg = createDeviceSetStatusMessage();
+                    const msg = createServerToDeviceCurrentStatusNotificationMessageMessage();
                     msg.body.started = status.started;
                     // TODO: Also return the tariff name
                     msg.body.amounts = {
@@ -230,7 +262,7 @@ export class PcConnector {
                         totalTime: status.totalTime,
                     };
                     try {
-                        this.sendToDevice(msg, connectionId);
+                        this.sendNotificationMessageToDevice(msg, connectionId);
                     } catch (err) {
                         this.logger.warn(`Can't send to device`, connectionId, msg, err);
                     }
@@ -239,24 +271,25 @@ export class PcConnector {
         }
     }
 
-    processDeviceGetByCertificateReply(message: BusDeviceGetByCertificateReplyMessage): void {
+    processDeviceGetByCertificateReply(message: BusDeviceGetByCertificateReplyMessage, clientData: ConnectedClientData): void {
         const device: Device = message.body.device;
-        const roundTripData = message.header.roundTripData as ConnectionRoundTripData;
-        const connectionId = roundTripData.connectionId;
+        const connectionId = clientData.connectionId;
+        // const roundTripData = message.header.roundTripData as ConnectionRoundTripData;
+        // const connectionId = roundTripData.connectionId;
         if (!device) {
             // Device with specified certificate does not exist
-            this.sendBusDeviceUnknownDeviceConnectedRequestMessage(roundTripData.ipAddress, roundTripData.connectionId, roundTripData.certificateThumbprint);
+            this.sendBusDeviceUnknownDeviceConnectedRequestMessage(clientData.ipAddress, connectionId, clientData.certificateThumbprint);
             return;
         }
 
         if (!device?.approved || !device?.enabled) {
-            this.logger.warn('The device is not active. Closing connection. Device', device?.id, roundTripData);
+            this.logger.warn('The device is not active. Closing connection. Device', device?.id, clientData);
             this.removeClient(connectionId);
             this.wssServer.closeConnection(connectionId);
             return;
         }
 
-        this.publishDeviceConnectionEventMessage(device.id, roundTripData.ipAddress, DeviceConnectionEventType.connected);
+        this.publishDeviceConnectionEventMessage(device.id, clientData.ipAddress, DeviceConnectionEventType.connected);
 
         // Attach websocket server to connection so we receive events
         const connectionExist = this.wssServer.attachToConnection(connectionId);
@@ -264,12 +297,9 @@ export class PcConnector {
             this.removeClient(connectionId);
             return;
         }
-        const clientData = this.getConnectedClientData(connectionId);
-        if (clientData) {
-            clientData.deviceId = device.id;
-            clientData.device = device;
-            this.sendDeviceMessageDeviceConfiguration(clientData.connectionId);
-        }
+        clientData.deviceId = device.id;
+        clientData.device = device;
+        this.sendDeviceMessageDeviceConfiguration(connectionId);
     }
 
     private publishDeviceConnectionEventMessage(deviceId: number, ipAddress: string, eventType: DeviceConnectionEventType, note?: string): void {
@@ -285,9 +315,10 @@ export class PcConnector {
     }
 
     private sendDeviceMessageDeviceConfiguration(connectionId: number): void {
-        const msg = createDeviceConfigurationMessage();
+        const msg = createServerToDeviceDeviceConfigurationNotificationMessage();
+        // TODO: Get configuration from the database
         msg.body.pingInterval = 10000;
-        this.sendToDevice(msg, connectionId);
+        this.sendNotificationMessageToDevice(msg, connectionId);
     }
 
     private sendBusDeviceUnknownDeviceConnectedRequestMessage(ipAddress: string, connectionId: number, certificateThumbprint: string): void {
@@ -342,18 +373,68 @@ export class PcConnector {
         return json as Message<any>;
     }
 
-    private sendToDevice<TBody>(message: Message<TBody>, connectionId: number): void {
-        this.logger.log('Sending message to device connection', connectionId, message);
+    // private sendToDevice<TBody>(message: Message<TBody>, connectionId: number): void {
+    //     this.logger.log('Sending message to device connection', connectionId, message);
+    //     this.wssServer.sendJSON(message, connectionId);
+    // }
+
+    private sendNotificationMessageToDevice<TBody>(message: ServerToDeviceNotificationMessage<TBody>, connectionId: number): void {
+        this.logger.log('Sending notification message to device connection', connectionId, message);
         this.wssServer.sendJSON(message, connectionId);
     }
 
-    private async publishToDevicesChannel<TBody>(message: Message<TBody>): Promise<void> {
-        this.publishToChannel(message, ChannelName.devices);
+    private sendReplyMessageToDevice<TBody>(message: ServerToDeviceReplyMessage<TBody>, requestMessage: DeviceToServerRequestMessage<any>, connectionId: number): void {
+        this.logger.log('Sending reply message to device connection', connectionId, message);
+        message.header.correlationId = requestMessage.header.correlationId;
+        if (message.header.failure) {
+            // Not sure what the requestType is
+            // message.header.requestType = requestMessage?.header?.type;
+        }
+        message.header.correlationId = requestMessage.header.correlationId;
+        this.wssServer.sendJSON(message, connectionId);
     }
 
-    private async publishToSharedChannel<TBody>(message: Message<TBody>): Promise<void> {
-        this.publishToChannel(message, ChannelName.shared);
+    publishToDevicesChannelAndWaitForReply<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData): Observable<Message<TReplyBody>> {
+        const messageStatItem: MessageStatItem = {
+            sentAt: this.getNowAsNumber(),
+            correlationId: busMessage.header.correlationId,
+            type: busMessage.header.type,
+            completedAt: 0,
+            deviceId: clientData.deviceId,
+        };
+        if (!busMessage.header.correlationId) {
+            busMessage.header.correlationId = this.createUUIDString();
+        }
+        messageStatItem.correlationId = busMessage.header.correlationId;
+        return this.publishToDevicesChannel(busMessage).pipe(
+            filter(msg => !!msg.header.correlationId && msg.header.correlationId === busMessage.header.correlationId),
+            first(),
+            timeout(this.state.messageBusReplyTimeout),
+            catchError(err => {
+                messageStatItem.error = err;
+                // TODO: This will complete the observable. The subscriber will not know about the error/timeout
+                return of();
+            }),
+            finalize(() => {
+                messageStatItem.completedAt = this.getNowAsNumber();
+                this.subjectsService.setDevicesChannelMessageStat(messageStatItem);
+            }),
+        );
     }
+
+    // private async publishToDevicesChannel<TBody>(message: Message<TBody>): Promise<void> {
+    //     this.publishToChannel(message, ChannelName.devices);
+    // }
+
+    private publishToDevicesChannel<TBody>(message: Message<TBody>): Observable<Message<any>> {
+        this.logger.log('Publishing message', ChannelName.devices, message.header.type, message);
+        this.publishToChannel(message, ChannelName.devices);
+        return this.subjectsService.getDevicesChannelBusMessageReceived();
+    }
+
+    // private async publishToSharedChannel<TBody>(message: Message<TBody>): Promise<void> {
+    //     this.publishToChannel(message, ChannelName.shared);
+    // }
 
     private async publishToChannel<TBody>(message: Message<TBody>, channelName: ChannelName): Promise<void> {
         message.header.source = this.messageBusIdentifier;
@@ -371,8 +452,12 @@ export class PcConnector {
         }
     }
 
-    getNow(): number {
+    getNowAsNumber(): number {
         return Date.now();
+    }
+
+    createUUIDString(): string {
+        return randomUUID().toString();
     }
 
     private async joinMessageBus(): Promise<void> {
@@ -457,10 +542,10 @@ export class PcConnector {
         };
         this.wssServer.start(wssServerConfig);
         this.wssEmitter = this.wssServer.getEmitter();
-        this.wssEmitter.on(WssServerEventName.clientConnected, args => this.processClientConnected(args));
+        this.wssEmitter.on(WssServerEventName.clientConnected, args => this.processDeviceConnected(args));
         this.wssEmitter.on(WssServerEventName.connectionClosed, args => this.processClientConnectionClosed(args));
         this.wssEmitter.on(WssServerEventName.connectionError, args => this.processClientConnectionError(args));
-        this.wssEmitter.on(WssServerEventName.messageReceived, args => this.processClientMessageReceived(args));
+        this.wssEmitter.on(WssServerEventName.messageReceived, args => this.processDeviceMessageReceived(args));
     }
 
     private startClientConnectionsMonitor(): void {
@@ -476,7 +561,7 @@ export class PcConnector {
     }
 
     private processConnectivityData(): void {
-        const now = this.getNow();
+        const now = this.getNowAsNumber();
         const diff = now - this.state.lastConnectivitySnapshotTimestamp;
         if (diff > this.state.connectivitySnapshotInterval) {
             this.state.lastConnectivitySnapshotTimestamp = now;
@@ -512,7 +597,7 @@ export class PcConnector {
 
     private cleanUpClientConnections(): void {
         const connectionIdsWithCleanUpReason = new Map<number, ConnectionCleanUpReason>();
-        const now = this.getNow();
+        const now = this.getNowAsNumber();
         // 20 seconds
         // const maxNotAuthenticatedDuration = 20 * 1000;
         const maxIdleTimeoutDuration = 20 * 1000;
@@ -566,10 +651,18 @@ export class PcConnector {
             maxAllowedPubClientPublishErrorsCount: 10,
             clientConnectionsMonitorTimerHandle: undefined,
             mainTimerHandle: undefined,
-            lastConnectivitySnapshotTimestamp: this.getNow(),
+            lastConnectivitySnapshotTimestamp: this.getNowAsNumber(),
             connectivitySnapshotInterval: 10000,
+            messageBusReplyTimeout: 5000,
         };
         return state;
+    }
+
+    private getLowercasedCertificateThumbprint(certificateFingerprint?: string | null): string {
+        if (!certificateFingerprint) {
+            return '';
+        }
+        return certificateFingerprint.replaceAll(':', '').toLowerCase();
     }
 
     async terminate(): Promise<void> {
@@ -636,4 +729,6 @@ interface PcConnectorState {
 
     lastConnectivitySnapshotTimestamp: number;
     connectivitySnapshotInterval: number;
+
+    messageBusReplyTimeout: number;
 }

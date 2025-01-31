@@ -31,6 +31,7 @@ export interface StorageProvider {
     addDeviceConnectionEvent(deviceConnectionEvent: IDeviceConnectionEvent): Promise<IDeviceConnectionEvent | undefined>;
     addDeviceSession(deviceSession: IDeviceSession): Promise<IDeviceSession>
     getAllDeviceStatuses(): Promise<IDeviceStatus[]>;
+    getDeviceStatusesByTariffId(tariffId: number): Promise<IDeviceStatus[]>;
     getAllDeviceStatusesWithContinuationData(): Promise<IDeviceStatusWithContinuationData[]>;
     addOrUpdateDeviceStatusEnabled(deviceStatus: IDeviceStatus): Promise<IDeviceStatus | undefined>;
     updateDeviceStatus(deviceStatus: IDeviceStatus): Promise<void>;
@@ -47,6 +48,7 @@ export interface StorageProvider {
 
     getAllTariffs(types?: number[]): Promise<ITariff[]>;
     getTariffById(tariffId: number): Promise<ITariff | undefined>;
+    checkTariffPasswordHash(tariffId: number, passwordHash: string): Promise<boolean>;
     createTariff(tariff: ITariff, passwordHash?: string): Promise<ITariff>;
     updateTariff(tariff: ITariff, passwordHash?: string): Promise<ITariff>;
     updateTariffRemainingSeconds(tariffId: number, remainingSeconds: number): Promise<ITariff | undefined>;

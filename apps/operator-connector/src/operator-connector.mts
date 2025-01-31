@@ -736,7 +736,7 @@ export class OperatorConnector {
         }
         messageStatItem.correlationId = busMessage.header.correlationId;
         return this.publishToOperatorsChannel(busMessage).pipe(
-            filter(msg => msg.header.correlationId === busMessage.header.correlationId),
+            filter(msg => !!msg.header.correlationId && msg.header.correlationId === busMessage.header.correlationId),
             first(),
             timeout(this.state.messageBusReplyTimeout),
             catchError(err => {

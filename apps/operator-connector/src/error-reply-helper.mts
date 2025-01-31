@@ -199,7 +199,12 @@ export class ErrorReplyHelper {
 
     getCantStartTheDeviceErrors(busMessageErrors: MessageError[] | undefined): MessageError[] {
         let messageErrors: MessageError[];
-        if (busMessageErrors?.find(x => x.code === BusErrorCode.deviceAlreadyStarted)) {
+        if (busMessageErrors?.find(x => x.code === BusErrorCode.prepaidTariffAlreadyInUse)) {
+            messageErrors = [{
+                code: OperatorReplyMessageErrorCode.prepaidTariffAlreadyInUse,
+                description: busMessageErrors[0].description || `Selected prepaid tariff is already in use.`,
+            }] as MessageError[];
+        } else if (busMessageErrors?.find(x => x.code === BusErrorCode.deviceAlreadyStarted)) {
             messageErrors = [{
                 code: OperatorReplyMessageErrorCode.deviceAlreadyStarted,
                 description: `Can't start the device. It is already started.`,

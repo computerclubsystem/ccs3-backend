@@ -3,6 +3,31 @@ import { IQueryTextWithParamsResult } from './query-with-params.mjs';
 import { IDeviceSession } from 'src/storage/entities/device-session.mjs';
 
 export class DeviceStatusQueryHelper {
+    getDeviceStatusesByTariffIdQuery(tariffId: number): IQueryTextWithParamsResult {
+        const params = [
+            tariffId,
+        ];
+        return {
+            text: this.getDeviceStatusesByTariffIdQueryText,
+            params: params,
+        };
+    }
+
+    private readonly getDeviceStatusesByTariffIdQueryText = `
+        SELECT 
+            device_id,
+            started,
+            start_reason,
+            started_at,
+            stopped_at,
+            total,
+            enabled,
+            started_by_user_id,
+            stopped_by_user_id
+        FROM device_status
+        WHERE start_reason = $1
+    `;
+
     completeDeviceStatusUpdateQuery(deviceStatus: IDeviceStatusWithContinuationData, deviceSession: IDeviceSession): IQueryTextWithParamsResult {
         const params = [
             deviceStatus.started,

@@ -23,6 +23,23 @@ export class TariffQueryHelper {
             can_be_started_by_customer
     `;
 
+    checkTariffPasswordHashQueryData(tariffId: number, passwordHash: string): IQueryTextWithParamsResult {
+        const params = [
+            tariffId,
+            passwordHash,
+        ];
+        return {
+            text: this.checkTariffPasswordHashQueryText,
+            params: params,
+        };
+    }
+
+    private readonly checkTariffPasswordHashQueryText = `
+        SELECT id
+        FROM tariff
+        WHERE id = $1 AND password_hash = $2
+    `;
+
     getAllTariffsQueryData(types?: number[]): IQueryTextWithParamsResult {
         let params: unknown[] | undefined = undefined;
         let queryTextWhere = '';

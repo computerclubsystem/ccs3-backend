@@ -90,6 +90,8 @@ import { BusRechargeTariffDurationRequestMessage } from '@computerclubsystem/typ
 import { createBusRechargeTariffDurationReplyMessage } from '@computerclubsystem/types/messages/bus/bus-recharge-tariff-duration-reply.message.mjs';
 import { ITariff } from './storage/entities/tariff.mjs';
 import { IncreaseTariffRemainingSecondsResult } from './storage/results.mjs';
+import { BusStartDeviceOnPrepaidTariffByCustomerRequestMessage, createBusStartDeviceOnPrepaidTariffByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer-request.message.mjs';
+import { createBusStartDeviceOnPrepaidTariffByCustomerReplyMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer-reply.message.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -211,6 +213,9 @@ export class StateManager {
     processDevicesChannelMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busStartDeviceOnPrepaidTariffByCustomerRequest:
+                this.processBusStartDeviceOnPrepaidTariffByCustomerRequestMessage(message as BusStartDeviceOnPrepaidTariffByCustomerRequestMessage);
+                break;
             case MessageType.busDeviceGetByCertificateRequest:
                 this.processDeviceGetByCertificateRequest(message as BusDeviceGetByCertificateRequestMessage);
                 break;
@@ -989,11 +994,126 @@ export class StateManager {
         }
     }
 
-    async processBusStartDeviceRequestMessage(message: BusStartDeviceRequestMessage): Promise<void> {
-        // TODO: This function can be called from operator-connector as well from pc-connector if the computer is started by customer
-        //       We need to determine which channel to use for reply
+    async processBusStartDeviceOnPrepaidTariffByCustomerRequestMessage(message: BusStartDeviceOnPrepaidTariffByCustomerRequestMessage): Promise<void> {
         try {
-            // TODO: Some tariff types can be started from customers, which do not have accounts in the system and the userId will be empty
+            const replyMsg = createBusStartDeviceOnPrepaidTariffByCustomerReplyMessage();
+            if (!message.body.deviceId) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [
+                    { code: BusErrorCode.deviceIdIsRequired, description: 'Device Id is required to start device' },
+                ];
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+            const currentStorageDeviceStatus = (await this.storageProvider.getDeviceStatus(message.body.deviceId))!;
+            if (currentStorageDeviceStatus.started) {
+                // Already started
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [
+                    { code: BusErrorCode.deviceAlreadyStarted, description: 'Selected device is already started' },
+                ];
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+            const allTariffs = await this.getAndCacheAllTariffs();
+            const tariff = allTariffs.find(x => x.id === message.body.tariffId)!;
+            if (!tariff) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [
+                    { code: BusErrorCode.tariffNotFound, description: 'Selected tariff is not found' },
+                ]
+                replyMsg.body.notAllowed = true;
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+            if (tariff.type !== TariffType.prepaid) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [
+                    { code: BusErrorCode.prepaidTariffIsRequired, description: 'Selected tariff is not of prepaid type' },
+                ]
+                replyMsg.body.notAllowed = true;
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+
+            if (!tariff.enabled) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [
+                    { code: BusErrorCode.tariffIsNotActive, description: 'Selected tariff is not active' },
+                ]
+                replyMsg.body.notAllowed = true;
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+
+            const hasRemainingSeconds = !!(tariff.remainingSeconds! > 0);
+            if (!hasRemainingSeconds) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [
+                    { code: BusErrorCode.noRemainingTimeLeft, description: `The tariff '${tariff.name}' has no time remaining` },
+                ]
+                replyMsg.body.notAllowed;
+                replyMsg.body.remainingSeconds = 0;
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+            
+            const passwordMatches = await this.storageProvider.checkTariffPasswordHash(tariff.id, message.body.passwordHash);
+            if (!passwordMatches) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [
+                    { code: BusErrorCode.tariffIsNotActive, description: 'Password does not match' },
+                ]
+                replyMsg.body.passwordDoesNotMatch = true;
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+
+            const devicesStatusesByTariff = await this.storageProvider.getDeviceStatusesByTariffId(tariff.id);
+            const firstDeviceStartedForTariff = devicesStatusesByTariff.find(x => x.started && x.start_reason === tariff.id);
+            if (firstDeviceStartedForTariff) {
+                // Started on another device
+                const allDevices = await this.getAndCacheAllDevices();
+                const device = allDevices.find(x => x.id === firstDeviceStartedForTariff.device_id);
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [
+                    {
+                        code: BusErrorCode.prepaidTariffAlreadyInUse,
+                        description: `The tariff Id ${tariff.id} ('${tariff.name}') is already in use by device Id ${firstDeviceStartedForTariff.device_id} '(${device?.name})'`,
+                    },
+                ];
+                replyMsg.body.alreadyInUse = true;
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+
+            currentStorageDeviceStatus.enabled = true;
+            currentStorageDeviceStatus.start_reason = message.body.tariffId;
+            currentStorageDeviceStatus.started = true;
+            currentStorageDeviceStatus.started_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
+            currentStorageDeviceStatus.stopped_at = null;
+            currentStorageDeviceStatus.total = tariff.price;
+            // It is started by customer, not by user/operator
+            currentStorageDeviceStatus.started_by_user_id = null;
+            await this.storageProvider.updateDeviceStatus(currentStorageDeviceStatus);
+            await this.refreshDeviceStatuses();
+            replyMsg.body.remainingSeconds = tariff.remainingSeconds!;
+            replyMsg.body.success = true;
+            this.publishToDevicesChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusStartDeviceRequestMessage message`, message, err);
+            const replyMsg = createBusStartDeviceReplyMessage();
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToDevicesChannel(replyMsg, message);
+        }
+    }
+
+    async processBusStartDeviceRequestMessage(message: BusStartDeviceRequestMessage): Promise<void> {
+        try {
             if (!message.body.userId) {
                 const replyMsg = createBusStartDeviceReplyMessage();
                 replyMsg.header.failure = true;
@@ -1016,6 +1136,25 @@ export class StateManager {
             }
             const allTariffs = await this.getAndCacheAllTariffs();
             const tariff = allTariffs.find(x => x.id === message.body.tariffId)!;
+            if (!tariff) {
+                const replyMsg = createBusStartDeviceReplyMessage();
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [
+                    { code: BusErrorCode.tariffNotFound, description: 'Selected tariff is not found' },
+                ]
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+            if (!tariff.enabled) {
+                const replyMsg = createBusStartDeviceReplyMessage();
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [
+                    { code: BusErrorCode.tariffIsNotActive, description: `Specified tariff is not active` },
+                ]
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+
             // const canUseTariffResult = this.tariffHelper.canUseTariff(tariff);
             // if (!canUseTariffResult.canUse) {
             //     // Already started
@@ -1048,6 +1187,23 @@ export class StateManager {
                     replyMsg.header.failure = true;
                     replyMsg.header.errors = [
                         { code: BusErrorCode.noRemainingTimeLeft, description: `The tariff '${tariff.name}' has no time remaining` },
+                    ]
+                    this.publishToOperatorsChannel(replyMsg, message);
+                    return;
+                }
+                const devicesStatusesByTariff = await this.storageProvider.getDeviceStatusesByTariffId(tariff.id);
+                const firstDeviceStartedForTariff = devicesStatusesByTariff.find(x => x.started && x.start_reason === tariff.id);
+                if (firstDeviceStartedForTariff) {
+                    // Started on another device
+                    const replyMsg = createBusStartDeviceReplyMessage();
+                    const allDevices = await this.getAndCacheAllDevices();
+                    const device = allDevices.find(x => x.id === firstDeviceStartedForTariff.device_id);
+                    replyMsg.header.failure = true;
+                    replyMsg.header.errors = [
+                        {
+                            code: BusErrorCode.prepaidTariffAlreadyInUse,
+                            description: `The tariff Id ${tariff.id} ('${tariff.name}') is already in use by device Id ${firstDeviceStartedForTariff.device_id} '(${device?.name})'`,
+                        },
                     ]
                     this.publishToOperatorsChannel(replyMsg, message);
                     return;
@@ -1671,7 +1827,7 @@ export class StateManager {
         }
     }
 
-    private async increaseTariffRemainingSeconds(tariffId: number, secondsToAdd: number, userId: number, increasedAt: string): Promise<IncreaseTariffRemainingSecondsResult  | undefined> {
+    private async increaseTariffRemainingSeconds(tariffId: number, secondsToAdd: number, userId: number, increasedAt: string): Promise<IncreaseTariffRemainingSecondsResult | undefined> {
         const increaseResult = await this.storageProvider.increaseTariffRemainingSeconds(tariffId, secondsToAdd, userId, increasedAt);
         // After the tariff is updated we have to update the cache too, otherwise the tariff will still have the old remaining_seconds
         await this.cacheAllTariffs();
@@ -1812,7 +1968,8 @@ export class StateManager {
         const tariffDurationMs = tariff.remainingSeconds! * 1000;
         // totalTime must be in seconds
         deviceStatus.totalTime = Math.ceil(diffMs / 1000);
-        deviceStatus.totalSum = tariff.price;
+        // Prepaid tariff total sum is 0 - it was already paid and should not be shown to the user/customer to avoid confusion
+        deviceStatus.totalSum = 0;
         if (diffMs >= tariffDurationMs) {
             // Must be stopped
             deviceStatus.started = false;

@@ -9,6 +9,7 @@ export const enum OperatorReplyMessageErrorCode {
     cantStartTheTariffNow = 'cant-start-the-tariff-now',
     unknownTariffType = 'unknown-tariff-type',
     cantFindTariff = 'cant-find-tariff',
+    prepaidTariffAlreadyInUse = 'prepaid-tariff-already-in-use',
     userIdIsRequired = 'user-id-is-required',
     usernameIsRequired = 'username-is-required',
     roleIdIsRequired = 'role-id-is-required',

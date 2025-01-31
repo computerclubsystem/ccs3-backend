@@ -124,6 +124,10 @@ export class QueryUtils {
         return this.helpers.tariff.getTariffByIdQueryData(tariffId);
     }
 
+    checkTariffPasswordHashQueryData(tariffId: number, passwordHash: string): IQueryTextWithParamsResult {
+        return this.helpers.tariff.checkTariffPasswordHashQueryData(tariffId, passwordHash);
+    }
+
     createTariffQueryData(tariff: ITariff, passwordHash?: string): IQueryTextWithParamsResult {
         return this.helpers.tariff.createTariffQueryData(tariff, passwordHash);
     }
@@ -216,6 +220,10 @@ export class QueryUtils {
 
     getAllDeviceStatusesQueryText(): string {
         return this.helpers.deviceStatus.getAllDeviceStatusesQueryText;
+    }
+
+    getDeviceStatusesByTariffIdQuery(tariffId: number): IQueryTextWithParamsResult {
+        return this.helpers.deviceStatus.getDeviceStatusesByTariffIdQuery(tariffId);
     }
 
     getAllDeviceStatusesWithContinuationDataQueryText(): string {

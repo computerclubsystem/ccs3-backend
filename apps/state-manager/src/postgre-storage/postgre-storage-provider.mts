@@ -291,6 +291,12 @@ export class PostgreStorageProvider implements StorageProvider {
         return res.rows as IDeviceStatus[];
     }
 
+    async getDeviceStatusesByTariffId(tariffId: number): Promise<IDeviceStatus[]> {
+        const query = this.queryUtils.getDeviceStatusesByTariffIdQuery(tariffId);
+        const res = await this.execQuery(query.text, query.params);
+        return res.rows as IDeviceStatus[];
+    }
+
     async getAllDeviceStatusesWithContinuationData(): Promise<IDeviceStatusWithContinuationData[]> {
         const query = this.queryUtils.getAllDeviceStatusesWithContinuationDataQueryText();
         const res = await this.execQuery(query);
@@ -378,6 +384,12 @@ export class PostgreStorageProvider implements StorageProvider {
         const queryData = this.queryUtils.getTariffByIdQueryData(tariffId);
         const res = await this.execQuery(queryData.text, queryData.params);
         return res.rows[0] as ITariff | undefined;
+    }
+
+    async checkTariffPasswordHash(tariffId: number, passwordHash: string): Promise<boolean> {
+        const queryData = this.queryUtils.checkTariffPasswordHashQueryData(tariffId, passwordHash);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return !!(res.rowCount && res.rowCount > 0);
     }
 
 

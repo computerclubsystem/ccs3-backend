@@ -12,6 +12,8 @@ export enum BusErrorCode {
     cantUseTheTariffNow = 'cant-use-the-tariff-now',
     cantStartTheTariffNow = 'cant-start-the-tariff-now',
     cantStartTheTariffAtSpecifiedTime = 'cant-start-the-tariff-at-specified-time',
+    prepaidTariffAlreadyInUse = 'prepaid-tariff-already-in-use',
+    prepaidTariffIsRequired = 'prepaid-tariff-is-required',
     cantFindTariff = 'cant-find-tariff',
     cantUpdateTariff = 'cant-update-tariff',
     cantIncreaseTariffRemainingTime = 'cant-increase-tariff-remaining-time',
