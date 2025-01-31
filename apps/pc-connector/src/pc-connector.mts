@@ -42,6 +42,11 @@ import { BusStartDeviceOnPrepaidTariffByCustomerReplyMessageBody, createBusStart
 import { createBusStartDeviceOnPrepaidTariffByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer-request.message.mjs';
 import { ServerToDeviceReplyMessage } from '@computerclubsystem/types/messages/devices/declarations/server-to-device-reply-message.mjs';
 import { DeviceToServerRequestMessage } from '@computerclubsystem/types/messages/devices/declarations/device-to-server-request-message.mjs';
+import { DeviceToServerEndDeviceSessionByCustomerRequestMessage } from '@computerclubsystem/types/messages/devices/device-to-server-end-device-session-by-customer-request.message.mjs';
+import { createBusEndDeviceSessionByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-end-device-session-by-customer-request.message.mjs';
+import { BusEndDeviceSessionByCustomerReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-end-device-session-by-customer-reply.message.mjs';
+import { createServerToDeviceEndDeviceSessionByCustomerReplyMessage } from '@computerclubsystem/types/messages/devices/server-to-device-end-device-session-by-customer-reply.message.mjs';
+import { ErrorHelper } from './error-helper.mjs';
 
 export class PcConnector {
     wssServer!: WssServer;
@@ -59,6 +64,7 @@ export class PcConnector {
     private issuerSubjectInfo!: CertificateIssuerSubjectInfo;
     private readonly certificateHelper = new CertificateHelper();
     private readonly connectivityHelper = new ConnectivityHelper();
+    private readonly errorHelper = new ErrorHelper();
     private readonly subjectsService = new SubjectsService();
 
     async start(): Promise<void> {
@@ -156,14 +162,29 @@ export class PcConnector {
     processDeviceMessage(message: DevicePartialMessage<any>, clientData: ConnectedClientData): void {
         const type = message.header.type;
         switch (type) {
-            case DeviceToServerNotificationMessageType.ping: {
+            case DeviceToServerRequestMessageType.endDeviceSessionByCustomer: {
+                this.processDeviceToServerEndDeviceSessionByCustomerRequestMessage(message as DeviceToServerEndDeviceSessionByCustomerRequestMessage, clientData);
                 break;
             }
             case DeviceToServerRequestMessageType.startOnPrepaidTariff: {
                 this.processDeviceToServerStartOnPrepaidTariffRequestMessage(message as DeviceToServerStartOnPrepaidTariffRequestMessage, clientData);
                 break;
             }
+            case DeviceToServerNotificationMessageType.ping: {
+                break;
+            }
         }
+    }
+
+    processDeviceToServerEndDeviceSessionByCustomerRequestMessage(message: DeviceToServerEndDeviceSessionByCustomerRequestMessage, clientData: ConnectedClientData) {
+        const reqMsg = createBusEndDeviceSessionByCustomerRequestMessage();
+        reqMsg.body.deviceId = clientData.deviceId!;
+        this.publishToDevicesChannelAndWaitForReply<BusEndDeviceSessionByCustomerReplyMessageBody>(reqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const replyMsg = createServerToDeviceEndDeviceSessionByCustomerReplyMessage();
+                this.errorHelper.setBusMessageFailure(busReplyMsg, message, replyMsg);
+                this.sendReplyMessageToDevice(replyMsg, message, clientData.connectionId);
+            });
     }
 
     processDeviceToServerStartOnPrepaidTariffRequestMessage(message: DeviceToServerStartOnPrepaidTariffRequestMessage, clientData: ConnectedClientData): void {
@@ -252,7 +273,9 @@ export class PcConnector {
                     const connectionId = connection[0];
                     const msg = createServerToDeviceCurrentStatusNotificationMessageMessage();
                     msg.body.started = status.started;
-                    // TODO: Also return the tariff name
+                    // TODO: ? Also return the tariff name ?
+                    msg.body.tariffId = status.tariff;
+                    msg.body.canBeStoppedByCustomer = status.canBeStoppedByCustomer;
                     msg.body.amounts = {
                         expectedEndAt: status.expectedEndAt,
                         remainingSeconds: status.remainingSeconds,
@@ -427,7 +450,6 @@ export class PcConnector {
     // }
 
     private publishToDevicesChannel<TBody>(message: Message<TBody>): Observable<Message<any>> {
-        this.logger.log('Publishing message', ChannelName.devices, message.header.type, message);
         this.publishToChannel(message, ChannelName.devices);
         return this.subjectsService.getDevicesChannelBusMessageReceived();
     }

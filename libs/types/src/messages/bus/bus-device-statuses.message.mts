@@ -15,6 +15,7 @@ export interface DeviceStatus {
     remainingSeconds: number | null;
     enabled: boolean;
     startedByUserId?: number | null;
+    canBeStoppedByCustomer?: boolean | null;
 }
 
 export interface BusDeviceStatusesMessageBody {

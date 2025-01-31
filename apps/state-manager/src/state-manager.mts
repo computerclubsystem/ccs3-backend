@@ -88,10 +88,12 @@ import { createBusDeleteDeviceContinuationReplyMessage } from '@computerclubsyst
 import { TariffValidator } from './tariff-validator.mjs';
 import { BusRechargeTariffDurationRequestMessage } from '@computerclubsystem/types/messages/bus/bus-recharge-tariff-duration-request.message.mjs';
 import { createBusRechargeTariffDurationReplyMessage } from '@computerclubsystem/types/messages/bus/bus-recharge-tariff-duration-reply.message.mjs';
-import { ITariff } from './storage/entities/tariff.mjs';
 import { IncreaseTariffRemainingSecondsResult } from './storage/results.mjs';
-import { BusStartDeviceOnPrepaidTariffByCustomerRequestMessage, createBusStartDeviceOnPrepaidTariffByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer-request.message.mjs';
+import { BusStartDeviceOnPrepaidTariffByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer-request.message.mjs';
 import { createBusStartDeviceOnPrepaidTariffByCustomerReplyMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer-reply.message.mjs';
+import { BusEndDeviceSessionByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-end-device-session-by-customer-request.message.mjs';
+import { createBusEndDeviceSessionByCustomerReplyMessage } from '@computerclubsystem/types/messages/bus/bus-end-device-session-by-customer-reply.message.mjs';
+import { ITariff } from './storage/entities/tariff.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -213,6 +215,9 @@ export class StateManager {
     processDevicesChannelMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busEndDeviceSessionByCustomerRequest:
+                this.processBusEndDeviceSessionByCustomerRequestMessage(message as BusEndDeviceSessionByCustomerRequestMessage);
+                break;
             case MessageType.busStartDeviceOnPrepaidTariffByCustomerRequest:
                 this.processBusStartDeviceOnPrepaidTariffByCustomerRequestMessage(message as BusStartDeviceOnPrepaidTariffByCustomerRequestMessage);
                 break;
@@ -601,6 +606,93 @@ export class StateManager {
         }
     }
 
+    async processBusEndDeviceSessionByCustomerRequestMessage(message: BusEndDeviceSessionByCustomerRequestMessage): Promise<void> {
+        const replyMsg = createBusEndDeviceSessionByCustomerReplyMessage();
+        try {
+            const deviceId = message.body.deviceId;
+            if (!deviceId) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceIdIsRequired,
+                    description: 'Device Id is required',
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const storageDeviceStatus = await this.storageProvider.getDeviceStatus(deviceId);
+            if (!storageDeviceStatus) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceNotFound,
+                    description: `Device with Id ${deviceId} is not found`,
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            if (!storageDeviceStatus.started) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceIsNotStarted,
+                    description: `Device with Id ${deviceId} is not started`,
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const allTariffs = await this.getAndCacheAllTariffs();
+            const tariff = allTariffs.find(x => x.id === storageDeviceStatus.start_reason)!;
+            if (tariff.type !== TariffType.prepaid) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.tariffIsNotPrepaidType,
+                    description: `Device with Id ${deviceId} is not started for prepaid tariff`,
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+
+            const diffMs = this.dateTimeHelper.getCurrentDateTimeAsNumber() - this.dateTimeHelper.getNumberFromISOStringDateTime(storageDeviceStatus.started_at)!;
+            // totalTime must be in seconds
+            const totalTime = Math.ceil(diffMs / 1000);
+            storageDeviceStatus.started = false;
+            storageDeviceStatus.stopped_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
+            storageDeviceStatus.stopped_by_user_id = null;
+            // const deviceStatus = this.createDeviceStatusFromStorageDeviceStatus(storageDeviceStatus);
+            // totalTime must be in seconds
+            // deviceStatus.totalTime = totalTime;
+            const storageDeviceSession: IDeviceSession = {
+                device_id: storageDeviceStatus.device_id,
+                started_at: storageDeviceStatus.started_at,
+                stopped_at: storageDeviceStatus.stopped_at,
+                tariff_id: storageDeviceStatus.start_reason,
+                // Prepaid tariffs set total amount to 0, because they are already paid
+                total_amount: 0,
+                started_by_user_id: storageDeviceStatus.started_by_user_id,
+                stopped_by_user_id: storageDeviceStatus.stopped_by_user_id,
+                started_by_customer: !storageDeviceStatus.started_by_user_id,
+                stopped_by_customer: true,
+            } as IDeviceSession;
+
+            const updatedStorageTariff = await this.decreaseTariffRemainingSeconds(tariff.id, tariff.remainingSeconds!, totalTime);
+            if (!updatedStorageTariff) {
+                throw new Error(`Can't decrease tariff remaining seconds`);
+            }
+            const completeDeviceStatusUpdateResult = await this.storageProvider.completeDeviceStatusUpdate(storageDeviceStatus, storageDeviceSession);
+            if (!completeDeviceStatusUpdateResult) {
+                throw new Error(`Can't stop the device`);
+            }
+            await this.refreshDeviceStatuses();
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusEndDeviceSessionByCustomerRequestMessage message`, message, err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
     async processBusStopDeviceRequestMessage(message: BusStopDeviceRequestMessage): Promise<void> {
         const replyMsg = createBusStopDeviceReplyMessage();
         try {
@@ -674,22 +766,26 @@ export class StateManager {
             const deviceStatus = this.createDeviceStatusFromStorageDeviceStatus(storageDeviceStatus);
             // totalTime must be in seconds
             deviceStatus.totalTime = totalTime;
+            const allTariffs = await this.getAndCacheAllTariffs();
+            const tariff = allTariffs.find(x => x.id === deviceStatus.tariff);
+            const totalAmount = tariff?.type === TariffType.prepaid ? 0 : storageDeviceStatus.total;
             const storageDeviceSession: IDeviceSession = {
                 device_id: storageDeviceStatus.device_id,
                 started_at: storageDeviceStatus.started_at,
                 stopped_at: storageDeviceStatus.stopped_at,
                 tariff_id: storageDeviceStatus.start_reason,
-                total_amount: storageDeviceStatus.total,
+                total_amount: totalAmount,
                 started_by_user_id: storageDeviceStatus.started_by_user_id,
                 stopped_by_user_id: storageDeviceStatus.stopped_by_user_id,
                 started_by_customer: !storageDeviceStatus.started_by_user_id,
                 stopped_by_customer: !!message.body.stoppedByCustomer,
                 note: message.body.note,
             } as IDeviceSession;
-            const allTariffs = await this.getAndCacheAllTariffs();
-            const tariff = allTariffs.find(x => x.id === deviceStatus.tariff);
             if (tariff?.type === TariffType.prepaid) {
-                await this.decreaseTariffRemainingSeconds(tariff.id, tariff.remainingSeconds!, totalTime);
+                const updatedStorageTariff = await this.decreaseTariffRemainingSeconds(tariff.id, tariff.remainingSeconds!, totalTime);
+                if (!updatedStorageTariff) {
+                    throw new Error(`Can't decrease tariff remaining seconds`);
+                }
             }
             const completeDeviceStatusUpdateResult = await this.storageProvider.completeDeviceStatusUpdate(storageDeviceStatus, storageDeviceSession);
             if (!completeDeviceStatusUpdateResult) {
@@ -1000,18 +1096,31 @@ export class StateManager {
             if (!message.body.deviceId) {
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [
-                    { code: BusErrorCode.deviceIdIsRequired, description: 'Device Id is required to start device' },
+                    { code: BusErrorCode.deviceIdIsRequired, description: 'Device Id is required' },
                 ];
+                replyMsg.body.notAllowed = true;
                 this.publishToDevicesChannel(replyMsg, message);
                 return;
             }
+
+            const passwordMatches = await this.storageProvider.checkTariffPasswordHash(message.body.tariffId, message.body.passwordHash);
+            if (!passwordMatches) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [
+                    { code: BusErrorCode.tariffIsNotActive, description: 'Password does not match' },
+                ]
+                replyMsg.body.passwordDoesNotMatch = true;
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+
             const currentStorageDeviceStatus = (await this.storageProvider.getDeviceStatus(message.body.deviceId))!;
             if (currentStorageDeviceStatus.started) {
-                // Already started
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [
                     { code: BusErrorCode.deviceAlreadyStarted, description: 'Selected device is already started' },
                 ];
+                replyMsg.body.alreadyInUse = true;
                 this.publishToDevicesChannel(replyMsg, message);
                 return;
             }
@@ -1052,19 +1161,8 @@ export class StateManager {
                 replyMsg.header.errors = [
                     { code: BusErrorCode.noRemainingTimeLeft, description: `The tariff '${tariff.name}' has no time remaining` },
                 ]
-                replyMsg.body.notAllowed;
+                replyMsg.body.notAllowed = true;
                 replyMsg.body.remainingSeconds = 0;
-                this.publishToDevicesChannel(replyMsg, message);
-                return;
-            }
-            
-            const passwordMatches = await this.storageProvider.checkTariffPasswordHash(tariff.id, message.body.passwordHash);
-            if (!passwordMatches) {
-                replyMsg.header.failure = true;
-                replyMsg.header.errors = [
-                    { code: BusErrorCode.tariffIsNotActive, description: 'Password does not match' },
-                ]
-                replyMsg.body.passwordDoesNotMatch = true;
                 this.publishToDevicesChannel(replyMsg, message);
                 return;
             }
@@ -1790,13 +1888,20 @@ export class StateManager {
                         // await this.storageProvider.addDeviceSession(storageDeviceSession);
                         if (tariff.type === TariffType.prepaid) {
                             // Prepaid tariffs must update their remaining time
-                            await this.decreaseTariffRemainingSeconds(tariff.id, tariff.remainingSeconds!, originalCalculatedDeviceStatus.totalTime!);
+                            const updatedStorageTariff = await this.decreaseTariffRemainingSeconds(tariff.id, tariff.remainingSeconds!, originalCalculatedDeviceStatus.totalTime!);
+                            if (!updatedStorageTariff) {
+                                throw new Error(`Can't decrease tariff remaining seconds`);
+                            }
                         }
                         const completeDeviceStatusUpdateResult = await this.storageProvider.completeDeviceStatusUpdate(storageDeviceStatus, storageDeviceSession);
                         if (!completeDeviceStatusUpdateResult) {
                             // Update failed
                             throw new Error(`Can't complete device status update`);
                         }
+                    }
+                    if (calculatedDeviceStatus.started && tariff.type === TariffType.prepaid) {
+                        // All devices started for prepaid tariff can be stopped by the customer
+                        calculatedDeviceStatus.canBeStoppedByCustomer = true;
                     }
                     deviceStatuses.push(calculatedDeviceStatus);
                 } else {
@@ -1815,9 +1920,9 @@ export class StateManager {
                 }
             }
             // Send device statuses to the channel
-            const deviceStatusMsg = createBusDeviceStatusesMessage();
-            deviceStatusMsg.body.deviceStatuses = deviceStatuses;
-            this.publishToDevicesChannel(deviceStatusMsg);
+            const deviceStatusesMsg = createBusDeviceStatusesMessage();
+            deviceStatusesMsg.body.deviceStatuses = deviceStatuses;
+            this.publishToDevicesChannel(deviceStatusesMsg);
         } catch (err) {
             // TODO: Count database errors and eventually send system notification
             this.logger.error(`Can't refresh device statuses`, err);
@@ -1834,16 +1939,17 @@ export class StateManager {
         return increaseResult;
     }
 
-    private async decreaseTariffRemainingSeconds(tariffId: number, currentRemainingSeconds: number, secondsToSubtract: number): Promise<void> {
+    private async decreaseTariffRemainingSeconds(tariffId: number, currentRemainingSeconds: number, secondsToSubtract: number): Promise<ITariff | undefined> {
         // Prepaid tariffs must update their remaining time
         let newRemainingSeconds = currentRemainingSeconds - secondsToSubtract;
         if (newRemainingSeconds < 0) {
             newRemainingSeconds = 0;
         }
-        await this.storageProvider.updateTariffRemainingSeconds(tariffId, newRemainingSeconds);
+        const storageTariff = await this.storageProvider.updateTariffRemainingSeconds(tariffId, newRemainingSeconds);
         // After the tariff is updated we have to update the cache too, otherwise the tariff will still have the old remaining_seconds
         // and can be started again even if the remaining seconds are 0
         await this.cacheAllTariffs();
+        return storageTariff;
     }
 
     shouldStartForContinuationTariff(storageDeviceStatus: IDeviceStatusWithContinuationData, allTariffs: Tariff[]): { continuationTariff: Tariff | null, canUseTariff: boolean | null, shouldStart: boolean } {

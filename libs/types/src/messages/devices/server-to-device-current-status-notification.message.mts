@@ -15,7 +15,8 @@ export interface DeviceStatusAmounts {
 
 export interface ServerToDeviceCurrentStatusNotificationMessageBody {
     started: boolean;
-    tariffId: number;
+    tariffId?: number | null;
+    canBeStoppedByCustomer?: boolean | null;
     amounts: DeviceStatusAmounts;
 }
 
