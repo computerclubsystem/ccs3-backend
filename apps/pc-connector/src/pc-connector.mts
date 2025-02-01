@@ -341,6 +341,7 @@ export class PcConnector {
         const msg = createServerToDeviceDeviceConfigurationNotificationMessage();
         // TODO: Get configuration from the database
         msg.body.pingInterval = 10000;
+        msg.body.secondsAfterStoppedBeforeRestart = 180;
         this.sendNotificationMessageToDevice(msg, connectionId);
     }
 

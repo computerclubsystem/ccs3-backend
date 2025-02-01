@@ -3,6 +3,7 @@ import { ServerToDeviceNotificationMessage } from './declarations/server-to-devi
 
 export interface ServerToDeviceDeviceConfigurationNotificationMessageBody {
     pingInterval: number;
+    secondsAfterStoppedBeforeRestart?: number;
 }
 
 export interface ServerToDeviceDeviceConfigurationNotificationMessage extends ServerToDeviceNotificationMessage<ServerToDeviceDeviceConfigurationNotificationMessageBody> {
