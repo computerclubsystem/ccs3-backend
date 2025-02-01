@@ -83,6 +83,19 @@ export class TariffQueryHelper {
         ${this.returningQueryText}
     `;
 
+    updateTariffPasswordHashQueryData(tariffId: number, passwordHash: string): IQueryTextWithParamsResult {
+        const builder = this.createUpdateQueryBuilder();
+        builder.setTableName(TableName.tariff);
+        builder.addUpdateColumnNameWithValue(ColumnName.password_hash, passwordHash);
+        builder.addWhereParameterColumnNameWithValue(ColumnName.id, tariffId);
+        builder.addReturningColumnNames(this.getReturningColumnNames());
+        const result: IQueryTextWithParamsResult = {
+            text: builder.getQueryString(),
+            params: builder.getParameterValues(),
+        };
+        return result;
+    }
+
     updateTariffRemainingSecondsQueryData(tariffId: number, remainingSeconds: number): IQueryTextWithParamsResult {
         const builder = this.createUpdateQueryBuilder();
         builder.setTableName(TableName.tariff);

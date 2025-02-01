@@ -36,6 +36,8 @@ export const enum MessageType {
     busStartDeviceOnPrepaidTariffByCustomerReply = 'bus-start-device-on-prepaid-tariff-by-customer-reply',
     busEndDeviceSessionByCustomerRequest = 'bus-end-device-session-by-customer-request',
     busEndDeviceSessionByCustomerReply = 'bus-end-device-session-by-customer-reply',
+    busChangePrepaidTariffPasswordByCustomerRequest = 'bus-change-prepaid-tariff-password-by-customer-request',
+    busChangePrepaidTariffPasswordByCustomerReply = 'bus-change-prepaid-tariff-password-by-customer-reply',
 
     // Tariffs
     busGetTariffByIdRequest = 'bus-get-tariff-by-id-request',

@@ -38,4 +38,5 @@ export enum BusErrorCode {
     priceMustBePositiveValue = 'price-must-be-positive-value',
     timeMustBePositiveValue = 'time-must-be-positive-value',
     noRemainingTimeLeft = 'no-remaining-time-left',
+    passwordDoesNotMatch = 'password-does-not-match',
 }

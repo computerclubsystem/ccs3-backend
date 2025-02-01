@@ -411,6 +411,12 @@ export class PostgreStorageProvider implements StorageProvider {
         return res.rows[0] as ITariff;
     }
 
+    async updateTariffPasswordHash(tariffId: number, passwordHash: string): Promise<ITariff | undefined> {
+        const queryData = this.queryUtils.updateTariffPasswordHash(tariffId, passwordHash);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows[0] as ITariff;
+    }
+
     async increaseTariffRemainingSeconds(tariffId: number, secondsToAdd: number, userId: number, increasedAt: string): Promise<IncreaseTariffRemainingSecondsResult | undefined> {
         let transactionClient: pg.PoolClient | undefined;
         let result: IncreaseTariffRemainingSecondsResult | undefined;

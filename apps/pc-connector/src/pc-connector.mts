@@ -47,6 +47,10 @@ import { createBusEndDeviceSessionByCustomerRequestMessage } from '@computerclub
 import { BusEndDeviceSessionByCustomerReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-end-device-session-by-customer-reply.message.mjs';
 import { createServerToDeviceEndDeviceSessionByCustomerReplyMessage } from '@computerclubsystem/types/messages/devices/server-to-device-end-device-session-by-customer-reply.message.mjs';
 import { ErrorHelper } from './error-helper.mjs';
+import { DeviceToServerChangePrepaidTariffPasswordByCustomerRequestMessage } from '@computerclubsystem/types/messages/devices/device-to-server-change-prepaid-tariff-password-by-customer-request.message.mjs';
+import { createBusChangePrepaidTariffPasswordByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-change-prepaid-tariff-password-by-customer-request.message.mjs';
+import { BusChangePrepaidTariffPasswordByCustomerReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-change-prepaid-tariff-password-by-customer-reply.message.mjs';
+import { createServerToDeviceChangePrepaidTariffPasswordPasswordByCustomerReplyMessage } from '@computerclubsystem/types/messages/devices/server-to-device-change-prepaid-tariff-password-by-customer-reply.message.mjs';
 
 export class PcConnector {
     wssServer!: WssServer;
@@ -162,6 +166,10 @@ export class PcConnector {
     processDeviceMessage(message: DevicePartialMessage<any>, clientData: ConnectedClientData): void {
         const type = message.header.type;
         switch (type) {
+            case DeviceToServerRequestMessageType.changePrepaidTariffPasswordByCustomer: {
+                this.processDeviceToServerChangePrepaidTariffPasswordByCustomerRequestMessage(message as DeviceToServerChangePrepaidTariffPasswordByCustomerRequestMessage, clientData);
+                break;
+            }
             case DeviceToServerRequestMessageType.endDeviceSessionByCustomer: {
                 this.processDeviceToServerEndDeviceSessionByCustomerRequestMessage(message as DeviceToServerEndDeviceSessionByCustomerRequestMessage, clientData);
                 break;
@@ -176,10 +184,23 @@ export class PcConnector {
         }
     }
 
-    processDeviceToServerEndDeviceSessionByCustomerRequestMessage(message: DeviceToServerEndDeviceSessionByCustomerRequestMessage, clientData: ConnectedClientData) {
-        const reqMsg = createBusEndDeviceSessionByCustomerRequestMessage();
-        reqMsg.body.deviceId = clientData.deviceId!;
-        this.publishToDevicesChannelAndWaitForReply<BusEndDeviceSessionByCustomerReplyMessageBody>(reqMsg, clientData)
+    processDeviceToServerChangePrepaidTariffPasswordByCustomerRequestMessage(message: DeviceToServerChangePrepaidTariffPasswordByCustomerRequestMessage, clientData: ConnectedClientData): void {
+        const busReqMsg = createBusChangePrepaidTariffPasswordByCustomerRequestMessage();
+        busReqMsg.body.deviceId = clientData.deviceId!;
+        busReqMsg.body.currentPasswordHash = message.body.currentPasswordHash;
+        busReqMsg.body.newPasswordHash = message.body.newPasswordHash;
+        this.publishToDevicesChannelAndWaitForReply<BusChangePrepaidTariffPasswordByCustomerReplyMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const replyMsg = createServerToDeviceChangePrepaidTariffPasswordPasswordByCustomerReplyMessage();
+                this.errorHelper.setBusMessageFailure(busReplyMsg, message, replyMsg);
+                this.sendReplyMessageToDevice(replyMsg, message, clientData.connectionId);
+            });
+    }
+
+    processDeviceToServerEndDeviceSessionByCustomerRequestMessage(message: DeviceToServerEndDeviceSessionByCustomerRequestMessage, clientData: ConnectedClientData): void {
+        const busReqMsg = createBusEndDeviceSessionByCustomerRequestMessage();
+        busReqMsg.body.deviceId = clientData.deviceId!;
+        this.publishToDevicesChannelAndWaitForReply<BusEndDeviceSessionByCustomerReplyMessageBody>(busReqMsg, clientData)
             .subscribe(busReplyMsg => {
                 const replyMsg = createServerToDeviceEndDeviceSessionByCustomerReplyMessage();
                 this.errorHelper.setBusMessageFailure(busReplyMsg, message, replyMsg);
@@ -188,11 +209,11 @@ export class PcConnector {
     }
 
     processDeviceToServerStartOnPrepaidTariffRequestMessage(message: DeviceToServerStartOnPrepaidTariffRequestMessage, clientData: ConnectedClientData): void {
-        const reqMsg = createBusStartDeviceOnPrepaidTariffByCustomerRequestMessage();
-        reqMsg.body.deviceId = clientData.deviceId!;
-        reqMsg.body.passwordHash = message.body.passwordHash;
-        reqMsg.body.tariffId = message.body.tariffId;
-        this.publishToDevicesChannelAndWaitForReply<BusStartDeviceOnPrepaidTariffByCustomerReplyMessageBody>(reqMsg, clientData)
+        const busReqMsg = createBusStartDeviceOnPrepaidTariffByCustomerRequestMessage();
+        busReqMsg.body.deviceId = clientData.deviceId!;
+        busReqMsg.body.passwordHash = message.body.passwordHash;
+        busReqMsg.body.tariffId = message.body.tariffId;
+        this.publishToDevicesChannelAndWaitForReply<BusStartDeviceOnPrepaidTariffByCustomerReplyMessageBody>(busReqMsg, clientData)
             .subscribe(busReplyMsg => {
                 const replyMsg = createServerToDeviceStartOnPrepaidTariffReplyMessage();
                 replyMsg.body.alreadyInUse = busReplyMsg.body.alreadyInUse;

@@ -140,6 +140,10 @@ export class QueryUtils {
         return this.helpers.tariff.updateTariffRemainingSecondsQueryData(tariffId, remainingSeconds);
     }
 
+    updateTariffPasswordHash(tariffId: number, passwordHash: string): IQueryTextWithParamsResult {
+        return this.helpers.tariff.updateTariffPasswordHashQueryData(tariffId, passwordHash);
+    }
+
     increaseTariffRemainingSeconds(tariffId: number, secondsToAdd: number): IQueryTextWithParamsResult {
         return this.helpers.tariff.increaseTariffRemainingSecondsQueryData(tariffId, secondsToAdd);
     }

@@ -53,6 +53,7 @@ export interface StorageProvider {
     updateTariff(tariff: ITariff, passwordHash?: string): Promise<ITariff>;
     updateTariffRemainingSeconds(tariffId: number, remainingSeconds: number): Promise<ITariff | undefined>;
     increaseTariffRemainingSeconds(tariffId: number, secondsToAdd: number, userId: number, increasedAt: string): Promise<IncreaseTariffRemainingSecondsResult | undefined>;
+    updateTariffPasswordHash(tariffId: number, passwordHash: string): Promise<ITariff | undefined>;
 
     getAllRoles(): Promise<IRole[]>;
     getRoleById(roleId: number): Promise<IRole | undefined>;

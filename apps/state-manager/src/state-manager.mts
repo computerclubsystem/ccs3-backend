@@ -94,6 +94,8 @@ import { createBusStartDeviceOnPrepaidTariffByCustomerReplyMessage } from '@comp
 import { BusEndDeviceSessionByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-end-device-session-by-customer-request.message.mjs';
 import { createBusEndDeviceSessionByCustomerReplyMessage } from '@computerclubsystem/types/messages/bus/bus-end-device-session-by-customer-reply.message.mjs';
 import { ITariff } from './storage/entities/tariff.mjs';
+import { BusChangePrepaidTariffPasswordByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-change-prepaid-tariff-password-by-customer-request.message.mjs';
+import { createBusChangePrepaidTariffPasswordByCustomerReplyMessage } from '@computerclubsystem/types/messages/bus/bus-change-prepaid-tariff-password-by-customer-reply.message.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -215,6 +217,9 @@ export class StateManager {
     processDevicesChannelMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busChangePrepaidTariffPasswordByCustomerRequest:
+                this.processBusChangePrepaidTariffPasswordByCustomerRequestMessage(message as BusChangePrepaidTariffPasswordByCustomerRequestMessage);
+                break;
             case MessageType.busEndDeviceSessionByCustomerRequest:
                 this.processBusEndDeviceSessionByCustomerRequestMessage(message as BusEndDeviceSessionByCustomerRequestMessage);
                 break;
@@ -232,6 +237,104 @@ export class StateManager {
                 break;
         }
     }
+
+    async processBusChangePrepaidTariffPasswordByCustomerRequestMessage(message: BusChangePrepaidTariffPasswordByCustomerRequestMessage): Promise<void> {
+        const replyMsg = createBusChangePrepaidTariffPasswordByCustomerReplyMessage();
+        try {
+            // TODO: Refactor validation - extract it in another file
+            const deviceId = message.body.deviceId;
+            if (!deviceId) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceIdIsRequired,
+                    description: 'Device Id is required',
+                }];
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+            if (this.isWhiteSpace(message.body.currentPasswordHash)
+                || this.isWhiteSpace(message.body.newPasswordHash)) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.passwordHashIsRequired,
+                    description: 'Current and new passwords are required',
+                }];
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+            const allDevices = await this.getAndCacheAllDevices();
+            const device = allDevices.find(x => x.id === deviceId);
+            if (!device) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceNotFound,
+                    description: `Specified device with Id ${deviceId} is not found`,
+                }];
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+            if (!(device.approved && device.enabled)) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceIsNotActive,
+                    description: `Specified device with Id ${deviceId} is not active`,
+                }];
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+            const storageDeviceStatus = await this.storageProvider.getDeviceStatus(deviceId);
+            if (!storageDeviceStatus) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceNotFound,
+                    description: `Specified device with Id ${deviceId} is not found`,
+                }];
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+            const allTariffs = await this.getAndCacheAllTariffs();
+            const tariff = allTariffs.find(x => x.id === storageDeviceStatus.start_reason);
+            if (!tariff) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.tariffNotFound,
+                    description: `Specified device with Id ${deviceId} is not found`,
+                }];
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+            if (tariff.type !== TariffType.prepaid) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.tariffIsNotPrepaidType,
+                    description: `Specified tariff Id ${tariff.id} (${tariff.name}) is not of prepaid type`,
+                }];
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+            const checkTariffPasswordHash = await this.storageProvider.checkTariffPasswordHash(tariff.id, message.body.currentPasswordHash);
+            if (!checkTariffPasswordHash) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.passwordDoesNotMatch,
+                    description: `Specified current password does not match`,
+                }];
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+            const updatedTariff = await this.storageProvider.updateTariffPasswordHash(tariff.id, message.body.newPasswordHash);
+            this.publishToDevicesChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusChangePrepaidTariffPasswordByCustomerRequestMessage message`, message, err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToDevicesChannel(replyMsg, message);
+        }
+    }
+
 
     async processBusRechargeTariffDurationRequestMessage(message: BusRechargeTariffDurationRequestMessage): Promise<void> {
         const replyMsg = createBusRechargeTariffDurationReplyMessage();
