@@ -141,6 +141,13 @@ import { OperatorRechargeTariffDurationRequestMessage } from '@computerclubsyste
 import { createBusRechargeTariffDurationRequestMessage } from '@computerclubsystem/types/messages/bus/bus-recharge-tariff-duration-request.message.mjs';
 import { BusRechargeTariffDurationReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-recharge-tariff-duration-reply.message.mjs';
 import { createOperatorRechargeTariffDurationReplyMessage } from '@computerclubsystem/types/messages/operators/operator-recharge-tariff-duration-reply.message.mjs';
+import { createOperatorGetSignedInUsersReplyMessage, OperatorGetSignedInUsersReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-signed-in-users-reply.message.mjs';
+import { SignedInUser } from '@computerclubsystem/types/entities/signed-in-user.mjs';
+import { OperatorGetSignedInUsersRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-signed-in-users-request.message.mjs';
+import { connect } from 'node:http2';
+import { createOperatorForceSignOutAllUserSessionsReplyMessage, OperatorForceSignOutAllUserSessionsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-force-sign-out-all-user-sessions-reply.message.mjs';
+import { OperatorForceSignOutAllUserSessionsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-force-sign-out-all-user-sessions-request.message.mjs';
+import { createOperatorSignedOutNotificationMessage } from '@computerclubsystem/types/messages/operators/operator-signed-out-notification.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -236,8 +243,15 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorMessageType.forceSignOutAllUserSessionsRequest:
+                this.processOperatorForceSignOutAllUserSessionsRequestMessage(clientData, message as OperatorForceSignOutAllUserSessionsRequestMessage);
+                break;
+            case OperatorMessageType.getSigndInUsersRequest:
+                this.processGetSignedInUsersRequestMessage(clientData, message as OperatorGetSignedInUsersRequestMessage);
+                break;
             case OperatorMessageType.rechargeTariffDurationRequest:
-                this.processRechargeTariffDurationRequestMessage(clientData, message as OperatorRechargeTariffDurationRequestMessage); break;
+                this.processRechargeTariffDurationRequestMessage(clientData, message as OperatorRechargeTariffDurationRequestMessage);
+                break;
             case OperatorMessageType.deleteDeviceContinuationRequest:
                 this.processDeleteDeviceContinuationRequestMessage(clientData, message as OperatorDeleteDeviceContinuationRequestMessage);
                 break;
@@ -318,6 +332,47 @@ export class OperatorConnector {
                 this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    async processOperatorForceSignOutAllUserSessionsRequestMessage(clientData: ConnectedClientData, message: OperatorForceSignOutAllUserSessionsRequestMessage): Promise<void> {
+        const replyMsg = createOperatorForceSignOutAllUserSessionsReplyMessage();
+        const allUserAuthData = await this.cacheHelper.getUserAllAuthData(message.body.userId);
+        for (const authData of allUserAuthData) {
+            await this.cacheHelper.deleteUserAuthDataKey(authData.userId, authData.roundtripData.connectionInstanceId);
+            await this.cacheHelper.deleteAuthTokenKey(authData.token);
+        }
+
+        // Also disconnect all sockets for the specified user
+        const allUserConnectionData = this.getConnectedClientsDataByOperatorId(message.body.userId).map(x => x[1]);
+        replyMsg.body.connectionsCount = allUserConnectionData.length;
+        for (const userConnectionData of allUserConnectionData) {
+            const signedOutNotificationMsg = createOperatorSignedOutNotificationMessage();
+            this.sendNotificationMessageToOperator(signedOutNotificationMsg, userConnectionData);
+            this.removeClient(userConnectionData.connectionId);
+            this.wssServer.closeConnection(userConnectionData.connectionId);
+        }
+        replyMsg.body.sessionsCount = allUserAuthData.length;
+        this.sendReplyMessageToOperator(replyMsg, clientData, message);
+    }
+
+
+    async processGetSignedInUsersRequestMessage(clientData: ConnectedClientData, message: OperatorGetSignedInUsersRequestMessage): Promise<void> {
+        const replyMsg = createOperatorGetSignedInUsersReplyMessage();
+        const allUsersAuthData = await this.cacheHelper.getAllUsersAuthData();
+        const signedInUsers: SignedInUser[] = [];
+        for (const authDataItem of allUsersAuthData) {
+            signedInUsers.push({
+                connectionId: authDataItem.roundtripData.connectionId,
+                connectionInstanceId: authDataItem.roundtripData.connectionInstanceId,
+                connectedAt: authDataItem.connectedAt,
+                tokenExpiresAt: authDataItem.tokenExpiresAt,
+                token: authDataItem.token,
+                userId: authDataItem.userId,
+                username: authDataItem.username,
+            });
+        }
+        replyMsg.body.signedInUsers = signedInUsers;
+        this.sendReplyMessageToOperator(replyMsg, clientData, message);
     }
 
     processRechargeTariffDurationRequestMessage(clientData: ConnectedClientData, message: OperatorRechargeTariffDurationRequestMessage): void {
@@ -867,7 +922,7 @@ export class OperatorConnector {
         requestMsg.body.username = message.body.username;
         requestMsg.header.roundTripData = this.createRoundTripDataFromConnectedClientData(clientData);
         this.publishToOperatorsChannelAndWaitForReply<BusOperatorAuthReplyMessageBody>(requestMsg, clientData)
-            .subscribe(busReplyMsg => this.processBusOperatorAuthReplyMessage(clientData, busReplyMsg, message));
+            .subscribe(busReplyMsg => this.processBusOperatorAuthReplyMessage(clientData, busReplyMsg, message, message.body.username!));
     }
 
     /**
@@ -986,7 +1041,12 @@ export class OperatorConnector {
         }
     }
 
-    processBusOperatorAuthReplyMessage(clientData: ConnectedClientData, message: BusOperatorAuthReplyMessage, operatorMessage: OperatorMessage<any>): void {
+    processBusOperatorAuthReplyMessage(
+        clientData: ConnectedClientData,
+        message: BusOperatorAuthReplyMessage,
+        operatorMessage: OperatorMessage<any>,
+        username: string
+    ): void {
         const replyMsg = createOperatorAuthReplyMessage();
         if (!clientData) {
             replyMsg.body.success = false;
@@ -1006,7 +1066,7 @@ export class OperatorConnector {
         if (replyMsg.body.success) {
             replyMsg.body.token = this.createUUIDString();
             replyMsg.body.tokenExpiresAt = this.getNowAsNumber() + this.getTokenExpirationMilliseconds();
-            this.maintainUserAuthDataTokenCacheItem(clientData.userId!, replyMsg.body.permissions!, replyMsg.body.token, rtData);
+            this.maintainUserAuthDataTokenCacheItem(clientData.userId!, clientData.connectedAt, replyMsg.body.permissions!, replyMsg.body.token, rtData, username);
         }
         if (!message.body.success) {
             replyMsg.body.success = false;
@@ -1345,9 +1405,11 @@ export class OperatorConnector {
 
     async maintainUserAuthDataTokenCacheItem(
         userId: number,
+        connectedAt: number,
         permissions: string[],
         token: string,
         roundtripData: OperatorConnectionRoundTripData,
+        username: string,
     ): Promise<void> {
         // TODO: Should we delete the previous cache items ?
         const now = this.getNowAsNumber();
@@ -1359,10 +1421,12 @@ export class OperatorConnector {
             // TODO: Get token expiration from configuration
             tokenExpiresAt: now + this.getTokenExpirationMilliseconds(),
             userId: userId,
+            username: username,
+            connectedAt: connectedAt,
         };
         const userAuthDataCacheKey = this.cacheHelper.getUserAuthDataKey(userId, roundtripData.connectionInstanceId);
         await this.cacheClient.setValue(userAuthDataCacheKey, authData);
-        const authTokenCacheKey = this.cacheHelper.getAuthTokenKey(token);
+        const authTokenCacheKey = this.cacheHelper.getUserAuthTokenKey(token);
         await this.cacheClient.setValue(authTokenCacheKey, authData);
     }
 

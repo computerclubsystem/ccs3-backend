@@ -11,6 +11,8 @@ export class AuthorizationHelper {
         map.set(OperatorMessageType.updateUserWithRolesRequest, [PermissionName.usersUpdate]);
         map.set(OperatorMessageType.getAllUsersRequest, [PermissionName.usersRead]);
         map.set(OperatorMessageType.getUserWithRolesRequest, [PermissionName.usersRead]);
+        map.set(OperatorMessageType.getSigndInUsersRequest, [PermissionName.reportsSignedInUsersRead]);
+        map.set(OperatorMessageType.forceSignOutAllUserSessionsRequest, [PermissionName.usersForceSignOut]);
         map.set(OperatorMessageType.createRoleWithPermissionsRequest, [PermissionName.rolesCreate]);
         map.set(OperatorMessageType.updateRoleWithPermissionsRequest, [PermissionName.rolesUpdate]);
         map.set(OperatorMessageType.getRoleWithPermissionsRequest, [PermissionName.rolesRead]);

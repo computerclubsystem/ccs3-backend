@@ -33,6 +33,8 @@ export enum OperatorMessageType {
     transferDeviceRequest = 'transfer-device-request',
     createDeviceContinuationRequest = 'create-device-continuation-request',
     deleteDeviceContinuationRequest = 'delete-device-continuation-request',
+    getSigndInUsersRequest = 'get-signed-in-users-request',
+    forceSignOutAllUserSessionsRequest = 'force-sign-out-all-user-sessions-request',
 }
 
 export enum OperatorReplyMessageType {
@@ -59,9 +61,12 @@ export enum OperatorReplyMessageType {
     transferDeviceReply = 'transfer-device-reply',
     createDeviceContinuationReply = 'create-device-continuation-reply',
     deleteDeviceContinuationReply = 'delete-device-continuation-reply',
+    getSigndInUsersReply = 'get-signed-in-users-reply',
+    forceSignOutAllUserSessionsReply = 'force-sign-out-all-user-sessions-reply',
 }
 
 export enum OperatorNotificationMessageType {
     deviceStatusesNotification = 'device-statuses-notification',
     deviceConnectivitiesNotification = 'device-connectivities-notification',
+    signedOutNotification = 'signed-out-notification',
 }

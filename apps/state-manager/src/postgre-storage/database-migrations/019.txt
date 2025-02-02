@@ -1,0 +1,14 @@
+INSERT INTO permission
+(
+    name,
+    description
+)
+VALUES
+(
+    'reports:signed-in-users-read',
+    'Allows reading signed in users report.'
+),
+(
+    'users:force-sign-out',
+    'Allows signing out any user.'
+);

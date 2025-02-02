@@ -17,4 +17,6 @@ export enum PermissionName {
     usersRead = 'users:read',
     usersCreate = 'users:create',
     usersUpdate = 'users:update',
+    usersForceSignOut = 'users:force-sign-out',
+    reportsSignedInUsersRead = 'reports:signed-in-users-read',
 }

@@ -1,5 +1,5 @@
-import { OperatorMessageType, OperatorReplyMessageType } from './declarations/operator-message-type.mjs';
-import { OperatorMessage, OperatorReplyMessage } from './declarations/operator.message.mjs';
+import { OperatorReplyMessageType } from './declarations/operator-message-type.mjs';
+import { OperatorReplyMessage } from './declarations/operator.message.mjs';
 
 export interface OperatorAuthReplyMessageBody {
     success: boolean;

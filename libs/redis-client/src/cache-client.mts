@@ -4,6 +4,22 @@ import { CreateConnectedRedisClientOptions, createConnectedRedisClient } from '.
 export class RedisCacheClient {
     #client!: RedisClient;
 
+    async scanForKeysByPattern(keyPattern: string): Promise<string[]> {
+        const keys: string[] = [];
+        let scanResult = await this.#client.scan(0, { MATCH: keyPattern });
+        keys.push(...scanResult.keys);
+        while (scanResult.cursor > 0) {
+            scanResult = await this.#client.scan(scanResult.cursor, { MATCH: keyPattern });
+            keys.push(...scanResult.keys);
+        }
+        return keys;
+    }
+
+    async getKeys(pattern: string): Promise<string[]> {
+        const keys = await this.#client.keys(pattern);
+        return keys;
+    }
+
     async connect(options: CreateConnectedRedisClientOptions): Promise<void> {
         this.#client = await createConnectedRedisClient(options);
     }
