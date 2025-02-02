@@ -19,13 +19,13 @@ VALUES
 (
     'device_status_refresh_interval',
     'integer',
-    'Interval in seconds at which to calculate device statuses',
+    'Interval in seconds at which to calculate device statuses. The default value is 5',
     '5'
 ),
 (
     'token_duration',
     'integer',
-    'Token duration in seconds',
+    'Token duration in seconds. The default value is 1800 (30 minutes)',
     '1800'
 );
 

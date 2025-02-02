@@ -870,8 +870,14 @@ export class StateManager {
             // totalTime must be in seconds
             deviceStatus.totalTime = totalTime;
             const allTariffs = await this.getAndCacheAllTariffs();
-            const tariff = allTariffs.find(x => x.id === deviceStatus.tariff);
-            const totalAmount = tariff?.type === TariffType.prepaid ? 0 : storageDeviceStatus.total;
+            const tariff = allTariffs.find(x => x.id === deviceStatus.tariff)!;
+            let totalAmount = storageDeviceStatus.total;
+            if (tariff.type === TariffType.prepaid) {
+                totalAmount = 0;
+            } else {
+                totalAmount = this.getTotalSumCalculatingStartFreeTime(tariff, deviceStatus.totalTime);
+            }
+            deviceStatus.totalSum = totalAmount;
             const storageDeviceSession: IDeviceSession = {
                 device_id: storageDeviceStatus.device_id,
                 started_at: storageDeviceStatus.started_at,
@@ -2205,7 +2211,7 @@ export class StateManager {
         const tariffDurationMs = tariff.duration! * 60 * 1000;
         // totalTime must be in seconds
         deviceStatus.totalTime = Math.ceil(diffMs / 1000);
-        deviceStatus.totalSum = tariff.price;
+        deviceStatus.totalSum = this.getTotalSumCalculatingStartFreeTime(tariff, deviceStatus.totalTime);
         if (diffMs >= tariffDurationMs) {
             // Must be stopped
             deviceStatus.started = false;
@@ -2221,16 +2227,27 @@ export class StateManager {
         }
     }
 
+    getTotalSumCalculatingStartFreeTime(tariff: Tariff, totalTimePassedSeconds: number): number {
+        if (tariff.type === TariffType.duration || tariff.type === TariffType.fromTo) {
+            const freeSecondsAtStart = this.getFreeSecondsAtComputerSessionStart();
+            if (totalTimePassedSeconds < freeSecondsAtStart) {
+                return 0;
+            }
+        }
+        return tariff.price;
+    }
+
     modifyDeviceStatusForFromToTariff(deviceStatus: DeviceStatus, tariff: Tariff): void {
         if (!deviceStatus.started) {
             // Stopped devices should have been modified when stopped
             return;
         }
         const now = this.dateTimeHelper.getCurrentDateTimeAsNumber();
-        deviceStatus.totalSum = tariff.price;
+        const startedAt = deviceStatus.startedAt!;
+        const diffMs = now - startedAt;
+        deviceStatus.totalSum = this.getTotalSumCalculatingStartFreeTime(tariff, diffMs / 100);
         const tariffFromMinute = tariff.fromTime!;
         const tariffToMinute = tariff.toTime!;
-        const startedAt = deviceStatus.startedAt!;
 
         // Check if current date has passed the "To" minute of the tariff
         const compareCurrentDateWithMinutePeriodResult = this.dateTimeHelper.compareCurrentDateWithMinutePeriod(startedAt, tariffFromMinute, tariffToMinute);
@@ -2280,6 +2297,7 @@ export class StateManager {
                 // 1800 seconds = 30 minutes
                 token_duration: 1800 * 1000,
                 timezone: 'Europe/Sofia',
+                free_seconds_at_start: 5,
             },
             lastDeviceStatusRefreshAt: 0,
             deviceStatusRefreshInProgress: false,
@@ -2296,6 +2314,11 @@ export class StateManager {
 
         this.state.systemSettings[SystemSettingName.device_status_refresh_interval] = 1000 * getAsNumber(SystemSettingName.device_status_refresh_interval);
         this.state.systemSettings[SystemSettingName.token_duration] = 1000 * getAsNumber(SystemSettingName.token_duration);
+        this.state.systemSettings[SystemSettingName.free_seconds_at_start] = getAsNumber(SystemSettingName.free_seconds_at_start);
+    }
+
+    getFreeSecondsAtComputerSessionStart(): number {
+        return this.state.systemSettings[SystemSettingName.free_seconds_at_start];
     }
 
     createUUIDString(): string {
@@ -2401,6 +2424,7 @@ interface StateManagerStateSystemSettings {
     [SystemSettingName.device_status_refresh_interval]: number;
     [SystemSettingName.token_duration]: number;
     [SystemSettingName.timezone]: string;
+    [SystemSettingName.free_seconds_at_start]: number;
 }
 
 interface UserAuthDataCacheValue {

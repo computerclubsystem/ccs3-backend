@@ -1,0 +1,18 @@
+INSERT INTO system_setting
+(
+    name,
+    type,
+    description,
+    value
+)
+VALUES
+(
+    'free_seconds_at_start',
+    'integer',
+    'Free seconds at the start of computer session. The price during this free period will be 0. Default value is 180 (3 minutes)',
+    '180'
+);
+
+UPDATE db_metadata
+SET value = '20'
+WHERE name = 'database-version';

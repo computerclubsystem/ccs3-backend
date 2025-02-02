@@ -12,3 +12,7 @@ VALUES
     'users:force-sign-out',
     'Allows signing out any user.'
 );
+
+UPDATE db_metadata
+SET value = '19'
+WHERE name = 'database-version';
