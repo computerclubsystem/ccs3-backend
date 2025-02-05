@@ -1,17 +1,17 @@
-import { OperatorMessageType } from './declarations/operator-message-type.mjs';
-import { OperatorMessage } from './declarations/operator.message.mjs';
+import { OperatorNotificationMessageType } from './declarations/operator-message-type.mjs';
+import { OperatorNotificationMessage } from './declarations/operator.message.mjs';
 
-export interface OperatorConfigurationMessageBody {
+export interface OperatorConfigurationNotificationMessageBody {
     pingInterval: number;
 }
 
-export interface OperatorConfigurationMessage extends OperatorMessage<OperatorConfigurationMessageBody> {
+export interface OperatorConfigurationNotificationMessage extends OperatorNotificationMessage<OperatorConfigurationNotificationMessageBody> {
 }
 
-export function createOperatorConfigurationMessage(): OperatorConfigurationMessage {
-    const msg: OperatorConfigurationMessage = {
-        header: { type: OperatorMessageType.configuration },
-        body: {} as OperatorConfigurationMessageBody,
+export function createOperatorConfigurationNotificationMessage(): OperatorConfigurationNotificationMessage {
+    const msg: OperatorConfigurationNotificationMessage = {
+        header: { type: OperatorNotificationMessageType.configuration },
+        body: {} as OperatorConfigurationNotificationMessageBody,
     };
     return msg;
 };

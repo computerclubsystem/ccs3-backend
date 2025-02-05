@@ -1,8 +1,27 @@
 import { IDeviceStatus, IDeviceStatusWithContinuationData } from 'src/storage/entities/device-status.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
 import { IDeviceSession } from 'src/storage/entities/device-session.mjs';
+import { TariffType } from '@computerclubsystem/types/entities/tariff.mjs';
 
 export class DeviceStatusQueryHelper {
+    getDeviceStatusesSummaryForStartedDevicesQueryData(tariffTypes: TariffType[]): IQueryTextWithParamsResult {
+        const params = [
+            tariffTypes,
+        ];
+        return {
+            text: this.getDeviceStatusesSummaryForStartedDevicesQueryText,
+            params: params,
+        };
+    }
+
+    private readonly getDeviceStatusesSummaryForStartedDevicesQueryText = `
+        SELECT
+            COUNT(device_id),
+            SUM(total)
+        FROM device_status
+        WHERE started = true
+    `;
+
     getDeviceStatusesByTariffIdQuery(tariffId: number): IQueryTextWithParamsResult {
         const params = [
             tariffId,

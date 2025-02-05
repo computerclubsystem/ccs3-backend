@@ -1,7 +1,46 @@
 import { IDeviceSession } from 'src/storage/entities/device-session.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
+import { TariffType } from '@computerclubsystem/types/entities/tariff.mjs';
 
 export class DeviceSessionQueryHelper {
+    getDeviceSessionsSummarySinceQueryData(sinceDate: string): IQueryTextWithParamsResult {
+        const params = [
+            sinceDate,
+        ];
+        return {
+            text: this.getDeviceSessionsSummarySinceQuery,
+            params: params,
+        };
+    }
+
+    private readonly getDeviceSessionsSummarySinceQuery = `
+        SELECT 
+            SUM(total_amount) AS total,
+            COUNT(id)::int AS count
+        FROM device_session
+        WHERE stopped_at > $1
+    `;
+
+    getDeviceSessionsSummaryStoppedSinceDateQueryData(stoppedSinceDate: string, tariffTypes: TariffType[]): IQueryTextWithParamsResult {
+        const params = [
+            stoppedSinceDate,
+            tariffTypes,
+        ];
+        return {
+            text: this.getDeviceSessionsSummaryStoppedSinceQueryText,
+            params: params,
+        };
+    }
+
+    private readonly getDeviceSessionsSummaryStoppedSinceQueryText = `
+        SELECT
+            COUNT(id),
+            SUM(total_amount)
+        FROM device_session
+        WHERE stopped_at > $1
+            AND tariff_id = ANY($2)
+    `;
+
     addDeviceSessionQueryData(deviceSession: IDeviceSession): IQueryTextWithParamsResult {
         const params = [
             deviceSession.device_id,

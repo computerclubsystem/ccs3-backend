@@ -39,4 +39,5 @@ export enum BusErrorCode {
     timeMustBePositiveValue = 'time-must-be-positive-value',
     noRemainingTimeLeft = 'no-remaining-time-left',
     passwordDoesNotMatch = 'password-does-not-match',
+    shiftStatusesDoesNotMatch = 'shift-status-does-not-match',
 }

@@ -17,3 +17,23 @@ export interface IncreaseTariffRemainingSecondsResult {
     tariff: ITariff;
     tariffRecharge: ITariffRecharge;
 }
+
+export interface ICompletedSessionsSummary {
+    total: number;
+    count: number;
+}
+
+export interface ICurrentSessionsSummary {
+    total: number;
+    count: number;
+}
+
+export interface ICurrentContinuationsSummary {
+    total: number;
+    count: number;
+}
+
+export interface ITariffRechargesSummary {
+    total: number;
+    count: number;
+}

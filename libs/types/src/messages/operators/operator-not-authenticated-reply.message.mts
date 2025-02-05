@@ -1,8 +1,8 @@
-import { OperatorMessageType, OperatorReplyMessageType } from './declarations/operator-message-type.mjs';
+import { OperatorRequestMessageType, OperatorReplyMessageType } from './declarations/operator-message-type.mjs';
 import { OperatorReplyMessage } from './declarations/operator.message.mjs';
 
 export interface OperatorNotAuthenticatedMessageBody {
-    requestedMessageType: OperatorMessageType;
+    requestedMessageType: OperatorRequestMessageType;
 }
 
 export interface OperatorNotAuthenticatedMessage extends OperatorReplyMessage<OperatorNotAuthenticatedMessageBody> {

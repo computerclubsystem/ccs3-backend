@@ -24,9 +24,9 @@ import { Logger } from './logger.mjs';
 import { IStaticFilesServerConfig, StaticFilesServer } from './static-files-server.mjs';
 import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
 import { OperatorMessage, OperatorNotificationMessage, OperatorReplyMessage } from '@computerclubsystem/types/messages/operators/declarations/operator.message.mjs';
-import { OperatorMessageType, OperatorNotificationMessageType } from '@computerclubsystem/types/messages/operators/declarations/operator-message-type.mjs';
+import { OperatorRequestMessageType, OperatorNotificationMessageType } from '@computerclubsystem/types/messages/operators/declarations/operator-message-type.mjs';
 import { OperatorConnectionRoundTripData } from '@computerclubsystem/types/messages/operators/declarations/operator-connection-roundtrip-data.mjs';
-import { createOperatorConfigurationMessage, OperatorConfigurationMessage } from '@computerclubsystem/types/messages/operators/operator-configuration.message.mjs';
+import { createOperatorConfigurationNotificationMessage, OperatorConfigurationNotificationMessage } from '@computerclubsystem/types/messages/operators/operator-configuration.message.mjs';
 import { OperatorPingRequestMessage } from '@computerclubsystem/types/messages/operators/operator-ping-request.message.mjs';
 import { CacheHelper, UserAuthDataCacheValue } from './cache-helper.mjs';
 import {
@@ -141,13 +141,20 @@ import { OperatorRechargeTariffDurationRequestMessage } from '@computerclubsyste
 import { createBusRechargeTariffDurationRequestMessage } from '@computerclubsystem/types/messages/bus/bus-recharge-tariff-duration-request.message.mjs';
 import { BusRechargeTariffDurationReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-recharge-tariff-duration-reply.message.mjs';
 import { createOperatorRechargeTariffDurationReplyMessage } from '@computerclubsystem/types/messages/operators/operator-recharge-tariff-duration-reply.message.mjs';
-import { createOperatorGetSignedInUsersReplyMessage, OperatorGetSignedInUsersReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-signed-in-users-reply.message.mjs';
+import { createOperatorGetSignedInUsersReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-signed-in-users-reply.message.mjs';
 import { SignedInUser } from '@computerclubsystem/types/entities/signed-in-user.mjs';
 import { OperatorGetSignedInUsersRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-signed-in-users-request.message.mjs';
-import { connect } from 'node:http2';
-import { createOperatorForceSignOutAllUserSessionsReplyMessage, OperatorForceSignOutAllUserSessionsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-force-sign-out-all-user-sessions-reply.message.mjs';
+import { createOperatorForceSignOutAllUserSessionsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-force-sign-out-all-user-sessions-reply.message.mjs';
 import { OperatorForceSignOutAllUserSessionsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-force-sign-out-all-user-sessions-request.message.mjs';
 import { createOperatorSignedOutNotificationMessage } from '@computerclubsystem/types/messages/operators/operator-signed-out-notification.message.mjs';
+import { OperatorGetCurrentShiftStatusRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-current-shift-status-request.message.mjs';
+import { BusGetCurrentShiftStatusReplyMessage, BusGetCurrentShiftStatusReplyMessageBody, createBusGetCurrentShiftStatusReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-current-shift-status-reply.message.mjs';
+import { createBusGetCurrentShiftStatusRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-current-shift-status-request.message.mjs';
+import { createOperatorGetCurrentShiftStatusReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-current-shift-status-reply.message.mjs';
+import { OperatorCompleteShiftRequestMessage } from '@computerclubsystem/types/messages/operators/operator-complete-shift-request.message.mjs';
+import { createBusCompleteShiftRequestMessage } from '@computerclubsystem/types/messages/bus/bus-complete-shift-request.message.mjs';
+import { BusCompleteShiftReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-complete-shift-reply.message.mjs';
+import { createOperatorCompleteShiftReplyMessage } from '@computerclubsystem/types/messages/operators/operator-complete-shift-reply.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -243,95 +250,126 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
-            case OperatorMessageType.forceSignOutAllUserSessionsRequest:
+            case OperatorRequestMessageType.completeShiftRequest:
+                this.processOperatorCompleteShiftRequestMessage(clientData, message as OperatorCompleteShiftRequestMessage);
+                break;
+            case OperatorRequestMessageType.getCurrentShiftStatusRequest:
+                this.processOperatorGetCurrentShiftStatusRequestMessage(clientData, message as OperatorGetCurrentShiftStatusRequestMessage);
+                break;
+            case OperatorRequestMessageType.forceSignOutAllUserSessionsRequest:
                 this.processOperatorForceSignOutAllUserSessionsRequestMessage(clientData, message as OperatorForceSignOutAllUserSessionsRequestMessage);
                 break;
-            case OperatorMessageType.getSigndInUsersRequest:
+            case OperatorRequestMessageType.getSigndInUsersRequest:
                 this.processGetSignedInUsersRequestMessage(clientData, message as OperatorGetSignedInUsersRequestMessage);
                 break;
-            case OperatorMessageType.rechargeTariffDurationRequest:
+            case OperatorRequestMessageType.rechargeTariffDurationRequest:
                 this.processRechargeTariffDurationRequestMessage(clientData, message as OperatorRechargeTariffDurationRequestMessage);
                 break;
-            case OperatorMessageType.deleteDeviceContinuationRequest:
+            case OperatorRequestMessageType.deleteDeviceContinuationRequest:
                 this.processDeleteDeviceContinuationRequestMessage(clientData, message as OperatorDeleteDeviceContinuationRequestMessage);
                 break;
-            case OperatorMessageType.createDeviceContinuationRequest:
+            case OperatorRequestMessageType.createDeviceContinuationRequest:
                 this.processCreateDeviceContinuationRequestMessage(clientData, message as OperatorCreateDeviceContinuationRequestMessage);
                 break;
-            case OperatorMessageType.transferDeviceRequest:
+            case OperatorRequestMessageType.transferDeviceRequest:
                 this.processTransfrerDeviceRequestMessage(clientData, message as OperatorTransferDeviceRequestMessage);
                 break;
-            case OperatorMessageType.stopDeviceRequest:
+            case OperatorRequestMessageType.stopDeviceRequest:
                 this.processStopDeviceRequestMessage(clientData, message as OperatorStopDeviceRequestMessage);
                 break;
-            case OperatorMessageType.updateUserWithRolesRequest:
+            case OperatorRequestMessageType.updateUserWithRolesRequest:
                 this.processUpdateUserWithRolesRequestMessage(clientData, message as OperatorUpdateUserWithRolesRequestMessage);
                 break;
-            case OperatorMessageType.createUserWithRolesRequest:
+            case OperatorRequestMessageType.createUserWithRolesRequest:
                 this.processCreateUserWithRolesRequestMessage(clientData, message as OperatorCreateUserWithRolesRequestMessage);
                 break;
-            case OperatorMessageType.getUserWithRolesRequest:
+            case OperatorRequestMessageType.getUserWithRolesRequest:
                 this.processGetUserWithRolesRequestMessage(clientData, message as OperatorGetUserWithRolesRequestMessage);
                 break;
-            case OperatorMessageType.getAllUsersRequest:
+            case OperatorRequestMessageType.getAllUsersRequest:
                 this.processOperatorGetAllUsersRequestMessage(clientData, message as OperatorGetAllUsersRequestMessage);
                 break;
-            case OperatorMessageType.createRoleWithPermissionsRequest:
+            case OperatorRequestMessageType.createRoleWithPermissionsRequest:
                 this.processOperatorCreateRoleWithPermissionsRequestMessage(clientData, message as OperatorCreateRoleWithPermissionsRequestMessage);
                 break;
-            case OperatorMessageType.updateRoleWithPermissionsRequest:
+            case OperatorRequestMessageType.updateRoleWithPermissionsRequest:
                 this.processOperatorUpdateRoleWithPermissionsRequestMessage(clientData, message as OperatorUpdateRoleWithPermissionsRequestMessage);
                 break;
-            case OperatorMessageType.getAllPermissionsRequest:
+            case OperatorRequestMessageType.getAllPermissionsRequest:
                 this.processOperatorGetAllPermissionsRequestMessage(clientData, message as OperatorGetAllPermissionsRequestMessage);
                 break;
-            case OperatorMessageType.getRoleWithPermissionsRequest:
+            case OperatorRequestMessageType.getRoleWithPermissionsRequest:
                 this.processOperatorGetRoleWithPermissionsRequestMessage(clientData, message as OperatorGetRoleWithPermissionsRequestMessage);
                 break;
-            case OperatorMessageType.getAllRolesRequest:
+            case OperatorRequestMessageType.getAllRolesRequest:
                 this.processOperatorGetAllRolesRequestMessage(clientData, message as OperatorGetAllRolesRequestMessage);
                 break;
-            case OperatorMessageType.getDeviceStatusesRequest:
+            case OperatorRequestMessageType.getDeviceStatusesRequest:
                 this.processOperatorGetDeviceStatusesRequestMessage(clientData, message as OperatorGetDeviceStatusesRequestMessage);
                 break;
-            case OperatorMessageType.startDeviceRequest:
+            case OperatorRequestMessageType.startDeviceRequest:
                 this.processOperatorStartDeviceRequestMessage(clientData, message as OperatorStartDeviceRequestMessage);
                 break;
-            case OperatorMessageType.getTariffByIdRequest:
+            case OperatorRequestMessageType.getTariffByIdRequest:
                 this.processOperatorGetTariffByIdRequestMessage(clientData, message as OperatorGetTariffByIdRequestMessage);
                 break;
-            case OperatorMessageType.createTariffRequest:
+            case OperatorRequestMessageType.createTariffRequest:
                 this.processOperatorCreateTariffRequestMessage(clientData, message as OperatorCreateTariffRequestMessage);
                 break;
-            case OperatorMessageType.updateTariffRequest:
+            case OperatorRequestMessageType.updateTariffRequest:
                 this.processOperatorUpdateTariffRequestMessage(clientData, message as OperatorUpdateTariffRequestMessage);
                 break;
-            case OperatorMessageType.getAllTariffsRequest:
+            case OperatorRequestMessageType.getAllTariffsRequest:
                 this.processOperatorGetAllTariffsRequestMessage(clientData, message as OperatorGetAllTariffsRequestMessage);
                 break;
-            case OperatorMessageType.updateDeviceRequest:
+            case OperatorRequestMessageType.updateDeviceRequest:
                 this.processOperatorUpdateDeviceRequestMessage(clientData, message as OperatorUpdateDeviceRequestMessage);
                 break;
-            case OperatorMessageType.getAllDevicesRequest:
+            case OperatorRequestMessageType.getAllDevicesRequest:
                 this.processOperatorGetAllDevicesRequestMessage(clientData, message as OperatorGetAllDevicesRequestMessage);
                 break;
-            case OperatorMessageType.getDeviceByIdRequest:
+            case OperatorRequestMessageType.getDeviceByIdRequest:
                 this.processOperatorGetDeviceByIdRequestMessage(clientData, message as OperatorGetDeviceByIdRequestMessage);
                 break;
-            case OperatorMessageType.authRequest:
+            case OperatorRequestMessageType.authRequest:
                 this.processOperatorAuthRequestMessage(clientData, message as OperatorAuthRequestMessage);
                 break;
-            case OperatorMessageType.refreshTokenRequest:
+            case OperatorRequestMessageType.refreshTokenRequest:
                 this.processOperatorRefreshTokenRequestMessage(clientData, message as OperatorRefreshTokenRequestMessage);
                 break;
-            case OperatorMessageType.signOutRequest:
+            case OperatorRequestMessageType.signOutRequest:
                 this.processOperatorSignOutRequestMessage(clientData, message as OperatorSignOutRequestMessage);
                 break;
-            case OperatorMessageType.pingRequest:
+            case OperatorRequestMessageType.pingRequest:
                 clientData.receivedPingMessagesCount++;
                 this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    processOperatorCompleteShiftRequestMessage(clientData: ConnectedClientData, message: OperatorCompleteShiftRequestMessage): void {
+        const busReqMsg = createBusCompleteShiftRequestMessage();
+        busReqMsg.body.shiftStatus = message.body.shiftStatus;
+        busReqMsg.body.note = message.body.note;
+        busReqMsg.body.userId = clientData.userId!;
+        this.publishToOperatorsChannelAndWaitForReply<BusCompleteShiftReplyMessageBody>(busReqMsg, clientData)
+        .subscribe(busReplyMsg => {
+            const operatorReplyMsg = createOperatorCompleteShiftReplyMessage();
+            operatorReplyMsg.body.shift = busReplyMsg.body.shift;
+            this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+            this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+        });
+    }
+
+    processOperatorGetCurrentShiftStatusRequestMessage(clientData: ConnectedClientData, message: OperatorGetCurrentShiftStatusRequestMessage): void {
+        const busReqMsg = createBusGetCurrentShiftStatusRequestMessage();
+        this.publishToOperatorsChannelAndWaitForReply<BusGetCurrentShiftStatusReplyMessageBody>(busReqMsg, clientData)
+        .subscribe(busReplyMsg => {
+            const operatorReplyMsg = createOperatorGetCurrentShiftStatusReplyMessage();
+            operatorReplyMsg.body.shiftStatus = busReplyMsg.body.shiftStatus;
+            this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+            this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+        });
     }
 
     async processOperatorForceSignOutAllUserSessionsRequestMessage(clientData: ConnectedClientData, message: OperatorForceSignOutAllUserSessionsRequestMessage): Promise<void> {
@@ -744,7 +782,7 @@ export class OperatorConnector {
                 if (busReplyMessage.header.failure) {
                     // TODO: Set error in the response header. For this to work we need to have different request and reply headers
                 }
-                this.sendMessageToOperator(operatorReplyMsg, clientData, message);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
             });
     }
 
@@ -760,7 +798,7 @@ export class OperatorConnector {
             .subscribe(busReplyMessage => {
                 const operatorReplyMsg = createOperatorGetDeviceByIdReplyMessage();
                 operatorReplyMsg.body.device = busReplyMessage.body.device;
-                this.sendMessageToOperator(operatorReplyMsg, clientData, message);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
             });
     }
 
@@ -774,7 +812,7 @@ export class OperatorConnector {
             .subscribe(busReplyMessage => {
                 const operatorReplyMsg = createOperatorGetAllDevicesReplyMessage();
                 operatorReplyMsg.body.devices = busReplyMessage.body.devices;
-                this.sendMessageToOperator(operatorReplyMsg, clientData, message);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
             });
     }
 
@@ -827,7 +865,7 @@ export class OperatorConnector {
         replyMsg.body.sentPingMessagesCount = clientData.receivedPingMessagesCount;
         replyMsg.body.sessionStart = clientData.connectedAt;
         replyMsg.body.sessionEnd = this.getNowAsNumber();
-        this.sendMessageToOperator(replyMsg, clientData, message);
+        this.sendReplyMessageToOperator(replyMsg, clientData, message);
     }
 
     async processOperatorRefreshTokenRequestMessage(clientData: ConnectedClientData, message: OperatorRefreshTokenRequestMessage): Promise<void> {
@@ -841,7 +879,7 @@ export class OperatorConnector {
                 await this.cacheHelper.deleteAuthTokenKey(isTokenActiveResult.authTokenCacheValue?.token);
             }
             refreshTokenReplyMsg.body.success = false;
-            this.sendMessageToOperator(refreshTokenReplyMsg, clientData, message);
+            this.sendReplyMessageToOperator(refreshTokenReplyMsg, clientData, message);
             if (isTokenActiveResult.authTokenCacheValue) {
                 const operatorId = clientData.userId || isTokenActiveResult.authTokenCacheValue.userId;
                 const note = JSON.stringify({
@@ -881,7 +919,7 @@ export class OperatorConnector {
         const operatorId = clientData.userId || authTokenCacheValue.userId;
         clientData.userId = operatorId;
         // Send messages back to the operator
-        this.sendMessageToOperator(refreshTokenReplyMsg, clientData, message);
+        this.sendReplyMessageToOperator(refreshTokenReplyMsg, clientData, message);
         const note = JSON.stringify({
             clientData: clientData,
             authReplyMsg: refreshTokenReplyMsg,
@@ -991,7 +1029,7 @@ export class OperatorConnector {
         // Send messages back to the operator
         this.sendReplyMessageToOperator(authReplyMsg, clientData, message);
         const configurationMsg = this.createOperatorConfigurationMessage();
-        this.sendMessageToOperator(configurationMsg, clientData, null);
+        this.sendNotificationMessageToOperator(configurationMsg, clientData);
         const note = JSON.stringify({
             clientData: clientData,
             authReplyMsg: authReplyMsg,
@@ -1080,7 +1118,7 @@ export class OperatorConnector {
             // Send configuration message
             // TODO: Get configuration from the database
             const configurationMsg = this.createOperatorConfigurationMessage();
-            this.sendMessageToOperator(configurationMsg, clientData, operatorMessage);
+            this.sendNotificationMessageToOperator(configurationMsg, clientData);
 
             const note = JSON.stringify({
                 messageBody: message.body,
@@ -1102,7 +1140,7 @@ export class OperatorConnector {
         }
 
         // Check if the message can be send anonymously
-        const isAnonymousMessage = msgType === OperatorMessageType.authRequest;
+        const isAnonymousMessage = msgType === OperatorRequestMessageType.authRequest;
         if (!isAnonymousMessage && !clientData.isAuthenticated) {
             // The message can't be processed anonymously and the client is not authenticated
             result.canProcess = false;
@@ -1134,7 +1172,7 @@ export class OperatorConnector {
                 return result;
             }
             // Check permissions
-            const isAuthorizedResult = this.authorizationHelper.isAuthorized(clientData.permissions, msgType);
+            const isAuthorizedResult = this.authorizationHelper.isAuthorized(clientData.permissions, msgType, clientData.isAuthenticated);
             if (!isAuthorizedResult.authorized) {
                 result.canProcess = false;
                 result.errorReason = CanProcessOperatorMessageResultErrorReason.notAuthorized;
@@ -1212,7 +1250,7 @@ export class OperatorConnector {
         for (const connection of connections) {
             const clientData = connection[1];
             if (clientData.isAuthenticated) {
-                const isAuthorizedResult = this.authorizationHelper.isAuthorized(clientData.permissions, OperatorNotificationMessageType.deviceStatusesNotification);
+                const isAuthorizedResult = this.authorizationHelper.isAuthorized(clientData.permissions, OperatorNotificationMessageType.deviceStatusesNotification, clientData.isAuthenticated);
                 if (isAuthorizedResult.authorized) {
                     clientDataToSendTo.push(clientData);
                 }
@@ -1227,7 +1265,7 @@ export class OperatorConnector {
         for (const connection of connections) {
             const clientData = connection[1];
             if (clientData.isAuthenticated) {
-                const isAuthorizedResult = this.authorizationHelper.isAuthorized(clientData.permissions, OperatorNotificationMessageType.deviceConnectivitiesNotification);
+                const isAuthorizedResult = this.authorizationHelper.isAuthorized(clientData.permissions, OperatorNotificationMessageType.deviceConnectivitiesNotification, clientData.isAuthenticated);
                 if (isAuthorizedResult.authorized) {
                     clientDataToSendTo.push(clientData);
                 }
@@ -1340,8 +1378,8 @@ export class OperatorConnector {
         return certificateFingerprint.replaceAll(':', '').toLowerCase();
     }
 
-    createOperatorConfigurationMessage(): OperatorConfigurationMessage {
-        const configurationMsg = createOperatorConfigurationMessage();
+    createOperatorConfigurationMessage(): OperatorConfigurationNotificationMessage {
+        const configurationMsg = createOperatorConfigurationNotificationMessage();
         configurationMsg.body.pingInterval = this.state.pingInterval;
         return configurationMsg;
     }
@@ -1529,7 +1567,7 @@ export class OperatorConnector {
 
     processOperatorMessageReceived(args: MessageReceivedEventArgs): void {
         let msg: OperatorMessage<any> | null;
-        let type: OperatorMessageType | undefined;
+        let type: OperatorRequestMessageType | undefined;
         try {
             msg = this.deserializeWebSocketBufferToMessage(args.buffer);
             type = msg?.header?.type;

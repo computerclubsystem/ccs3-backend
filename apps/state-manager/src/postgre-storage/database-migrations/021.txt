@@ -1,0 +1,21 @@
+CREATE TABLE shift
+(
+    id serial NOT NULL,
+    user_id integer NOT NULL,
+    completed_sessions_total numeric(10, 2) NOT NULL,
+    completed_sessions_count integer NOT NULL,
+    running_sessions_total numeric(10, 2) NOT NULL,
+    running_sessions_count integer NOT NULL,
+    continuations_total numeric(10, 2) NOT NULL,
+    continuations_count integer NOT NULL,
+    total_amount numeric(10, 2) NOT NULL,
+    completed_at timestamp without time zone NOT NULL,
+    note text,
+    PRIMARY KEY (id),
+    FOREIGN KEY (user_id)
+        REFERENCES "user" (id)
+);
+
+UPDATE db_metadata
+SET value = '21'
+WHERE name = 'database-version';

@@ -210,7 +210,7 @@ The dependencies specified in the individual project's `package.json` files are 
         "<name-from-package.json-of-some-lib-like-@computerclubsystem/redis-client>": "*"
     },
     "devDependencies": {
-        "@types/node": "20.11.5",
+        "@types/node": "22.13.1",
         "typescript": "5.3.3"
     }
 }

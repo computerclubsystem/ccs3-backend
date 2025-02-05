@@ -16,8 +16,27 @@ import { IUser } from './storage/entities/user.mjs';
 import { User } from '@computerclubsystem/types/entities/user.mjs';
 import { IDeviceContinuation } from './storage/entities/device-continuation.mjs';
 import { DeviceContinuation } from '@computerclubsystem/types/entities/device-continuation.mjs';
+import { IShift } from './storage/entities/shift.mjs';
+import { Shift } from '@computerclubsystem/types/entities/shift.mjs';
 
 export class EntityConverter {
+    storageShiftToShift(storageShift: IShift): Shift {
+        const shift: Shift = {
+            id: storageShift.id,
+            completedSessionsCount: storageShift.completed_sessions_count,
+            completedSessionsTotal: storageShift.completed_sessions_total,
+            runningSessionsCount: storageShift.running_sessions_count,
+            runningSessionsTotal: storageShift.running_sessions_total,
+            continuationsTotal: storageShift.continuations_total,
+            continuationsCount: storageShift.continuations_count,
+            totalAmount: storageShift.total_amount,
+            completedAt: storageShift.completed_at,
+            userId: storageShift.user_id,
+            note: storageShift.note,
+        };
+        return shift;
+    }
+
     /**
      * Converts DeviceContinuation to IDeviceContinuation without requestedAt
      * @param deviceContinuation 

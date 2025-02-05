@@ -18,10 +18,14 @@ import { ITariff } from 'src/storage/entities/tariff.mjs';
 import { IDeviceSession } from 'src/storage/entities/device-session.mjs';
 import { IRole } from 'src/storage/entities/role.mjs';
 import { IPermission } from 'src/storage/entities/permission.mjs';
-import { CompleteDeviceStatusUpdateResult, IncreaseTariffRemainingSecondsResult, TransferDeviceResult } from 'src/storage/results.mjs';
-import { DeviceStatus } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
+import {
+    CompleteDeviceStatusUpdateResult, ICompletedSessionsSummary, ICurrentContinuationsSummary,
+    ICurrentSessionsSummary, IncreaseTariffRemainingSecondsResult, ITariffRechargesSummary,
+    TransferDeviceResult
+} from 'src/storage/results.mjs';
 import { IDeviceContinuation } from 'src/storage/entities/device-continuation.mjs';
 import { ITariffRecharge } from 'src/storage/entities/tariff-recharge.mjs';
+import { IShift } from 'src/storage/entities/shift.mjs';
 
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
@@ -61,6 +65,24 @@ export class PostgreStorageProvider implements StorageProvider {
             return parseFloat(numericString);
         });
         return result;
+    }
+
+    async addShift(shift: IShift): Promise<IShift> {
+        const queryData = this.queryUtils.addShiftQueryData(shift);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows[0] as IShift;
+    }
+    
+    async getCompletedSessionsSummary(sinceDate: string): Promise<ICompletedSessionsSummary> {
+        const queryData = this.queryUtils.getDeviceSessionsSummarySinceQueryData(sinceDate);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows[0] as ICompletedSessionsSummary;
+    }
+
+    async getLastShift(): Promise<IShift | undefined> {
+        const queryData = this.queryUtils.getLastShiftQueryData();
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows[0] as IShift | undefined;
     }
 
     async transferDevice(sourceDeviceId: number, targetDeviceId: number, userId: number): Promise<TransferDeviceResult | undefined> {
@@ -598,7 +620,7 @@ export class PostgreStorageProvider implements StorageProvider {
                 this.logger.log('Will migrate the database version from', databaseVersion, 'to', sortedDirEntries.length);
                 for (let i = databaseVersion + 1; i <= sortedDirEntries.length; i++) {
                     const dirEntry = sortedDirEntries[i - 1];
-                    const scriptFilePath = path.join(dirEntry.path, dirEntry.name);
+                    const scriptFilePath = path.join(dirEntry.parentPath, dirEntry.name);
                     const scriptContent = (await fs.readFile(scriptFilePath)).toString();
                     this.logger.log('Executing database migration script', scriptFilePath, scriptContent);
                     const queryResult = await migrateClient.query(scriptContent);

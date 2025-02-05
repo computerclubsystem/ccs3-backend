@@ -113,6 +113,10 @@ export enum IsAuthorizedResultReason {
      * When the message does not need permissions (like the message for authenticating, refreshing the token, pinging etc. (the last 2 are authorized by the presence of valid token only, permission is not needed))
      */
     permissionIsNotRequired = 'permission-is-not-required',
+    /**
+     * Some messages does not need permissions but need the user to be authenticated
+     */
+    notAuthenticated = 'not-authenticated',
 }
 
 export interface IsAuthorizedResult {

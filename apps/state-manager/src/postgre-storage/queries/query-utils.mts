@@ -22,6 +22,8 @@ import { DeviceContinuationQueryHelper } from './device-continuation-query-helpe
 import { IDeviceContinuation } from 'src/storage/entities/device-continuation.mjs';
 import { ITariffRecharge } from 'src/storage/entities/tariff-recharge.mjs';
 import { TariffRechargeQueryHelper } from './tariff-recharge-query-helper.mjs';
+import { ShiftQueryHelper } from './shift-query-helper.mjs';
+import { IShift } from 'src/storage/entities/shift.mjs';
 
 export class QueryUtils {
     private readonly helpers = {
@@ -38,7 +40,20 @@ export class QueryUtils {
         user: new UserQueryHelper(),
         deviceContinuation: new DeviceContinuationQueryHelper(),
         tariffRecharge: new TariffRechargeQueryHelper(),
+        shift: new ShiftQueryHelper(),
     };
+
+    addShiftQueryData(shift: IShift): IQueryTextWithParamsResult {
+        return this.helpers.shift.addShiftQueryData(shift);
+    }
+
+    getDeviceSessionsSummarySinceQueryData(sinceDate: string): IQueryTextWithParamsResult {
+        return this.helpers.deviceSession.getDeviceSessionsSummarySinceQueryData(sinceDate);
+    }
+
+    getLastShiftQueryData(): IQueryTextWithParamsResult {
+        return this.helpers.shift.getLastShiftQueryData();
+    }
 
     updateDeviceContinuationDeviceIdQuery(sourceDeviceId: number, targetDeviceId: number): IQueryTextWithParamsResult {
         return this.helpers.deviceContinuation.updateDeviceContinuationDeviceIdQuery(sourceDeviceId, targetDeviceId);

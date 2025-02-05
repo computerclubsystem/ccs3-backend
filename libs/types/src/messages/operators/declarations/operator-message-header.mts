@@ -1,9 +1,9 @@
 import { MessageError } from 'src/messages/declarations/message-error.mjs';
-import { OperatorMessageType, OperatorNotificationMessageType, OperatorReplyMessageType } from './operator-message-type.mjs';
+import { OperatorRequestMessageType, OperatorNotificationMessageType, OperatorReplyMessageType } from './operator-message-type.mjs';
 import { OperatorRoundTripData } from './operator-round-trip-data.mjs';
 
 export interface OperatorMessageHeader {
-    type: OperatorMessageType;
+    type: OperatorRequestMessageType;
     correlationId?: string;
     // source?: string;
     // target?: string;

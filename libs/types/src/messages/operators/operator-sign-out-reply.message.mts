@@ -1,5 +1,5 @@
-import { OperatorMessageType } from './declarations/operator-message-type.mjs';
-import { OperatorMessage } from './declarations/operator.message.mjs';
+import { OperatorReplyMessageType } from './declarations/operator-message-type.mjs';
+import { OperatorReplyMessage } from './declarations/operator.message.mjs';
 
 export interface OperatorSignOutReplyMessageBody {
     sessionStart: number;
@@ -9,12 +9,12 @@ export interface OperatorSignOutReplyMessageBody {
     sentPingMessagesCount: number;
 }
 
-export interface OperatorSignOutReplyMessage extends OperatorMessage<OperatorSignOutReplyMessageBody> {
+export interface OperatorSignOutReplyMessage extends OperatorReplyMessage<OperatorSignOutReplyMessageBody> {
 }
 
 export function createOperatorSignOutReplyMessage(): OperatorSignOutReplyMessage {
     const msg: OperatorSignOutReplyMessage = {
-        header: { type: OperatorMessageType.signOutReply },
+        header: { type: OperatorReplyMessageType.signOutReply },
         body: {} as OperatorSignOutReplyMessageBody,
     };
     return msg;

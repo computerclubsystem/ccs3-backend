@@ -1,5 +1,5 @@
-import { OperatorMessageType } from './declarations/operator-message-type.mjs';
-import { OperatorMessage } from './declarations/operator.message.mjs';
+import { OperatorReplyMessageType } from './declarations/operator-message-type.mjs';
+import { OperatorReplyMessage } from './declarations/operator.message.mjs';
 
 export interface OperatorRefreshTokenReplyMessageBody {
     success: boolean;
@@ -8,12 +8,12 @@ export interface OperatorRefreshTokenReplyMessageBody {
     tokenExpiresAt?: number;
 }
 
-export interface OperatorRefreshTokenReplyMessage extends OperatorMessage<OperatorRefreshTokenReplyMessageBody> {
+export interface OperatorRefreshTokenReplyMessage extends OperatorReplyMessage<OperatorRefreshTokenReplyMessageBody> {
 }
 
 export function createOperatorRefreshTokenReplyMessage(): OperatorRefreshTokenReplyMessage {
     const msg: OperatorRefreshTokenReplyMessage = {
-        header: { type: OperatorMessageType.refreshTokenReply },
+        header: { type: OperatorReplyMessageType.refreshTokenReply },
         body: {} as OperatorRefreshTokenReplyMessageBody,
     };
     return msg;

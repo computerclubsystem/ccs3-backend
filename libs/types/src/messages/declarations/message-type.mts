@@ -12,6 +12,12 @@ export const enum MessageType {
     busOperatorAuthRequest = 'bus-operator-auth-request',
     busOperatorAuthReply = 'bus-operator-auth-reply',
 
+    // Shifts
+    busGetCurrentShiftStatusRequest = 'bus-get-current-shift-status-request',
+    busGetCurrentShiftStatusReply = 'bus-get-current-shift-status-reply',
+    busCompleteShiftRequest = 'bus-complete-shift-request',
+    busCompleteShiftReply = 'bus-complete-shift-reply',
+
     busOperatorConnectionEvent = 'bus-operator-connection-event',
 
     // Devices

@@ -96,6 +96,13 @@ import { createBusEndDeviceSessionByCustomerReplyMessage } from '@computerclubsy
 import { ITariff } from './storage/entities/tariff.mjs';
 import { BusChangePrepaidTariffPasswordByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-change-prepaid-tariff-password-by-customer-request.message.mjs';
 import { createBusChangePrepaidTariffPasswordByCustomerReplyMessage } from '@computerclubsystem/types/messages/bus/bus-change-prepaid-tariff-password-by-customer-reply.message.mjs';
+import { BusGetCurrentShiftStatusRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-current-shift-status-request.message.mjs';
+import { createBusGetCurrentShiftStatusReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-current-shift-status-reply.message.mjs';
+import { ShiftStatus } from '@computerclubsystem/types/entities/shift-status.mjs';
+import { BusCompleteShiftRequestMessage } from '@computerclubsystem/types/messages/bus/bus-complete-shift-request.message.mjs';
+import { createBusCompleteShiftReplyMessage } from '@computerclubsystem/types/messages/bus/bus-complete-shift-reply.message.mjs';
+import { Shift } from '@computerclubsystem/types/entities/shift.mjs';
+import { IShift } from './storage/entities/shift.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -139,6 +146,12 @@ export class StateManager {
     processOperatorsChannelMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busCompleteShiftRequest:
+                this.processBusCompleteShiftRequestMessage(message as BusCompleteShiftRequestMessage);
+                break;
+            case MessageType.busGetCurrentShiftStatusRequest:
+                this.processBusGetCurrentShiftStatusRequestMessage(message as BusGetCurrentShiftStatusRequestMessage);
+                break;
             case MessageType.busRechargeTariffDurationRequest:
                 this.processBusRechargeTariffDurationRequestMessage(message as BusRechargeTariffDurationRequestMessage);
                 break;
@@ -235,6 +248,138 @@ export class StateManager {
             case MessageType.busDeviceConnectionEvent:
                 this.processDeviceConnectionEventMessage(message as BusDeviceConnectionEventMessage);
                 break;
+        }
+    }
+
+    compareShiftStatuses(left: ShiftStatus, right: ShiftStatus): boolean {
+        if (!left || !right) {
+            return false;
+        }
+        if (left.completedSessionsCount !== right.completedSessionsCount) {
+            return false;
+        }
+        if (left.completedSessionsTotal !== right.completedSessionsTotal) {
+            return false;
+        }
+        if (left.continuationsCount !== right.continuationsCount) {
+            return false;
+        }
+        if (left.continuationsTotal !== right.continuationsTotal) {
+            return false;
+        }
+        if (left.runningSessionsCount !== right.runningSessionsCount) {
+            return false;
+        }
+        if (left.totalAmount !== right.totalAmount) {
+            return false;
+        }
+        return true;
+    }
+
+    async processBusCompleteShiftRequestMessage(message: BusCompleteShiftRequestMessage): Promise<void> {
+        const replyMsg = createBusCompleteShiftReplyMessage();
+        try {
+            if (!message.body.userId) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userIdIsRequired,
+                    description: 'User Id is required',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const shiftStatus = await this.getShiftStatus();
+            const areShiftStatusesEqual = this.compareShiftStatuses(shiftStatus, message.body.shiftStatus);
+            if (!areShiftStatusesEqual) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.shiftStatusesDoesNotMatch,
+                    description: 'Provided shift status does not match with current shift status',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const storageShiftToAdd: IShift = {
+                completed_at: this.dateTimeHelper.getCurrentUTCDateTimeAsISOString(),
+                completed_sessions_count: shiftStatus.completedSessionsCount,
+                completed_sessions_total: shiftStatus.completedSessionsTotal,
+                continuations_count: shiftStatus.continuationsCount,
+                continuations_total: shiftStatus.continuationsTotal,
+                running_sessions_count: shiftStatus.runningSessionsCount,
+                running_sessions_total: shiftStatus.runningSessionsTotal,
+                total_amount: shiftStatus.totalAmount,
+                user_id: message.body.userId,
+                note: message.body.note,
+            } as IShift;
+            const addedStorageShift = await this.storageProvider.addShift(storageShiftToAdd);
+            const shift = this.entityConverter.storageShiftToShift(addedStorageShift);
+            replyMsg.body.shift = shift;
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusCompleteShiftRequestMessage message`, message, err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+    async getShiftStatus(): Promise<ShiftStatus> {
+        const allTariffs = await this.getAndCacheAllTariffs();
+        const storageLastShift = await this.storageProvider.getLastShift();
+        // If there is no previous shift, use date that will include all the records in device completed sessions
+        const sinceDate = storageLastShift ? storageLastShift.completed_at : '1900-01-01 12:00:00';
+        const storageCompletedSessionsSummary = await this.storageProvider.getCompletedSessionsSummary(sinceDate);
+        // If there are no completed sessions, the count will be 0 but total is null - change it to 0 in this case
+        storageCompletedSessionsSummary.total ||= 0;
+        const storageAllDeviceStatusesWithContinuation = await this.storageProvider.getAllDeviceStatusesWithContinuationData();
+        const storageStartedDeviceStatuses = storageAllDeviceStatusesWithContinuation.filter(x => x.started);
+        const nonPrepaidTariffsIds = allTariffs.filter(x => x.type !== TariffType.prepaid).map(x => x.id);
+        const storageStartedDeviceStatusesOnNonPrepaidTariffs = storageStartedDeviceStatuses.filter(x => nonPrepaidTariffsIds.includes(x.start_reason!));
+        // Running sessions count will include started device on all tariffs
+        // while the running sessions total will include only devices started for non-prepaid tariffs
+        let runningSessionsCount = storageStartedDeviceStatuses.length;
+        let runningSessionsTotal = 0;
+        let continuationsCount = 0;
+        let continuationsTotal = 0;
+        for (const startedDevice of storageStartedDeviceStatusesOnNonPrepaidTariffs) {
+            const tariff = allTariffs.find(x => x.id === startedDevice.start_reason)!;
+            runningSessionsTotal += tariff.price;
+            if (startedDevice.continuation_tariff_id) {
+                const continuationTariff = allTariffs.find(x => x.id === startedDevice.continuation_tariff_id)!;
+                continuationsTotal += continuationTariff.price;
+                continuationsCount++;
+            }
+        }
+        const shiftStatus: ShiftStatus = {
+            completedSessionsCount: storageCompletedSessionsSummary.count,
+            completedSessionsTotal: storageCompletedSessionsSummary.total,
+            continuationsCount: continuationsCount,
+            continuationsTotal: continuationsTotal,
+            runningSessionsCount: runningSessionsCount,
+            runningSessionsTotal: runningSessionsTotal,
+            totalAmount: storageCompletedSessionsSummary.total + runningSessionsTotal + continuationsTotal,
+            totalCount: storageCompletedSessionsSummary.count + continuationsCount + runningSessionsCount,
+        };
+        return shiftStatus;
+    }
+
+    async processBusGetCurrentShiftStatusRequestMessage(message: BusGetCurrentShiftStatusRequestMessage): Promise<void> {
+        const replyMsg = createBusGetCurrentShiftStatusReplyMessage();
+        try {
+            const shiftStatus = await this.getShiftStatus();
+            replyMsg.body.shiftStatus = shiftStatus;
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.logger.warn(`Can't process BusGetCurrentShiftStatusRequestMessage message`, message, err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: '',
+                description: (err as any)?.message
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
         }
     }
 
