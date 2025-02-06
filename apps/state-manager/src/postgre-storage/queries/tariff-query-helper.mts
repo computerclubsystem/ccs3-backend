@@ -1,6 +1,6 @@
 import { ITariff } from 'src/storage/entities/tariff.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
-import { InsertQueryBuilder, UpdateQueryBuilder } from './query-builder.mjs';
+import { InsertQueryBuilder, SelectQueryBuilder, UpdateQueryBuilder, WhereClauseOperation } from './query-builder.mjs';
 
 export class TariffQueryHelper {
     private returningQueryText = `
@@ -22,6 +22,28 @@ export class TariffQueryHelper {
             remaining_seconds,
             can_be_started_by_customer
     `;
+
+    getCreatedTariffsForDateTimeInterval(fromDate: string | undefined | null, toDate: string): IQueryTextWithParamsResult {
+        const builder = new SelectQueryBuilder();
+        builder.setTableName(TableName.tariff);
+        builder.addSelectColumnNames(this.getReturningColumnNames());
+        const params: unknown[] = [];
+        let paramNumber = 0;
+        if (fromDate) {
+            paramNumber++;
+            builder.addWhereClause({ columnName: ColumnName.created_at, operation: WhereClauseOperation.greaterThan, parameterName: `$${paramNumber}` });
+            params.push(fromDate);
+        }
+        paramNumber++;
+        builder.addWhereClause({ columnName: ColumnName.created_at, operation: WhereClauseOperation.lessThan, parameterName: `$${paramNumber}` });
+        params.push(toDate);
+        return {
+            text: builder.getQueryString(),
+            params: params
+        };
+    }
+
+    // getRechargedTariffsFordateTimeInterval(fromDate: string, toDate: string): Promise<ITariff[]>;
 
     checkTariffPasswordHashQueryData(tariffId: number, passwordHash: string): IQueryTextWithParamsResult {
         const params = [
@@ -272,6 +294,10 @@ export class TariffQueryHelper {
         FROM tariff
         WHERE id = $1
     `;
+
+    private createSelectQueryBuilder(): SelectQueryBuilder {
+        return new SelectQueryBuilder();
+    }
 
     private createInsertQueryBuilder(): InsertQueryBuilder {
         return new InsertQueryBuilder();

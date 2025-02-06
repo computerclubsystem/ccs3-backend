@@ -5,6 +5,10 @@ export interface ShiftStatus {
     runningSessionsCount: number;
     continuationsTotal: number;
     continuationsCount: number;
+    createdPrepaidTariffsCount: number;
+    createdPrepaidTariffsTotal: number;
+    rechargedPrepaidTariffsCount: number;
+    rechargedPrepaidTariffsTotal: number;
     totalAmount: number;
     totalCount: number;
 }

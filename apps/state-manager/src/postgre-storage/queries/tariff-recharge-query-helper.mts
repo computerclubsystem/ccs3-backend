@@ -1,8 +1,28 @@
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
-import { InsertQueryBuilder } from './query-builder.mjs';
+import { InsertQueryBuilder, SelectQueryBuilder, WhereClauseOperation } from './query-builder.mjs';
 import { ITariffRecharge } from 'src/storage/entities/tariff-recharge.mjs';
 
 export class TariffRechargeQueryHelper {
+    getRechargedTariffsForDateTimeInterval(fromDate: string | undefined | null, toDate: string): IQueryTextWithParamsResult {
+        const builder = new SelectQueryBuilder();
+        builder.setTableName(TableName.tariff_recharge);
+        builder.addSelectColumnNames(this.getReturningColumnNames());
+        const params: unknown[] = [];
+        let paramNumber = 0;
+        if (fromDate) {
+            paramNumber++;
+            builder.addWhereClause({ columnName: ColumnName.recharged_at, operation: WhereClauseOperation.greaterThan, parameterName: `$${paramNumber}` });
+            params.push(fromDate);
+        }
+        paramNumber++;
+        builder.addWhereClause({ columnName: ColumnName.recharged_at, operation: WhereClauseOperation.lessThan, parameterName: `$${paramNumber}` });
+        params.push(toDate);
+        return {
+            text: builder.getQueryString(),
+            params: params
+        };
+    }
+
     addTariffRechargeQueryData(tariffRecharge: ITariffRecharge): IQueryTextWithParamsResult {
         const builder = this.createInsertQueryBuilder();
         builder.setTableName(TableName.tariff_recharge);

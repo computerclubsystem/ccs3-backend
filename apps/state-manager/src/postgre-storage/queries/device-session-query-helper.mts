@@ -3,23 +3,31 @@ import { IQueryTextWithParamsResult } from './query-with-params.mjs';
 import { TariffType } from '@computerclubsystem/types/entities/tariff.mjs';
 
 export class DeviceSessionQueryHelper {
-    getDeviceSessionsSummarySinceQueryData(sinceDate: string): IQueryTextWithParamsResult {
-        const params = [
-            sinceDate,
-        ];
+    getCompletedSessionsSummaryQueryData(fromDate: string | null | undefined, toDate: string): IQueryTextWithParamsResult {
+        const params: unknown[] = [];
+        let getCompletedSessionsSummaryQueryText = `
+            SELECT
+                SUM(total_amount) AS total,
+                COUNT(id)::int AS count
+            FROM device_session
+        `;
+        if (fromDate) {
+            params.push(fromDate);
+            params.push(toDate);
+            getCompletedSessionsSummaryQueryText += `
+                WHERE stopped_at > $1 AND stopped_at < $2
+            `;
+        } else {
+            params.push(toDate);
+            getCompletedSessionsSummaryQueryText += `
+            WHERE stopped_at < $1
+        `;
+        }
         return {
-            text: this.getDeviceSessionsSummarySinceQuery,
+            text: getCompletedSessionsSummaryQueryText,
             params: params,
         };
     }
-
-    private readonly getDeviceSessionsSummarySinceQuery = `
-        SELECT 
-            SUM(total_amount) AS total,
-            COUNT(id)::int AS count
-        FROM device_session
-        WHERE stopped_at > $1
-    `;
 
     getDeviceSessionsSummaryStoppedSinceDateQueryData(stoppedSinceDate: string, tariffTypes: TariffType[]): IQueryTextWithParamsResult {
         const params = [

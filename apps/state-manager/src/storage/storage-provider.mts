@@ -13,6 +13,7 @@ import { IPermission } from './entities/permission.mjs';
 import { CompleteDeviceStatusUpdateResult, ICompletedSessionsSummary, ICurrentContinuationsSummary, ICurrentSessionsSummary, IncreaseTariffRemainingSecondsResult, ITariffRechargesSummary, TransferDeviceResult } from './results.mjs';
 import { IDeviceContinuation } from './entities/device-continuation.mjs';
 import { IShift } from './entities/shift.mjs';
+import { ITariffRecharge } from './entities/tariff-recharge.mjs';
 
 export interface StorageProvider {
     getAllUsers(): Promise<IUser[]>;
@@ -44,7 +45,7 @@ export interface StorageProvider {
 
     // Shift
     getLastShift(): Promise<IShift | undefined>;
-    getCompletedSessionsSummary(sinceDate: string): Promise<ICompletedSessionsSummary>;
+    getCompletedSessionsSummary(fromDate: string | null | undefined, toDate: string): Promise<ICompletedSessionsSummary>;
     addShift(shift: IShift): Promise<IShift>;
 
     getAllSystemSettings(): Promise<ISystemSetting[]>;
@@ -60,6 +61,8 @@ export interface StorageProvider {
     updateTariffRemainingSeconds(tariffId: number, remainingSeconds: number): Promise<ITariff | undefined>;
     increaseTariffRemainingSeconds(tariffId: number, secondsToAdd: number, userId: number, increasedAt: string): Promise<IncreaseTariffRemainingSecondsResult | undefined>;
     updateTariffPasswordHash(tariffId: number, passwordHash: string): Promise<ITariff | undefined>;
+    getCreatedTariffsForDateTimeInterval(fromDate: string | undefined | null, toDate: string): Promise<ITariff[]>;
+    getRechargedTariffsForDateTimeInterval(fromDate: string | undefined | null, toDate: string): Promise<ITariffRecharge[]>;
 
     getAllRoles(): Promise<IRole[]>;
     getRoleById(roleId: number): Promise<IRole | undefined>;

@@ -255,24 +255,20 @@ export class StateManager {
         if (!left || !right) {
             return false;
         }
-        if (left.completedSessionsCount !== right.completedSessionsCount) {
+        const leftKeys = Object.keys(left);
+        const rightKeys = Object.keys(right);
+        if (leftKeys.length !== rightKeys.length) {
             return false;
         }
-        if (left.completedSessionsTotal !== right.completedSessionsTotal) {
-            return false;
+        const getObjectValue = (obj: unknown, key: string) => (obj as any)[key];
+        for (const key of leftKeys) {
+            const leftValue = getObjectValue(left, key);
+            const rightValue = getObjectValue(right, key);
+            if (leftValue !== rightValue) {
+                return false;
+            }
         }
-        if (left.continuationsCount !== right.continuationsCount) {
-            return false;
-        }
-        if (left.continuationsTotal !== right.continuationsTotal) {
-            return false;
-        }
-        if (left.runningSessionsCount !== right.runningSessionsCount) {
-            return false;
-        }
-        if (left.totalAmount !== right.totalAmount) {
-            return false;
-        }
+
         return true;
     }
 
@@ -307,6 +303,10 @@ export class StateManager {
                 continuations_total: shiftStatus.continuationsTotal,
                 running_sessions_count: shiftStatus.runningSessionsCount,
                 running_sessions_total: shiftStatus.runningSessionsTotal,
+                created_prepaid_tariffs_count: shiftStatus.createdPrepaidTariffsCount,
+                created_prepaid_tariffs_total: shiftStatus.createdPrepaidTariffsTotal,
+                recharged_prepaid_tariffs_count: shiftStatus.rechargedPrepaidTariffsCount,
+                recharged_prepaid_tariffs_total: shiftStatus.rechargedPrepaidTariffsTotal,
                 total_amount: shiftStatus.totalAmount,
                 user_id: message.body.userId,
                 note: message.body.note,
@@ -328,23 +328,39 @@ export class StateManager {
 
     async getShiftStatus(): Promise<ShiftStatus> {
         const allTariffs = await this.getAndCacheAllTariffs();
+        const nowISOString = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
+
+        // Get last shift to know from which date-time to calculate current shift
         const storageLastShift = await this.storageProvider.getLastShift();
-        // If there is no previous shift, use date that will include all the records in device completed sessions
-        const sinceDate = storageLastShift ? storageLastShift.completed_at : '1900-01-01 12:00:00';
-        const storageCompletedSessionsSummary = await this.storageProvider.getCompletedSessionsSummary(sinceDate);
+        const fromDate = storageLastShift?.completed_at;
+        // Completed device sessions since when the last shift was cmpleted
+        const storageCompletedSessionsSummary = await this.storageProvider.getCompletedSessionsSummary(fromDate, nowISOString);
         // If there are no completed sessions, the count will be 0 but total is null - change it to 0 in this case
         storageCompletedSessionsSummary.total ||= 0;
+
+        // Created prepaid tariffs
+        const storageCreatedTariffs = await this.storageProvider.getCreatedTariffsForDateTimeInterval(fromDate, nowISOString);
+        const storageCreatedPrepaidTariffs = storageCreatedTariffs.filter(x => x.type === (TariffType.prepaid as number));
+        let createdPrepaidTariffsCount = storageCreatedPrepaidTariffs.length;
+        let createdPrepaidTariffsTotal = storageCreatedPrepaidTariffs.reduce((prevValue, tariff) => prevValue + tariff.price, 0);
+
+        // Recharged tariffs
+        const storageRechargedTariffs = await this.storageProvider.getRechargedTariffsForDateTimeInterval(fromDate, nowISOString);
+        let rechargedPrepaidTariffsCount = storageRechargedTariffs.length;
+        let rechargedPrepaidTariffsTotal = storageRechargedTariffs.reduce((prevValue, tariff) => prevValue + tariff.recharge_price, 0);
+
+        // Current started device statuses with continuations started for non-prepaid tariff
         const storageAllDeviceStatusesWithContinuation = await this.storageProvider.getAllDeviceStatusesWithContinuationData();
         const storageStartedDeviceStatuses = storageAllDeviceStatusesWithContinuation.filter(x => x.started);
-        const nonPrepaidTariffsIds = allTariffs.filter(x => x.type !== TariffType.prepaid).map(x => x.id);
-        const storageStartedDeviceStatusesOnNonPrepaidTariffs = storageStartedDeviceStatuses.filter(x => nonPrepaidTariffsIds.includes(x.start_reason!));
+        const nonPrepaidTariffsIdsSet = new Set<number>(allTariffs.filter(x => x.type !== TariffType.prepaid).map(x => x.id));
+        const storageStartedDeviceStatusesForNonPrepaidTariffs = storageStartedDeviceStatuses.filter(x => nonPrepaidTariffsIdsSet.has(x.start_reason!));
         // Running sessions count will include started device on all tariffs
         // while the running sessions total will include only devices started for non-prepaid tariffs
         let runningSessionsCount = storageStartedDeviceStatuses.length;
         let runningSessionsTotal = 0;
         let continuationsCount = 0;
         let continuationsTotal = 0;
-        for (const startedDevice of storageStartedDeviceStatusesOnNonPrepaidTariffs) {
+        for (const startedDevice of storageStartedDeviceStatusesForNonPrepaidTariffs) {
             const tariff = allTariffs.find(x => x.id === startedDevice.start_reason)!;
             runningSessionsTotal += tariff.price;
             if (startedDevice.continuation_tariff_id) {
@@ -353,6 +369,17 @@ export class StateManager {
                 continuationsCount++;
             }
         }
+
+        const totalAmount = storageCompletedSessionsSummary.total
+            + continuationsTotal
+            + runningSessionsTotal
+            + createdPrepaidTariffsTotal
+            + rechargedPrepaidTariffsTotal;
+        const totalCount = storageCompletedSessionsSummary.count
+            + continuationsCount
+            + runningSessionsCount
+            + createdPrepaidTariffsCount
+            + rechargedPrepaidTariffsCount;
         const shiftStatus: ShiftStatus = {
             completedSessionsCount: storageCompletedSessionsSummary.count,
             completedSessionsTotal: storageCompletedSessionsSummary.total,
@@ -360,8 +387,12 @@ export class StateManager {
             continuationsTotal: continuationsTotal,
             runningSessionsCount: runningSessionsCount,
             runningSessionsTotal: runningSessionsTotal,
-            totalAmount: storageCompletedSessionsSummary.total + runningSessionsTotal + continuationsTotal,
-            totalCount: storageCompletedSessionsSummary.count + continuationsCount + runningSessionsCount,
+            createdPrepaidTariffsCount: createdPrepaidTariffsCount,
+            createdPrepaidTariffsTotal: createdPrepaidTariffsTotal,
+            rechargedPrepaidTariffsCount: rechargedPrepaidTariffsCount,
+            rechargedPrepaidTariffsTotal: rechargedPrepaidTariffsTotal,
+            totalAmount: totalAmount,
+            totalCount: totalCount,
         };
         return shiftStatus;
     }
@@ -2421,7 +2452,7 @@ export class StateManager {
             this.logger.error('The environment variable', this.envVars.CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING.name, 'value is empty');
             return false;
         }
-        this.storageProvider = this.getStorageProvider();
+        this.storageProvider = this.createStorageProvider();
         const storageProviderConfig: StorageProviderConfig = {
             // adminConnectionString: undefined,
             connectionString: storageProviderConnectionString,
@@ -2431,7 +2462,7 @@ export class StateManager {
         return initRes.success;
     }
 
-    private getStorageProvider(): StorageProvider {
+    private createStorageProvider(): StorageProvider {
         return new PostgreStorageProvider();
     }
 

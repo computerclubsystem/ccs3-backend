@@ -7,6 +7,10 @@ export interface Shift {
     runningSessionsCount: number;
     continuationsTotal: number;
     continuationsCount: number;
+    createdPrepaidTariffsTotal: number;
+    createdPrepaidTariffsCount: number;
+    rechargedPrepaidTariffsTotal: number;
+    rechargedPrepaidTariffsCount: number;
     totalAmount: number;
     completedAt: string;
     note?: string | null;

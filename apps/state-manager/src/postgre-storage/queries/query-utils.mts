@@ -42,13 +42,21 @@ export class QueryUtils {
         tariffRecharge: new TariffRechargeQueryHelper(),
         shift: new ShiftQueryHelper(),
     };
+    
+    getRechargedTariffsForDateTimeIntervalQueryData(fromDate: string | undefined | null, toDate: string): IQueryTextWithParamsResult {
+        return this.helpers.tariffRecharge.getRechargedTariffsForDateTimeInterval(fromDate, toDate);
+    }
+
+    getCreatedTariffsForDateTimeIntervalQueryData(fromDate: string | undefined | null, toDate: string): IQueryTextWithParamsResult {
+        return this.helpers.tariff.getCreatedTariffsForDateTimeInterval(fromDate, toDate);
+    }
 
     addShiftQueryData(shift: IShift): IQueryTextWithParamsResult {
         return this.helpers.shift.addShiftQueryData(shift);
     }
 
-    getDeviceSessionsSummarySinceQueryData(sinceDate: string): IQueryTextWithParamsResult {
-        return this.helpers.deviceSession.getDeviceSessionsSummarySinceQueryData(sinceDate);
+    getCompletedSessionsSummaryQueryData(fromDate: string | null | undefined, toDate: string): IQueryTextWithParamsResult {
+        return this.helpers.deviceSession.getCompletedSessionsSummaryQueryData(fromDate, toDate);
     }
 
     getLastShiftQueryData(): IQueryTextWithParamsResult {

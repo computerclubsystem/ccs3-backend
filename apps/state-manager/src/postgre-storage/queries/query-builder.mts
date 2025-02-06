@@ -12,6 +12,68 @@ abstract class QueryBuilderBase {
     abstract getQueryString(): string;
 }
 
+export enum WhereClauseOperation {
+    equals = '=',
+    lessThan = '<',
+    greaterThan = '>',
+    lessThanOrEqual = '<=',
+    greaterThanOrEqual = '>=',
+}
+
+export interface WhereClause {
+    columnName: string;
+    operation: WhereClauseOperation | string;
+    parameterName: string;
+}
+
+export class SelectQueryBuilder extends QueryBuilderBase {
+    private tableName = '';
+    private selectColumnNames: string[] = [];
+    private whereClauses: WhereClause[] = [];
+
+    setTableName(tableName: string): void {
+        this.tableName = tableName;
+    }
+
+    addSelectColumnName(columnName: string): ColumnNameWithParameterName {
+        this.selectColumnNames.push(columnName);
+        const result: ColumnNameWithParameterName = {
+            columnName: columnName,
+            parameterName: `$${this.selectColumnNames.length}`,
+        };
+        return result;
+    }
+
+    addSelectColumnNames(columnNames: string[]): ColumnNameWithParameterName[] {
+        const result: ColumnNameWithParameterName[] = [];
+        for (const colName of columnNames) {
+            this.selectColumnNames.push(colName);
+            const resultItem: ColumnNameWithParameterName = {
+                columnName: colName,
+                parameterName: `$${this.selectColumnNames.length}`,
+            };
+            result.push(resultItem);
+        }
+        return result;
+    }
+
+    addWhereClause(whereClause: WhereClause): void {
+        this.whereClauses.push(whereClause);
+    }
+
+    override getQueryString(): string {
+        const commaSeparatedColumnNames = this.commaJoin(this.selectColumnNames.map(x => `"${x}"`));
+        let selectText = `SELECT ${commaSeparatedColumnNames} FROM ${this.tableName}`;
+        if (this.whereClauses.length > 0) {
+            const whereClausesText = this.whereClauses.map(x => `${x.columnName} ${x.operation} ${x.parameterName}`);
+            // TODO Support OR as well
+            const joinedWhereClauses = whereClausesText.join(' AND ');
+            selectText += ` WHERE ${joinedWhereClauses}`;
+        }
+        return selectText;
+    }
+}
+
 export class InsertQueryBuilder extends QueryBuilderBase {
     private tableName = '';
     private insertColumnNames: string[] = [];
@@ -105,4 +167,9 @@ export interface ColumnNameWithValueAndParameterName {
     columnName: string;
     parameterName: string;
     value: any;
+}
+
+export interface ColumnNameWithParameterName {
+    columnName: string;
+    parameterName: string;
 }

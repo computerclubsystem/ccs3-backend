@@ -67,14 +67,26 @@ export class PostgreStorageProvider implements StorageProvider {
         return result;
     }
 
+    async getRechargedTariffsForDateTimeInterval(fromDate: string, toDate: string): Promise<ITariffRecharge[]> {
+        const queryData = this.queryUtils.getRechargedTariffsForDateTimeIntervalQueryData(fromDate, toDate);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows as ITariffRecharge[];
+    }
+
+    async getCreatedTariffsForDateTimeInterval(fromDate: string | undefined | null, toDate: string): Promise<ITariff[]> {
+        const queryData = this.queryUtils.getCreatedTariffsForDateTimeIntervalQueryData(fromDate, toDate);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows as ITariff[];
+    }
+
     async addShift(shift: IShift): Promise<IShift> {
         const queryData = this.queryUtils.addShiftQueryData(shift);
         const res = await this.execQuery(queryData.text, queryData.params);
         return res.rows[0] as IShift;
     }
-    
-    async getCompletedSessionsSummary(sinceDate: string): Promise<ICompletedSessionsSummary> {
-        const queryData = this.queryUtils.getDeviceSessionsSummarySinceQueryData(sinceDate);
+
+    async getCompletedSessionsSummary(fromDate: string | null | undefined, toDate: string): Promise<ICompletedSessionsSummary> {
+        const queryData = this.queryUtils.getCompletedSessionsSummaryQueryData(fromDate, toDate);
         const res = await this.execQuery(queryData.text, queryData.params);
         return res.rows[0] as ICompletedSessionsSummary;
     }

@@ -11,6 +11,10 @@ export class ShiftQueryHelper {
             shift.running_sessions_count,
             shift.continuations_total,
             shift.continuations_count,
+            shift.created_prepaid_tariffs_total,
+            shift.created_prepaid_tariffs_count,
+            shift.recharged_prepaid_tariffs_total,
+            shift.recharged_prepaid_tariffs_count,
             shift.total_amount,
             shift.completed_at,
             shift.note,
@@ -31,6 +35,10 @@ export class ShiftQueryHelper {
             running_sessions_count,
             continuations_total,
             continuations_count,
+            created_prepaid_tariffs_total,
+            created_prepaid_tariffs_count,
+            recharged_prepaid_tariffs_total,
+            recharged_prepaid_tariffs_count,
             total_amount,
             completed_at,
             note
@@ -46,7 +54,11 @@ export class ShiftQueryHelper {
             $7,
             $8,
             $9,
-            $10
+            $10,
+            $11,
+            $12,
+            $13,
+            $14
         )
         RETURNING
             id,
@@ -57,6 +69,10 @@ export class ShiftQueryHelper {
             running_sessions_count,
             continuations_total,
             continuations_count,
+            created_prepaid_tariffs_total,
+            created_prepaid_tariffs_count,
+            recharged_prepaid_tariffs_total,
+            recharged_prepaid_tariffs_count,
             total_amount,
             completed_at,
             note
