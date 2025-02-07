@@ -779,9 +779,7 @@ export class OperatorConnector {
             .subscribe(busReplyMessage => {
                 const operatorReplyMsg = createOperatorUpdateDeviceReplyMessage();
                 operatorReplyMsg.body.device = busReplyMessage.body.device;
-                if (busReplyMessage.header.failure) {
-                    // TODO: Set error in the response header. For this to work we need to have different request and reply headers
-                }
+                this.errorReplyHelper.setBusMessageFailure(busReplyMessage, message, operatorReplyMsg);
                 this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
             });
     }

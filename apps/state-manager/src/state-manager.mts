@@ -1785,6 +1785,23 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
+            const deviceToUpdate: Device = message.body.device;
+            if (!deviceToUpdate.approved || !deviceToUpdate.enabled) {
+                // If the device must be made not active (not approved or not enabled)
+                // the server must check if it is currently in use
+                const storageDeviceStatus = await this.storageProvider.getDeviceStatus(deviceToUpdate.id);
+                if (storageDeviceStatus?.started) {
+                    this.logger.warn(`The device is currently started and cannot be made inactive`, message);
+                    const replyMsg = createBusUpdateDeviceReplyMessage(message);
+                    replyMsg.header.failure = true;
+                    replyMsg.header.errors = [{
+                        code: BusErrorCode.deviceIsInUse,
+                        description: `The device Id ${deviceToUpdate.id} is currently started and cannot be made inactive`,
+                    }];
+                    this.publishToOperatorsChannel(replyMsg, message);
+                    return;
+                }
+            }
             const storageDevice = this.entityConverter.deviceToStorageDevice(message.body.device);
             const updatedStorageDevice = await this.storageProvider.updateDevice(storageDevice);
             await this.cacheAllDevices();

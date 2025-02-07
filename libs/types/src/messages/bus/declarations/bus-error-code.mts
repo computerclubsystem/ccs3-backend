@@ -3,6 +3,7 @@ export enum BusErrorCode {
     deviceIdIsRequired = 'device-id-is-required',
     tariffIdIsRequired = 'tariff-id-is-required',
     deviceIsNotStarted = 'device-is-not-started',
+    deviceIsInUse = 'device-is-in-use',
     deviceNotFound = 'device-not-found',
     tariffNotFound = 'tariff-not-found',
     tariffNotProvided = 'tariff-not-provided',
