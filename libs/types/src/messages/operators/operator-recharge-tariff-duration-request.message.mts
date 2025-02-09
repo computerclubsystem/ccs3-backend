@@ -1,8 +1,8 @@
-import { OperatorMessage } from './declarations/operator.message.mjs';
+import { OperatorRequestMessage } from './declarations/operator.message.mjs';
 
 export interface OperatorRechargeTariffDurationRequestMessageBody {
     tariffId: number;
 }
 
-export interface OperatorRechargeTariffDurationRequestMessage extends OperatorMessage<OperatorRechargeTariffDurationRequestMessageBody> {
+export interface OperatorRechargeTariffDurationRequestMessage extends OperatorRequestMessage<OperatorRechargeTariffDurationRequestMessageBody> {
 }

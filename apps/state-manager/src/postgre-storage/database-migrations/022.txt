@@ -1,0 +1,14 @@
+INSERT INTO permission
+(
+    name,
+    description
+)
+VALUES
+(
+    'reports:shifts',
+    'Allows reading shifts report.'
+);
+
+UPDATE db_metadata
+SET value = '22'
+WHERE name = 'database-version';

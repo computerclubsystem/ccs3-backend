@@ -17,6 +17,8 @@ export const enum MessageType {
     busGetCurrentShiftStatusReply = 'bus-get-current-shift-status-reply',
     busCompleteShiftRequest = 'bus-complete-shift-request',
     busCompleteShiftReply = 'bus-complete-shift-reply',
+    busGetShiftsRequest = 'bus-get-shifts-request',
+    busGetShiftsReply = 'bus-get-shifts-reply',
 
     busOperatorConnectionEvent = 'bus-operator-connection-event',
 

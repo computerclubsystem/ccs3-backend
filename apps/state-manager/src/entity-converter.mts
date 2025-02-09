@@ -18,8 +18,27 @@ import { IDeviceContinuation } from './storage/entities/device-continuation.mjs'
 import { DeviceContinuation } from '@computerclubsystem/types/entities/device-continuation.mjs';
 import { IShift } from './storage/entities/shift.mjs';
 import { Shift } from '@computerclubsystem/types/entities/shift.mjs';
+import { IShiftsSummary } from './storage/entities/shifts-summary.mjs';
+import { ShiftsSummary } from '@computerclubsystem/types/entities/shifts-summary.mjs';
 
 export class EntityConverter {
+    fromStorageShiftsSummary(storageShiftsSummary: IShiftsSummary): ShiftsSummary {
+        const shiftsSummary: ShiftsSummary = {
+            completedSessionsCount: storageShiftsSummary.completed_sessions_count,
+            completedSessionsTotal: storageShiftsSummary.completed_sessions_total,
+            continuationsCount: storageShiftsSummary.continuations_count,
+            continuationsTotal: storageShiftsSummary.completed_sessions_total,
+            createdPrepaidTariffsCount: storageShiftsSummary.created_prepaid_tariffs_count,
+            createdPrepaidTariffsTotal: storageShiftsSummary.created_prepaid_tariffs_total,
+            rechargedPrepaidTariffsCount: storageShiftsSummary.recharged_prepaid_tariffs_count,
+            rechargedPrepaidTariffsTotal: storageShiftsSummary.recharged_prepaid_tariffs_total,
+            runningSessionsCount: storageShiftsSummary.running_sessions_count,
+            runningSessionsTotal: storageShiftsSummary.running_sessions_total,
+            totalAmount: storageShiftsSummary.total_amount,
+        };
+        return shiftsSummary;
+    }
+
     storageShiftToShift(storageShift: IShift): Shift {
         const shift: Shift = {
             id: storageShift.id,

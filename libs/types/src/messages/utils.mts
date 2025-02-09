@@ -1,5 +1,5 @@
 import { Message } from './declarations/message.mjs';
-import { OperatorMessage } from './operators/declarations/operator.message.mjs';
+import { OperatorRequestMessage } from './operators/declarations/operator.message.mjs';
 
 export function transferSharedMessageData(targetMessage: Message<any>, sourceMessage?: Message<any> | null): void {
     if (sourceMessage?.header) {
@@ -8,7 +8,7 @@ export function transferSharedMessageData(targetMessage: Message<any>, sourceMes
     }
 };
 
-export function transferSharedMessageDataToReplyOperatorMessage(targetMessage: Message<any>, sourceMessage?: OperatorMessage<any> | null): void {
+export function transferSharedMessageDataToReplyOperatorMessage(targetMessage: Message<any>, sourceMessage?: OperatorRequestMessage<any> | null): void {
     if (sourceMessage?.header) {
         targetMessage.header.correlationId = sourceMessage.header.correlationId;
         targetMessage.header.roundTripData = sourceMessage.header.roundTripData;

@@ -87,10 +87,11 @@ export class TariffQueryHelper {
         };
     }
 
-    increaseTariffRemainingSecondsQueryData(tariffId: number, secondsToAdd: number): IQueryTextWithParamsResult {
+    increaseTariffRemainingSecondsQueryData(tariffId: number, secondsToAdd: number, increasedAt: string): IQueryTextWithParamsResult {
         const params = [
             tariffId,
             secondsToAdd,
+            increasedAt,
         ];
         return {
             text: this.increaseTariffRemainingSecondsQueryText,
@@ -100,7 +101,9 @@ export class TariffQueryHelper {
 
     private readonly increaseTariffRemainingSecondsQueryText = `
         UPDATE tariff
-        SET remaining_seconds = remaining_seconds + $2
+        SET
+            remaining_seconds = remaining_seconds + $2,
+            updated_at = $3
         WHERE id = $1
         ${this.returningQueryText}
     `;

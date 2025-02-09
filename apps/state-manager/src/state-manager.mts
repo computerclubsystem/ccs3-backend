@@ -101,8 +101,9 @@ import { createBusGetCurrentShiftStatusReplyMessage } from '@computerclubsystem/
 import { ShiftStatus } from '@computerclubsystem/types/entities/shift-status.mjs';
 import { BusCompleteShiftRequestMessage } from '@computerclubsystem/types/messages/bus/bus-complete-shift-request.message.mjs';
 import { createBusCompleteShiftReplyMessage } from '@computerclubsystem/types/messages/bus/bus-complete-shift-reply.message.mjs';
-import { Shift } from '@computerclubsystem/types/entities/shift.mjs';
 import { IShift } from './storage/entities/shift.mjs';
+import { BusGetShiftsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-shifts-request.message.mjs';
+import { createBusGetShiftsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-shifts-reply.message.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -146,6 +147,9 @@ export class StateManager {
     processOperatorsChannelMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busGetShiftsRequest:
+                this.processBusGetShiftsRequestMessage(message as BusGetShiftsRequestMessage);
+                break;
             case MessageType.busCompleteShiftRequest:
                 this.processBusCompleteShiftRequestMessage(message as BusCompleteShiftRequestMessage);
                 break;
@@ -270,6 +274,42 @@ export class StateManager {
         }
 
         return true;
+    }
+
+    async processBusGetShiftsRequestMessage(message: BusGetShiftsRequestMessage): Promise<void> {
+        const replyMsg = createBusGetShiftsReplyMessage();
+        try {
+            const fromDate = this.dateTimeHelper.convertToUTC(message.body.fromDate);
+            if (!fromDate) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.invalidDate,
+                    description: `Specified date '${message.body.fromDate}' is invalid. Must be string in ISO 8601 format`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const toDate = this.dateTimeHelper.convertToUTC(message.body.toDate);
+            if (!toDate) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.invalidDate,
+                    description: `Specified date '${message.body.toDate}' is invalid. Must be string in ISO8601 format`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            // TODO: Combine getShifts and getShiftsSummary in single transaction in the storage provider
+            const storageShifts = await this.storageProvider.getShifts(fromDate, toDate, message.body.userId);
+            const shifts = storageShifts.map(x => this.entityConverter.storageShiftToShift(x));
+            replyMsg.body.shifts = shifts;
+            const storageShiftsSummary = await this.storageProvider.getShiftsSummary(fromDate, toDate, message.body.userId);
+            replyMsg.body.shiftsSummary = this.entityConverter.fromStorageShiftsSummary(storageShiftsSummary);
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.handleErr(err, message, replyMsg);
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
     }
 
     async processBusCompleteShiftRequestMessage(message: BusCompleteShiftRequestMessage): Promise<void> {
@@ -2594,6 +2634,15 @@ export class StateManager {
         await this.cacheStaticData();
 
         return true;
+    }
+
+    handleErr(err: unknown, requestMessage: Message<unknown>, replyMessage: Message<unknown>): void {
+        this.logger.warn(`Can't process request message`, requestMessage, err);
+        replyMessage.header.failure = true;
+        replyMessage.header.errors = [{
+            code: BusErrorCode.serverError,
+            description: (err as any)?.message
+        }];
     }
 
     async terminate(): Promise<void> {

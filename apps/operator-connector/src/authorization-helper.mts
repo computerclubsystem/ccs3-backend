@@ -32,6 +32,7 @@ export class AuthorizationHelper {
         map.set(OperatorRequestMessageType.transferDeviceRequest, [PermissionName.devicesStart]);
         map.set(OperatorRequestMessageType.createDeviceContinuationRequest, [PermissionName.devicesStart]);
         map.set(OperatorRequestMessageType.stopDeviceRequest, [PermissionName.devicesStop]);
+        map.set(OperatorRequestMessageType.getShifts, [PermissionName.repoortsShifts]);
         this.messageTypeToPermissionMap = map;
     }
 

@@ -26,6 +26,7 @@ import {
 import { IDeviceContinuation } from 'src/storage/entities/device-continuation.mjs';
 import { ITariffRecharge } from 'src/storage/entities/tariff-recharge.mjs';
 import { IShift } from 'src/storage/entities/shift.mjs';
+import { IShiftsSummary } from 'src/storage/entities/shifts-summary.mjs';
 
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
@@ -77,6 +78,18 @@ export class PostgreStorageProvider implements StorageProvider {
         const queryData = this.queryUtils.getCreatedTariffsForDateTimeIntervalQueryData(fromDate, toDate);
         const res = await this.execQuery(queryData.text, queryData.params);
         return res.rows as ITariff[];
+    }
+
+    async getShifts(fromDate: string, toDate: string, userId: number | null | undefined): Promise<IShift[]> {
+        const queryData = this.queryUtils.getShiftsQueryData(fromDate, toDate, userId);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows as IShift[];
+    }
+
+    async getShiftsSummary(fromDate: string, toDate: string, userId: number | null | undefined): Promise<IShiftsSummary> {
+        const queryData = this.queryUtils.getShiftsSummaryQueryData(fromDate, toDate, userId);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows[0] as IShiftsSummary; 
     }
 
     async addShift(shift: IShift): Promise<IShift> {
@@ -468,7 +481,7 @@ export class PostgreStorageProvider implements StorageProvider {
             }
 
             // Increase the remaining seconds
-            const increaseTariffRemainingSecondsQuery = this.queryUtils.increaseTariffRemainingSeconds(tariffId, secondsToAdd);
+            const increaseTariffRemainingSecondsQuery = this.queryUtils.increaseTariffRemainingSeconds(tariffId, secondsToAdd, increasedAt);
             const increaseTariffRemainingSecondsResult = await transactionClient.query(increaseTariffRemainingSecondsQuery.text, increaseTariffRemainingSecondsQuery.params);
             const updatedTariff = increaseTariffRemainingSecondsResult.rows[0] as ITariff | undefined;
             if (!updatedTariff) {

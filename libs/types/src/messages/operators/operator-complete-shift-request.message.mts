@@ -1,5 +1,5 @@
 import { ShiftStatus } from 'src/entities/shift-status.mjs';
-import { OperatorMessage } from './declarations/operator.message.mjs';
+import { OperatorRequestMessage } from './declarations/operator.message.mjs';
 
 export interface OperatorCompleteShiftRequestMessageBody {
     // This is needed to compare what the user knows about the shift and the current status
@@ -9,4 +9,4 @@ export interface OperatorCompleteShiftRequestMessageBody {
     note?: string | null;
 }
 
-export type OperatorCompleteShiftRequestMessage = OperatorMessage<OperatorCompleteShiftRequestMessageBody>;
+export type OperatorCompleteShiftRequestMessage = OperatorRequestMessage<OperatorCompleteShiftRequestMessageBody>;

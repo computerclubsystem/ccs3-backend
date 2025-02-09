@@ -30,6 +30,7 @@ export enum OperatorRequestMessageType {
     forceSignOutAllUserSessionsRequest = 'force-sign-out-all-user-sessions-request',
     getCurrentShiftStatusRequest = 'get-current-shift-status-request',
     completeShiftRequest = 'complete-shift-request',
+    getShifts = 'get-shifts-request',
 }
 
 export enum OperatorReplyMessageType {
@@ -65,6 +66,7 @@ export enum OperatorReplyMessageType {
     forceSignOutAllUserSessionsReply = 'force-sign-out-all-user-sessions-reply',
     getCurrentShiftStatusReply = 'get-current-shift-status-reply',
     completeShiftReply = 'complete-shift-reply',
+    getShiftsReply = 'get-shifts-reply',
 }
 
 export enum OperatorNotificationMessageType {

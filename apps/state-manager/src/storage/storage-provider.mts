@@ -10,10 +10,14 @@ import { ITariff } from './entities/tariff.mjs';
 import { IDeviceSession } from './entities/device-session.mjs';
 import { IRole } from './entities/role.mjs';
 import { IPermission } from './entities/permission.mjs';
-import { CompleteDeviceStatusUpdateResult, ICompletedSessionsSummary, ICurrentContinuationsSummary, ICurrentSessionsSummary, IncreaseTariffRemainingSecondsResult, ITariffRechargesSummary, TransferDeviceResult } from './results.mjs';
+import {
+    CompleteDeviceStatusUpdateResult, ICompletedSessionsSummary, IncreaseTariffRemainingSecondsResult,
+    TransferDeviceResult
+} from './results.mjs';
 import { IDeviceContinuation } from './entities/device-continuation.mjs';
 import { IShift } from './entities/shift.mjs';
 import { ITariffRecharge } from './entities/tariff-recharge.mjs';
+import { IShiftsSummary } from './entities/shifts-summary.mjs';
 
 export interface StorageProvider {
     getAllUsers(): Promise<IUser[]>;
@@ -47,6 +51,8 @@ export interface StorageProvider {
     getLastShift(): Promise<IShift | undefined>;
     getCompletedSessionsSummary(fromDate: string | null | undefined, toDate: string): Promise<ICompletedSessionsSummary>;
     addShift(shift: IShift): Promise<IShift>;
+    getShifts(fromDate: string, toDate: string, userId: number | null | undefined): Promise<IShift[]>;
+    getShiftsSummary(fromDate: string, toDate: string, userId: number | null | undefined): Promise<IShiftsSummary>;
 
     getAllSystemSettings(): Promise<ISystemSetting[]>;
     getSystemSettingByName(name: string): Promise<ISystemSetting | undefined>;

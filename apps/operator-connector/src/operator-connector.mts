@@ -23,7 +23,7 @@ import { createOperatorAuthReplyMessage } from '@computerclubsystem/types/messag
 import { Logger } from './logger.mjs';
 import { IStaticFilesServerConfig, StaticFilesServer } from './static-files-server.mjs';
 import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
-import { OperatorMessage, OperatorNotificationMessage, OperatorReplyMessage } from '@computerclubsystem/types/messages/operators/declarations/operator.message.mjs';
+import { OperatorRequestMessage, OperatorNotificationMessage, OperatorReplyMessage } from '@computerclubsystem/types/messages/operators/declarations/operator.message.mjs';
 import { OperatorRequestMessageType, OperatorNotificationMessageType } from '@computerclubsystem/types/messages/operators/declarations/operator-message-type.mjs';
 import { OperatorConnectionRoundTripData } from '@computerclubsystem/types/messages/operators/declarations/operator-connection-roundtrip-data.mjs';
 import { createOperatorConfigurationNotificationMessage, OperatorConfigurationNotificationMessage } from '@computerclubsystem/types/messages/operators/operator-configuration.message.mjs';
@@ -155,6 +155,10 @@ import { OperatorCompleteShiftRequestMessage } from '@computerclubsystem/types/m
 import { createBusCompleteShiftRequestMessage } from '@computerclubsystem/types/messages/bus/bus-complete-shift-request.message.mjs';
 import { BusCompleteShiftReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-complete-shift-reply.message.mjs';
 import { createOperatorCompleteShiftReplyMessage } from '@computerclubsystem/types/messages/operators/operator-complete-shift-reply.message.mjs';
+import { OperatorGetShiftsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-shifts-request.message.mjs';
+import { createBusGetShiftsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-shifts-request.message.mjs';
+import { BusGetShiftsReplyMessage, BusGetShiftsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-shifts-reply.message.mjs';
+import { createOperatorGetShiftsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-shifts-reply.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -175,30 +179,7 @@ export class OperatorConnector {
     private wssEmitter!: EventEmitter;
     private connectedClients = new Map<number, ConnectedClientData>();
 
-    processOperatorConnected(args: ClientConnectedEventArgs): void {
-        this.logger.log('Operator connected', args);
-        const data: ConnectedClientData = {
-            connectionId: args.connectionId,
-            connectionInstanceId: this.createUUIDString(),
-            connectedAt: this.getNowAsNumber(),
-            userId: null,
-            certificate: args.certificate,
-            certificateThumbprint: this.getLowercasedCertificateThumbprint(args.certificate?.fingerprint),
-            ipAddress: args.ipAddress,
-            lastMessageReceivedAt: null,
-            receivedMessagesCount: 0,
-            receivedPingMessagesCount: 0,
-            sentMessagesCount: 0,
-            isAuthenticated: false,
-            headers: args.headers,
-            permissions: new Set<string>(),
-            unauthorizedMessageRequestsCount: 0,
-        };
-        this.setConnectedClientData(data);
-        this.wssServer.attachToConnection(args.connectionId);
-    }
-
-    async processOperatorMessage(connectionId: number, message: OperatorMessage<any>): Promise<void> {
+    async processOperatorMessage(connectionId: number, message: OperatorRequestMessage<any>): Promise<void> {
         const clientData = this.getConnectedClientData(connectionId);
         if (!clientData) {
             return;
@@ -250,6 +231,9 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorRequestMessageType.getShifts:
+                this.processOperatorGetShiftsRequestMessage(clientData, message as OperatorGetShiftsRequestMessage);
+                break;
             case OperatorRequestMessageType.completeShiftRequest:
                 this.processOperatorCompleteShiftRequestMessage(clientData, message as OperatorCompleteShiftRequestMessage);
                 break;
@@ -347,29 +331,44 @@ export class OperatorConnector {
         }
     }
 
+    processOperatorGetShiftsRequestMessage(clientData: ConnectedClientData, message: OperatorGetShiftsRequestMessage): void {
+        const busReqMsg = createBusGetShiftsRequestMessage();
+        busReqMsg.body.fromDate = message.body.fromDate;
+        busReqMsg.body.toDate = message.body.toDate;
+        busReqMsg.body.userId = message.body.userId;
+        this.publishToOperatorsChannelAndWaitForReply<BusGetShiftsReplyMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorGetShiftsReplyMessage();
+                operatorReplyMsg.body.shifts = busReplyMsg.body.shifts;
+                operatorReplyMsg.body.shiftsSummary = busReplyMsg.body.shiftsSummary;
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
     processOperatorCompleteShiftRequestMessage(clientData: ConnectedClientData, message: OperatorCompleteShiftRequestMessage): void {
         const busReqMsg = createBusCompleteShiftRequestMessage();
         busReqMsg.body.shiftStatus = message.body.shiftStatus;
         busReqMsg.body.note = message.body.note;
         busReqMsg.body.userId = clientData.userId!;
         this.publishToOperatorsChannelAndWaitForReply<BusCompleteShiftReplyMessageBody>(busReqMsg, clientData)
-        .subscribe(busReplyMsg => {
-            const operatorReplyMsg = createOperatorCompleteShiftReplyMessage();
-            operatorReplyMsg.body.shift = busReplyMsg.body.shift;
-            this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
-            this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
-        });
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorCompleteShiftReplyMessage();
+                operatorReplyMsg.body.shift = busReplyMsg.body.shift;
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
     }
 
     processOperatorGetCurrentShiftStatusRequestMessage(clientData: ConnectedClientData, message: OperatorGetCurrentShiftStatusRequestMessage): void {
         const busReqMsg = createBusGetCurrentShiftStatusRequestMessage();
         this.publishToOperatorsChannelAndWaitForReply<BusGetCurrentShiftStatusReplyMessageBody>(busReqMsg, clientData)
-        .subscribe(busReplyMsg => {
-            const operatorReplyMsg = createOperatorGetCurrentShiftStatusReplyMessage();
-            operatorReplyMsg.body.shiftStatus = busReplyMsg.body.shiftStatus;
-            this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
-            this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
-        });
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorGetCurrentShiftStatusReplyMessage();
+                operatorReplyMsg.body.shiftStatus = busReplyMsg.body.shiftStatus;
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
     }
 
     async processOperatorForceSignOutAllUserSessionsRequestMessage(clientData: ConnectedClientData, message: OperatorForceSignOutAllUserSessionsRequestMessage): Promise<void> {
@@ -1080,7 +1079,7 @@ export class OperatorConnector {
     processBusOperatorAuthReplyMessage(
         clientData: ConnectedClientData,
         message: BusOperatorAuthReplyMessage,
-        operatorMessage: OperatorMessage<any>,
+        operatorMessage: OperatorRequestMessage<any>,
         username: string
     ): void {
         const replyMsg = createOperatorAuthReplyMessage();
@@ -1126,7 +1125,7 @@ export class OperatorConnector {
         }
     }
 
-    async canProcessOperatorMessage<TBody>(clientData: ConnectedClientData, message: OperatorMessage<TBody>): Promise<CanProcessOperatorMessageResult> {
+    async canProcessOperatorMessage<TBody>(clientData: ConnectedClientData, message: OperatorRequestMessage<TBody>): Promise<CanProcessOperatorMessageResult> {
         const result: CanProcessOperatorMessageResult = {
             canProcess: false,
         } as CanProcessOperatorMessageResult;
@@ -1408,7 +1407,7 @@ export class OperatorConnector {
         return Array.from(this.connectedClients.entries());
     }
 
-    sendReplyMessageToOperator<TBody>(message: OperatorReplyMessage<TBody>, clientData: ConnectedClientData, requestMessage?: OperatorMessage<any>): void {
+    sendReplyMessageToOperator<TBody>(message: OperatorReplyMessage<TBody>, clientData: ConnectedClientData, requestMessage?: OperatorRequestMessage<any>): void {
         if (requestMessage) {
             message.header.correlationId = requestMessage.header.correlationId;
         }
@@ -1420,7 +1419,7 @@ export class OperatorConnector {
         this.wssServer.sendJSON(message, clientData.connectionId);
     }
 
-    sendMessageToOperator<TBody>(message: OperatorMessage<TBody>, clientData: ConnectedClientData, requestMessage: OperatorMessage<any> | null): void {
+    sendMessageToOperator<TBody>(message: OperatorRequestMessage<TBody>, clientData: ConnectedClientData, requestMessage: OperatorRequestMessage<any> | null): void {
         if (requestMessage) {
             message.header.correlationId = requestMessage.header.correlationId;
         }
@@ -1564,7 +1563,7 @@ export class OperatorConnector {
     }
 
     processOperatorMessageReceived(args: MessageReceivedEventArgs): void {
-        let msg: OperatorMessage<any> | null;
+        let msg: OperatorRequestMessage<any> | null;
         let type: OperatorRequestMessageType | undefined;
         try {
             msg = this.deserializeWebSocketBufferToMessage(args.buffer);
@@ -1593,6 +1592,29 @@ export class OperatorConnector {
         await this.connectSubClient(redisHost, redisPort);
         await this.connectPubClient(redisHost, redisPort);
         await this.connectCacheClient(redisHost, redisPort);
+    }
+
+    processOperatorConnected(args: ClientConnectedEventArgs): void {
+        this.logger.log('Operator connected', args);
+        const data: ConnectedClientData = {
+            connectionId: args.connectionId,
+            connectionInstanceId: this.createUUIDString(),
+            connectedAt: this.getNowAsNumber(),
+            userId: null,
+            certificate: args.certificate,
+            certificateThumbprint: this.getLowercasedCertificateThumbprint(args.certificate?.fingerprint),
+            ipAddress: args.ipAddress,
+            lastMessageReceivedAt: null,
+            receivedMessagesCount: 0,
+            receivedPingMessagesCount: 0,
+            sentMessagesCount: 0,
+            isAuthenticated: false,
+            headers: args.headers,
+            permissions: new Set<string>(),
+            unauthorizedMessageRequestsCount: 0,
+        };
+        this.setConnectedClientData(data);
+        this.wssServer.attachToConnection(args.connectionId);
     }
 
     startWebSocketServer(): void {

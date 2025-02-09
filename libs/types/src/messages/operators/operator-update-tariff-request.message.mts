@@ -1,4 +1,4 @@
-import { OperatorMessage } from './declarations/operator.message.mjs';
+import { OperatorRequestMessage } from './declarations/operator.message.mjs';
 import { Tariff } from 'src/entities/tariff.mjs';
 
 export interface OperatorUpdateTariffRequestMessageBody {
@@ -6,5 +6,5 @@ export interface OperatorUpdateTariffRequestMessageBody {
     passwordHash?: string;
 }
 
-export interface OperatorUpdateTariffRequestMessage extends OperatorMessage<OperatorUpdateTariffRequestMessageBody> {
+export interface OperatorUpdateTariffRequestMessage extends OperatorRequestMessage<OperatorUpdateTariffRequestMessageBody> {
 }

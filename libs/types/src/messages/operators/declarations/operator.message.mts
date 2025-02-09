@@ -1,9 +1,9 @@
 import {
-    OperatorMessageHeader, OperatorNotificationMessageHeader, OperatorReplyMessageHeader
+    OperatorRequestMessageHeader, OperatorNotificationMessageHeader, OperatorReplyMessageHeader
 } from './operator-message-header.mjs';
 
-export interface OperatorMessage<TBody> {
-    header: OperatorMessageHeader;
+export interface OperatorRequestMessage<TBody> {
+    header: OperatorRequestMessageHeader;
     body: TBody;
 }
 

@@ -16,8 +16,8 @@ export class DeviceStatusQueryHelper {
 
     private readonly getDeviceStatusesSummaryForStartedDevicesQueryText = `
         SELECT
-            COUNT(device_id),
-            SUM(total)
+        SUM(total) AS total,
+        COUNT(*)::int AS count
         FROM device_status
         WHERE started = true
     `;

@@ -1,4 +1,5 @@
 export enum BusErrorCode {
+    serverError = 'server-error',
     deviceAlreadyStarted = 'device-already-started',
     deviceIdIsRequired = 'device-id-is-required',
     tariffIdIsRequired = 'tariff-id-is-required',
@@ -41,4 +42,5 @@ export enum BusErrorCode {
     noRemainingTimeLeft = 'no-remaining-time-left',
     passwordDoesNotMatch = 'password-does-not-match',
     shiftStatusesDoesNotMatch = 'shift-status-does-not-match',
+    invalidDate = 'invalid-date',
 }

@@ -1,7 +1,7 @@
-import { OperatorMessage } from './declarations/operator.message.mjs';
+import { OperatorRequestMessage } from './declarations/operator.message.mjs';
 
 export interface OperatorGetAllDevicesRequestMessageBody {
 }
 
-export interface OperatorGetAllDevicesRequestMessage extends OperatorMessage<OperatorGetAllDevicesRequestMessageBody> {
+export interface OperatorGetAllDevicesRequestMessage extends OperatorRequestMessage<OperatorGetAllDevicesRequestMessageBody> {
 }

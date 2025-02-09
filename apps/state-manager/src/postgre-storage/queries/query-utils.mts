@@ -42,7 +42,7 @@ export class QueryUtils {
         tariffRecharge: new TariffRechargeQueryHelper(),
         shift: new ShiftQueryHelper(),
     };
-    
+
     getRechargedTariffsForDateTimeIntervalQueryData(fromDate: string | undefined | null, toDate: string): IQueryTextWithParamsResult {
         return this.helpers.tariffRecharge.getRechargedTariffsForDateTimeInterval(fromDate, toDate);
     }
@@ -53,6 +53,14 @@ export class QueryUtils {
 
     addShiftQueryData(shift: IShift): IQueryTextWithParamsResult {
         return this.helpers.shift.addShiftQueryData(shift);
+    }
+
+    getShiftsQueryData(fromDate: string, toDate: string, userId: number | null | undefined): IQueryTextWithParamsResult {
+        return this.helpers.shift.getShiftsQueryData(fromDate, toDate, userId);
+    }
+
+    getShiftsSummaryQueryData(fromDate: string, toDate: string, userId: number | null | undefined): IQueryTextWithParamsResult {
+        return this.helpers.shift.getShiftsSummaryQueryData(fromDate, toDate, userId);
     }
 
     getCompletedSessionsSummaryQueryData(fromDate: string | null | undefined, toDate: string): IQueryTextWithParamsResult {
@@ -167,8 +175,8 @@ export class QueryUtils {
         return this.helpers.tariff.updateTariffPasswordHashQueryData(tariffId, passwordHash);
     }
 
-    increaseTariffRemainingSeconds(tariffId: number, secondsToAdd: number): IQueryTextWithParamsResult {
-        return this.helpers.tariff.increaseTariffRemainingSecondsQueryData(tariffId, secondsToAdd);
+    increaseTariffRemainingSeconds(tariffId: number, secondsToAdd: number, increasedAt: string): IQueryTextWithParamsResult {
+        return this.helpers.tariff.increaseTariffRemainingSecondsQueryData(tariffId, secondsToAdd, increasedAt);
     }
 
     addTariffRechargeQueryData(tariffRecharge: ITariffRecharge): IQueryTextWithParamsResult {

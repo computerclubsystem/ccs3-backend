@@ -26,10 +26,21 @@ export interface WhereClause {
     parameterName: string;
 }
 
+export enum SortOrder {
+    ascending = 'ASC',
+    descending = 'DESC',
+}
+
+export interface OrderClause {
+    columnName: string;
+    sortOrder: SortOrder;
+}
+
 export class SelectQueryBuilder extends QueryBuilderBase {
     private tableName = '';
-    private selectColumnNames: string[] = [];
-    private whereClauses: WhereClause[] = [];
+    private readonly selectColumnNames: string[] = [];
+    private readonly whereClauses: WhereClause[] = [];
+    private readonly orderClauses: OrderClause[] = [];
 
     setTableName(tableName: string): void {
         this.tableName = tableName;
@@ -61,6 +72,10 @@ export class SelectQueryBuilder extends QueryBuilderBase {
         this.whereClauses.push(whereClause);
     }
 
+    addOrderClause(orderClause: OrderClause): void {
+        this.orderClauses.push(orderClause);
+    }
+
     override getQueryString(): string {
         const commaSeparatedColumnNames = this.commaJoin(this.selectColumnNames.map(x => `"${x}"`));
         let selectText = `SELECT ${commaSeparatedColumnNames} FROM ${this.tableName}`;
@@ -69,6 +84,11 @@ export class SelectQueryBuilder extends QueryBuilderBase {
             // TODO Support OR as well
             const joinedWhereClauses = whereClausesText.join(' AND ');
             selectText += ` WHERE ${joinedWhereClauses}`;
+        }
+        if (this.orderClauses.length > 0) {
+            const orderClausesTextArray = this.orderClauses.map(x => `${x.columnName} ${x.sortOrder}`);
+            const orderClausesText = this.commaJoin(orderClausesTextArray);
+            selectText += ` ORDER BY ${orderClausesText}`;
         }
         return selectText;
     }

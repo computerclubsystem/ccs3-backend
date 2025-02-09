@@ -109,6 +109,10 @@ export class DateTimeHelper {
         return DateTime.fromISO(isoDateTime).toMillis();
     }
 
+    convertToUTC(dateTime: string): string | null {
+        return DateTime.fromISO(dateTime).toISO();
+    }
+
     private getNow(): DateTime<Valid> {
         return DateTime.now();
     }

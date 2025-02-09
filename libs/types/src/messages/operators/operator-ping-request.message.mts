@@ -1,7 +1,7 @@
-import { OperatorMessage } from './declarations/operator.message.mjs';
+import { OperatorRequestMessage } from './declarations/operator.message.mjs';
 
 export interface OperatorPingRequestMessageBody {
 }
 
-export interface OperatorPingRequestMessage extends OperatorMessage<OperatorPingRequestMessageBody> {
+export interface OperatorPingRequestMessage extends OperatorRequestMessage<OperatorPingRequestMessageBody> {
 }

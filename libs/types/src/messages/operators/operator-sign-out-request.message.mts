@@ -1,8 +1,8 @@
-import { OperatorMessage } from './declarations/operator.message.mjs';
+import { OperatorRequestMessage } from './declarations/operator.message.mjs';
 
 export interface OperatorSignOutRequestMessageBody {
     currentToken: string;
 }
 
-export interface OperatorSignOutRequestMessage extends OperatorMessage<OperatorSignOutRequestMessageBody> {
+export interface OperatorSignOutRequestMessage extends OperatorRequestMessage<OperatorSignOutRequestMessageBody> {
 }

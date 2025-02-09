@@ -1,4 +1,4 @@
-import { OperatorMessage } from './declarations/operator.message.mjs';
+import { OperatorRequestMessage } from './declarations/operator.message.mjs';
 
 export interface OperatorAuthRequestMessageBody {
     username?: string;
@@ -6,5 +6,5 @@ export interface OperatorAuthRequestMessageBody {
     token?: string;
 }
 
-export interface OperatorAuthRequestMessage extends OperatorMessage<OperatorAuthRequestMessageBody> {
+export interface OperatorAuthRequestMessage extends OperatorRequestMessage<OperatorAuthRequestMessageBody> {
 }

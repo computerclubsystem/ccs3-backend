@@ -1,4 +1,4 @@
-import { OperatorMessage } from './declarations/operator.message.mjs';
+import { OperatorRequestMessage } from './declarations/operator.message.mjs';
 import { User } from 'src/entities/user.mjs';
 
 export interface OperatorUpdateUserWithRolesRequestMessageBody {
@@ -7,5 +7,5 @@ export interface OperatorUpdateUserWithRolesRequestMessageBody {
     roleIds: number[];
 }
 
-export interface OperatorUpdateUserWithRolesRequestMessage extends OperatorMessage<OperatorUpdateUserWithRolesRequestMessageBody> {
+export interface OperatorUpdateUserWithRolesRequestMessage extends OperatorRequestMessage<OperatorUpdateUserWithRolesRequestMessageBody> {
 }

@@ -19,4 +19,5 @@ export enum PermissionName {
     usersUpdate = 'users:update',
     usersForceSignOut = 'users:force-sign-out',
     reportsSignedInUsersRead = 'reports:signed-in-users-read',
+    repoortsShifts = 'reports:shifts',
 }

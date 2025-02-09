@@ -8,7 +8,7 @@ export class DeviceSessionQueryHelper {
         let getCompletedSessionsSummaryQueryText = `
             SELECT
                 SUM(total_amount) AS total,
-                COUNT(id)::int AS count
+                COUNT(*)::int AS count
             FROM device_session
         `;
         if (fromDate) {
@@ -42,8 +42,8 @@ export class DeviceSessionQueryHelper {
 
     private readonly getDeviceSessionsSummaryStoppedSinceQueryText = `
         SELECT
-            COUNT(id),
-            SUM(total_amount)
+        SUM(total_amount) AS total,
+            COUNT(*)::int AS count
         FROM device_session
         WHERE stopped_at > $1
             AND tariff_id = ANY($2)

@@ -2,10 +2,10 @@ import { BusErrorCode } from '@computerclubsystem/types/messages/bus/declaration
 import { MessageError } from '@computerclubsystem/types/messages/declarations/message-error.mjs';
 import { Message } from '@computerclubsystem/types/messages/declarations/message.mjs';
 import { OperatorReplyMessageErrorCode } from '@computerclubsystem/types/messages/operators/declarations/error-code.mjs';
-import { OperatorMessage, OperatorReplyMessage } from '@computerclubsystem/types/messages/operators/declarations/operator.message.mjs';
+import { OperatorRequestMessage, OperatorReplyMessage } from '@computerclubsystem/types/messages/operators/declarations/operator.message.mjs';
 
 export class ErrorReplyHelper {
-    setBusMessageFailure(busMessage: Message<any>, requestMessage: OperatorMessage<any>, replyMessage: OperatorReplyMessage<any>): void {
+    setBusMessageFailure(busMessage: Message<any>, requestMessage: OperatorRequestMessage<any>, replyMessage: OperatorReplyMessage<any>): void {
         if (busMessage.header.failure) {
             const firstErrorCode = busMessage.header.errors?.[0]?.code || '';
             replyMessage.header.failure = true;
