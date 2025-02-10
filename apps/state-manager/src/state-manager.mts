@@ -104,8 +104,8 @@ import { createBusCompleteShiftReplyMessage } from '@computerclubsystem/types/me
 import { IShift } from './storage/entities/shift.mjs';
 import { BusGetShiftsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-shifts-request.message.mjs';
 import { createBusGetShiftsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-shifts-reply.message.mjs';
-import { BusGetAllSettingsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-settings-request.message.mjs';
-import { createBusGetAllSettingsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-settings-reply.message.mjs';
+import { BusGetAllSystemSettingsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings-request.message.mjs';
+import { createBusGetAllSystemSettingsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings-reply.message.mjs';
 import { BusUpdateSystemSettingsValuesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-system-settings-values-request.message.mjs';
 import { createBusUpdateSystemSettingsValuesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-system-settings-values-reply.message.mjs';
 import { SystemSettingsValidator } from './system-settings-validator.mjs';
@@ -158,7 +158,7 @@ export class StateManager {
                 this.processSharedMessageBusUpdateSystemSettingsValues(message as BusUpdateSystemSettingsValuesRequestMessage);
                 break;
             case MessageType.busGetAllSystemSettingsRequest:
-                this.processSharedMessageBusGetAllSystemSettings(message as BusGetAllSettingsRequestMessage);
+                this.processSharedMessageBusGetAllSystemSettings(message as BusGetAllSystemSettingsRequestMessage);
                 break;
         }
     }
@@ -187,8 +187,8 @@ export class StateManager {
         }
     }
 
-    async processSharedMessageBusGetAllSystemSettings(message: BusGetAllSettingsRequestMessage): Promise<void> {
-        const replyMsg = createBusGetAllSettingsReplyMessage();
+    async processSharedMessageBusGetAllSystemSettings(message: BusGetAllSystemSettingsRequestMessage): Promise<void> {
+        const replyMsg = createBusGetAllSystemSettingsReplyMessage();
         try {
             const storageAllSystemSettings = await this.storageProvider.getAllSystemSettings();
             replyMsg.body.systemSettings = storageAllSystemSettings.map(x => this.entityConverter.fromStorageSystemSetting(x));
