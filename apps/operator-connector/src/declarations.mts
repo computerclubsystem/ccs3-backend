@@ -4,6 +4,7 @@ import { UserAuthDataCacheValue } from './cache-helper.mjs';
 import { Permission } from '@computerclubsystem/types/entities/permission.mjs';
 import { TariffValidator } from './tariff-validator.mjs';
 import { BusDeviceStatusesMessage } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
+import { ChannelName } from '@computerclubsystem/types/channels/channel-name.mjs';
 
 export interface ConnectedClientData {
     connectionId: number;
@@ -127,6 +128,7 @@ export interface IsAuthorizedResult {
 
 export interface MessageStatItem {
     type: string;
+    channel: ChannelName;
     correlationId?: string;
     sentAt: number;
     completedAt: number;

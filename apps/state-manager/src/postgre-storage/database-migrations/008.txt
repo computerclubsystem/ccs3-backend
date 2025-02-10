@@ -9,8 +9,8 @@ VALUES
 (
     'timezone',
     'string',
-    'The timezone which will be used for date and time calculations. Must be the same as the operator computers. The default value is Europe/Sofia. For available timezone names refer to https://en.wikipedia.org/wiki/List_of_tz_database_time_zones',
-    'Europe/Sofia'
+    'The timezone which will be used for date and time calculations. Must be the same as the operator computers. The default value is empty which means the timezone of the server will be used. For available timezone names refer to https://en.wikipedia.org/wiki/List_of_tz_database_time_zones',
+    ''
 );
 
 UPDATE db_metadata

@@ -1,4 +1,6 @@
 export enum OperatorRequestMessageType {
+    updateSystemSettingsValuesRequest = 'update-system-settings-values-request',
+    getAllSystemSettingsRequest = 'get-all-system-settings-request',
     authRequest = 'auth-request',
     pingRequest = 'ping-request',
     refreshTokenRequest = 'refresh-token-request',
@@ -34,6 +36,8 @@ export enum OperatorRequestMessageType {
 }
 
 export enum OperatorReplyMessageType {
+    updateSystemSettingsValuesReply = 'update-system-settings-values-reply',
+    getAllSystemSettingsReply = 'get-all-system-settings-reply',
     authReply = 'auth-reply',
     refreshTokenReply = 'refresh-token-reply',
     signOutReply = 'sign-out-reply',

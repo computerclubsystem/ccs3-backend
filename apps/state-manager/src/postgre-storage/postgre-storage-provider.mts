@@ -27,6 +27,7 @@ import { IDeviceContinuation } from 'src/storage/entities/device-continuation.mj
 import { ITariffRecharge } from 'src/storage/entities/tariff-recharge.mjs';
 import { IShift } from 'src/storage/entities/shift.mjs';
 import { IShiftsSummary } from 'src/storage/entities/shifts-summary.mjs';
+import { ISystemSettingNameWithValue } from 'src/storage/entities/system-setting-name-with-value.mjs';
 
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
@@ -89,7 +90,7 @@ export class PostgreStorageProvider implements StorageProvider {
     async getShiftsSummary(fromDate: string, toDate: string, userId: number | null | undefined): Promise<IShiftsSummary> {
         const queryData = this.queryUtils.getShiftsSummaryQueryData(fromDate, toDate, userId);
         const res = await this.execQuery(queryData.text, queryData.params);
-        return res.rows[0] as IShiftsSummary; 
+        return res.rows[0] as IShiftsSummary;
     }
 
     async addShift(shift: IShift): Promise<IShift> {
@@ -318,6 +319,24 @@ export class PostgreStorageProvider implements StorageProvider {
         const queryData = this.queryUtils.addDeviceConnectionEventQueryData(deviceConnectionEvent);
         const res = await this.execQuery(queryData.text, queryData.params);
         return res.rows[0] as IDeviceConnectionEvent | undefined;
+    }
+
+    async updateSystemSettingsValues(systemSettingsNamesWithValues: ISystemSettingNameWithValue[]): Promise<void> {
+        let transactionClient: pg.PoolClient | undefined;
+        try {
+            transactionClient = await this.getPoolClient();
+            await transactionClient.query('BEGIN');
+            for (const item of systemSettingsNamesWithValues) {
+                const updateQuery = this.queryUtils.updateSystemSettingValueQueryData(item);
+                await transactionClient.query(updateQuery.text, updateQuery.params);
+            }
+            await transactionClient?.query('COMMIT');
+        } catch (err) {
+            await transactionClient?.query('ROLLBACK');
+            throw err;
+        } finally {
+            transactionClient?.release();
+        }
     }
 
     async getSystemSettingByName(name: string): Promise<ISystemSetting | undefined> {

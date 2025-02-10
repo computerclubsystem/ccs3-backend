@@ -24,6 +24,7 @@ import { ITariffRecharge } from 'src/storage/entities/tariff-recharge.mjs';
 import { TariffRechargeQueryHelper } from './tariff-recharge-query-helper.mjs';
 import { ShiftQueryHelper } from './shift-query-helper.mjs';
 import { IShift } from 'src/storage/entities/shift.mjs';
+import { ISystemSettingNameWithValue } from 'src/storage/entities/system-setting-name-with-value.mjs';
 
 export class QueryUtils {
     private readonly helpers = {
@@ -213,6 +214,10 @@ export class QueryUtils {
 
     getDeviceByCertificateThumbprintQueryData(certificateThumbprint: string): IQueryTextWithParamsResult {
         return this.helpers.device.getDeviceByCertificateThumbprintQueryData(certificateThumbprint);
+    }
+
+    updateSystemSettingValueQueryData(systemSettingNameWithValue: ISystemSettingNameWithValue): IQueryTextWithParamsResult {
+        return this.helpers.systemSettings.updateSystemSettingValueQueryData(systemSettingNameWithValue);
     }
 
     getSystemSettingByNameQueryData(name: string): IQueryTextWithParamsResult {

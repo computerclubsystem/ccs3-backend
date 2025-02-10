@@ -104,6 +104,11 @@ import { createBusCompleteShiftReplyMessage } from '@computerclubsystem/types/me
 import { IShift } from './storage/entities/shift.mjs';
 import { BusGetShiftsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-shifts-request.message.mjs';
 import { createBusGetShiftsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-shifts-reply.message.mjs';
+import { BusGetAllSettingsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-settings-request.message.mjs';
+import { createBusGetAllSettingsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-settings-reply.message.mjs';
+import { BusUpdateSystemSettingsValuesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-system-settings-values-request.message.mjs';
+import { createBusUpdateSystemSettingsValuesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-system-settings-values-reply.message.mjs';
+import { SystemSettingsValidator } from './system-settings-validator.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -140,7 +145,57 @@ export class StateManager {
                 this.processOperatorsChannelMessage(message);
                 break;
             case ChannelName.shared:
+                this.processSharedChannelMessage(message);
                 break;
+        }
+    }
+
+    processSharedChannelMessage<TBody>(message: Message<TBody>): void {
+        const type: string = message.header?.type;
+        // const notificationMessage = message as unknown as SharedNotificationMessage<TBody>;
+        switch (type) {
+            case MessageType.busUpdateSystemSettingsValuesRequest:
+                this.processSharedMessageBusUpdateSystemSettingsValues(message as BusUpdateSystemSettingsValuesRequestMessage);
+                break;
+            case MessageType.busGetAllSystemSettingsRequest:
+                this.processSharedMessageBusGetAllSystemSettings(message as BusGetAllSettingsRequestMessage);
+                break;
+        }
+    }
+
+    async processSharedMessageBusUpdateSystemSettingsValues(message: BusUpdateSystemSettingsValuesRequestMessage): Promise<void> {
+        const replyMsg = createBusUpdateSystemSettingsValuesReplyMessage();
+        try {
+            const validateResult = new SystemSettingsValidator().validateNameWithValues(message.body.systemSettingsNameWithValues);
+            if (validateResult.failed) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: validateResult.errorCode as string,
+                    description: validateResult.errorMessage,
+                }];
+                this.publishToSharedChannel(replyMsg, message);
+                return;
+            }
+            await this.storageProvider.updateSystemSettingsValues(message.body.systemSettingsNameWithValues);
+            // After update, load the settings again and apply them so they have immediate effect
+            await this.loadSystemSettings();
+            this.applySystemSettings();
+            this.publishToSharedChannel(replyMsg, message);
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToSharedChannel(replyMsg, message);
+        }
+    }
+
+    async processSharedMessageBusGetAllSystemSettings(message: BusGetAllSettingsRequestMessage): Promise<void> {
+        const replyMsg = createBusGetAllSettingsReplyMessage();
+        try {
+            const storageAllSystemSettings = await this.storageProvider.getAllSystemSettings();
+            replyMsg.body.systemSettings = storageAllSystemSettings.map(x => this.entityConverter.fromStorageSystemSetting(x));
+            this.publishToSharedChannel(replyMsg, message);
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToSharedChannel(replyMsg, message);
         }
     }
 
@@ -307,7 +362,7 @@ export class StateManager {
             replyMsg.body.shiftsSummary = this.entityConverter.fromStorageShiftsSummary(storageShiftsSummary);
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
-            this.handleErr(err, message, replyMsg);
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -2092,6 +2147,14 @@ export class StateManager {
         return this.publishMessage(ChannelName.devices, message);
     }
 
+    async publishToSharedChannel<TBody>(message: Message<TBody>, sourceMessage?: Message<any>): Promise<number> {
+        if (sourceMessage) {
+            // Transfer source message common data (like round trip data) to destination message
+            transferSharedMessageData(message, sourceMessage);
+        }
+        return this.publishMessage(ChannelName.shared, message);
+    }
+
     async publishMessage<TBody>(channelName: ChannelName, message: Message<TBody>): Promise<number> {
         try {
             this.logger.log('Publishing message', channelName, message.header.type, message);
@@ -2526,11 +2589,12 @@ export class StateManager {
     private createDefaultState(): StateManagerState {
         const state: StateManagerState = {
             systemSettings: {
-                device_status_refresh_interval: 10 * 1000,
+                [SystemSettingName.device_status_refresh_interval]: 5 * 1000,
                 // 1800 seconds = 30 minutes
-                token_duration: 1800 * 1000,
-                timezone: 'Europe/Sofia',
-                free_seconds_at_start: 5,
+                [SystemSettingName.token_duration]: 1800 * 1000,
+                // Empty timezone means the current computer timezone will be used
+                [SystemSettingName.timezone]: '',
+                [SystemSettingName.free_seconds_at_start]: 180,
             },
             lastDeviceStatusRefreshAt: 0,
             deviceStatusRefreshInProgress: false,
@@ -2544,10 +2608,18 @@ export class StateManager {
         const settingsMap = new Map<string, ISystemSetting>();
         allSystemSettings.forEach(x => settingsMap.set(x.name, x));
         const getAsNumber = (name: SystemSettingName) => +settingsMap.get(name)?.value!;
+        this.state.systemSettings = {
+            [SystemSettingName.device_status_refresh_interval]: 1000 * getAsNumber(SystemSettingName.device_status_refresh_interval),
+            [SystemSettingName.token_duration]: 1000 * getAsNumber(SystemSettingName.token_duration),
+            [SystemSettingName.free_seconds_at_start]: getAsNumber(SystemSettingName.free_seconds_at_start),
+            [SystemSettingName.timezone]: settingsMap.get(SystemSettingName.timezone)?.value!,
+        };
+    }
 
-        this.state.systemSettings[SystemSettingName.device_status_refresh_interval] = 1000 * getAsNumber(SystemSettingName.device_status_refresh_interval);
-        this.state.systemSettings[SystemSettingName.token_duration] = 1000 * getAsNumber(SystemSettingName.token_duration);
-        this.state.systemSettings[SystemSettingName.free_seconds_at_start] = getAsNumber(SystemSettingName.free_seconds_at_start);
+    private applySystemSettings(): void {
+        // Some of the system settings need to be applied to other entities when they are changed,
+        // not just set to this.state.systemSettings
+        this.applySystemSettingTimeZone();
     }
 
     getFreeSecondsAtComputerSessionStart(): number {
@@ -2569,7 +2641,7 @@ export class StateManager {
 
         await this.loadSystemSettings();
 
-        this.dateTimeHelper.setDefaultTimeZone(this.state.systemSettings[SystemSettingName.timezone]);
+        this.applySystemSettingTimeZone();
         // TODO: Should we publish system settings to the shared channel ? They can contain sensitive information
 
         this.state.mainTimerHandle = setInterval(() => this.mainTimerCallback(), 1000);
@@ -2636,7 +2708,11 @@ export class StateManager {
         return true;
     }
 
-    handleErr(err: unknown, requestMessage: Message<unknown>, replyMessage: Message<unknown>): void {
+    applySystemSettingTimeZone(): void {
+        this.dateTimeHelper.setDefaultTimeZone(this.state.systemSettings[SystemSettingName.timezone]);
+    }
+
+    setErrorToReplyMessage(err: unknown, requestMessage: Message<unknown>, replyMessage: Message<unknown>): void {
         this.logger.warn(`Can't process request message`, requestMessage, err);
         replyMessage.header.failure = true;
         replyMessage.header.errors = [{

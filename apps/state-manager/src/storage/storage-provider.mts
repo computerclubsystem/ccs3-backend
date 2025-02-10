@@ -18,6 +18,7 @@ import { IDeviceContinuation } from './entities/device-continuation.mjs';
 import { IShift } from './entities/shift.mjs';
 import { ITariffRecharge } from './entities/tariff-recharge.mjs';
 import { IShiftsSummary } from './entities/shifts-summary.mjs';
+import { ISystemSettingNameWithValue } from './entities/system-setting-name-with-value.mjs';
 
 export interface StorageProvider {
     getAllUsers(): Promise<IUser[]>;
@@ -54,6 +55,7 @@ export interface StorageProvider {
     getShifts(fromDate: string, toDate: string, userId: number | null | undefined): Promise<IShift[]>;
     getShiftsSummary(fromDate: string, toDate: string, userId: number | null | undefined): Promise<IShiftsSummary>;
 
+    updateSystemSettingsValues(systemSettingsNamesWithValues: ISystemSettingNameWithValue[]): Promise<void>;
     getAllSystemSettings(): Promise<ISystemSetting[]>;
     getSystemSettingByName(name: string): Promise<ISystemSetting | undefined>;
 

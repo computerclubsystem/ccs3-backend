@@ -148,7 +148,7 @@ import { createOperatorForceSignOutAllUserSessionsReplyMessage } from '@computer
 import { OperatorForceSignOutAllUserSessionsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-force-sign-out-all-user-sessions-request.message.mjs';
 import { createOperatorSignedOutNotificationMessage } from '@computerclubsystem/types/messages/operators/operator-signed-out-notification.message.mjs';
 import { OperatorGetCurrentShiftStatusRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-current-shift-status-request.message.mjs';
-import { BusGetCurrentShiftStatusReplyMessage, BusGetCurrentShiftStatusReplyMessageBody, createBusGetCurrentShiftStatusReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-current-shift-status-reply.message.mjs';
+import { BusGetCurrentShiftStatusReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-current-shift-status-reply.message.mjs';
 import { createBusGetCurrentShiftStatusRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-current-shift-status-request.message.mjs';
 import { createOperatorGetCurrentShiftStatusReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-current-shift-status-reply.message.mjs';
 import { OperatorCompleteShiftRequestMessage } from '@computerclubsystem/types/messages/operators/operator-complete-shift-request.message.mjs';
@@ -157,8 +157,16 @@ import { BusCompleteShiftReplyMessageBody } from '@computerclubsystem/types/mess
 import { createOperatorCompleteShiftReplyMessage } from '@computerclubsystem/types/messages/operators/operator-complete-shift-reply.message.mjs';
 import { OperatorGetShiftsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-shifts-request.message.mjs';
 import { createBusGetShiftsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-shifts-request.message.mjs';
-import { BusGetShiftsReplyMessage, BusGetShiftsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-shifts-reply.message.mjs';
+import { BusGetShiftsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-shifts-reply.message.mjs';
 import { createOperatorGetShiftsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-shifts-reply.message.mjs';
+import { OperatorGetAllSystemSettingsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-system-settings-request.message.mjs';
+import { createBusGetAllSystemSettingsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings-request.message.mjs';
+import { BusGetAllSystemSettingsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings-reply.message.mjs';
+import { createOperatorGetAllSystemSettingsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-system-settings-reply.message.mjs';
+import { OperatorUpdateSystemSettingsValuesRequestMessage } from '@computerclubsystem/types/messages/operators/operator-update-system-settings-values-request.message.mjs';
+import { BusUpdateSystemSettingsValuesRequestMessageBody, createBusUpdateSystemSettingsValuesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-system-settings-values-request.message.mjs';
+import { createOperatorUpdateSystemSettingsValuesReplyMessage } from '@computerclubsystem/types/messages/operators/operator-update-system-settings-values-reply.message.mjs';
+import { BusErrorCode } from '@computerclubsystem/types/messages/bus/declarations/bus-error-code.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -231,6 +239,12 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorRequestMessageType.updateSystemSettingsValuesRequest:
+                this.processOperatorUpdateSystemSettingsValuesRequestMessage(clientData, message as OperatorUpdateSystemSettingsValuesRequestMessage);
+                break;
+            case OperatorRequestMessageType.getAllSystemSettingsRequest:
+                this.processOperatorGetAllSystemSettingsRequestMessage(clientData, message as OperatorGetAllSystemSettingsRequestMessage);
+                break;
             case OperatorRequestMessageType.getShifts:
                 this.processOperatorGetShiftsRequestMessage(clientData, message as OperatorGetShiftsRequestMessage);
                 break;
@@ -329,6 +343,32 @@ export class OperatorConnector {
                 this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    processOperatorUpdateSystemSettingsValuesRequestMessage(clientData: ConnectedClientData, message: OperatorUpdateSystemSettingsValuesRequestMessage): void {
+        const busReqMsg = createBusUpdateSystemSettingsValuesRequestMessage();
+        busReqMsg.body.systemSettingsNameWithValues = message.body.systemSettingsNameWithValues;
+        this.publishToSharedChannelAndWaitForReply<BusUpdateSystemSettingsValuesRequestMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorUpdateSystemSettingsValuesReplyMessage();
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                // If the error is not BusErrorCode.serverError - get errors from bus reply - they are considered safe
+                if (busReplyMsg.header.errors?.[0]?.code !== BusErrorCode.serverError) {
+                    operatorReplyMsg.header.errors = busReplyMsg.header.errors;
+                }
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    processOperatorGetAllSystemSettingsRequestMessage(clientData: ConnectedClientData, message: OperatorGetAllSystemSettingsRequestMessage): void {
+        const busReqMsg = createBusGetAllSystemSettingsRequestMessage();
+        this.publishToSharedChannelAndWaitForReply<BusGetAllSystemSettingsReplyMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorGetAllSystemSettingsReplyMessage();
+                operatorReplyMsg.body.systemSettings = busReplyMsg.body.systemSettings;
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
     }
 
     processOperatorGetShiftsRequestMessage(clientData: ConnectedClientData, message: OperatorGetShiftsRequestMessage): void {
@@ -813,9 +853,39 @@ export class OperatorConnector {
             });
     }
 
+    publishToSharedChannelAndWaitForReply<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData): Observable<Message<TReplyBody>> {
+        const messageStatItem: MessageStatItem = {
+            sentAt: this.getNowAsNumber(),
+            channel: ChannelName.shared,
+            correlationId: busMessage.header.correlationId,
+            type: busMessage.header.type,
+            completedAt: 0,
+            operatorId: clientData.userId,
+        };
+        if (!busMessage.header.correlationId) {
+            busMessage.header.correlationId = this.createUUIDString();
+        }
+        messageStatItem.correlationId = busMessage.header.correlationId;
+        return this.publishToSharedChannel(busMessage).pipe(
+            filter(msg => !!msg.header.correlationId && msg.header.correlationId === busMessage.header.correlationId),
+            first(),
+            timeout(this.state.messageBusReplyTimeout),
+            catchError(err => {
+                messageStatItem.error = err;
+                // TODO: This will complete the observable. The subscriber will not know about the error/timeout
+                return of();
+            }),
+            finalize(() => {
+                messageStatItem.completedAt = this.getNowAsNumber();
+                this.subjectsService.setMessageStat(messageStatItem);
+            }),
+        );
+    }
+
     publishToOperatorsChannelAndWaitForReply<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData): Observable<Message<TReplyBody>> {
         const messageStatItem: MessageStatItem = {
             sentAt: this.getNowAsNumber(),
+            channel: ChannelName.operators,
             correlationId: busMessage.header.correlationId,
             type: busMessage.header.type,
             completedAt: 0,
@@ -836,7 +906,7 @@ export class OperatorConnector {
             }),
             finalize(() => {
                 messageStatItem.completedAt = this.getNowAsNumber();
-                this.subjectsService.setOperatorsChannelMessageStat(messageStatItem);
+                this.subjectsService.setMessageStat(messageStatItem);
             }),
         );
     }
@@ -1059,21 +1129,25 @@ export class OperatorConnector {
                 this.processDevicesBusMessage(message);
                 break;
             case ChannelName.shared:
+                this.processSharedBusMessage(message);
                 break;
         }
     }
 
+    processSharedBusMessage<TBody>(message: Message<TBody>): void {
+        this.subjectsService.setSharedChannelBusMessageReceived(message);
+        // TODO: Process shared channel notifications messages - all reply messages should be processed by the requester
+        // const type = message.header.type;
+        // switch (type) {
+        // }
+    }
+
     processOperatorsBusMessage<TBody>(message: Message<TBody>): void {
         this.subjectsService.setOperatorsChannelBusMessageReceived(message);
-        const type = message.header.type;
-        switch (type) {
-            // case MessageType.busOperatorAuthReply:
-            //     this.processBusOperatorAuthReplyMessage(message as BusOperatorAuthReplyMessage)
-            //     break;
-            default:
-                // this.logger.log(`Unknown message received`, message);
-                break;
-        }
+        // TODO: Process operators channel notifications messages - all reply messages should be processed by the requester
+        // const type = message.header.type;
+        // switch (type) {
+        // }
     }
 
     processBusOperatorAuthReplyMessage(
@@ -1335,6 +1409,13 @@ export class OperatorConnector {
         this.publishToOperatorsChannel(deviceConnectionEventMsg);
     }
 
+    publishToSharedChannel<TBody>(message: Message<TBody>): Observable<Message<any>> {
+        message.header.source = this.messageBusIdentifier;
+        this.logger.log('Publishing message', ChannelName.shared, message.header.type, message);
+        this.pubClient.publish(ChannelName.shared, JSON.stringify(message));
+        return this.subjectsService.getSharedChannelBusMessageReceived();
+    }
+
     publishToOperatorsChannel<TBody>(message: Message<TBody>): Observable<Message<any>> {
         message.header.source = this.messageBusIdentifier;
         this.logger.log('Publishing message', ChannelName.operators, message.header.type, message);
@@ -1550,7 +1631,7 @@ export class OperatorConnector {
     }
 
     subscribeToSubjects(): void {
-        this.subjectsService.getOperatorsChannelMessageStat().subscribe(messageStatItem => {
+        this.subjectsService.getMessageStat().subscribe(messageStatItem => {
             if (this.state.operatorChannelMessageStatItems.length > 1000) {
                 // TODO: Implement ring buffer
                 this.state.operatorChannelMessageStatItems.shift();

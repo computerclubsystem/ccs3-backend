@@ -73,7 +73,9 @@ export class DateTimeHelper {
     }
 
     setDefaultTimeZone(timeZone: string): void {
-        Settings.defaultZone = timeZone;
+        // null means that current machine timezone configuration will be used
+        const calculatedTimeZone = timeZone?.trim() || null;
+        Settings.defaultZone = calculatedTimeZone!;
     }
 
     getHoursAndMinutesFromTotalMinutes(totalMinutes: number): { hours: number, minutes: number } {
@@ -110,7 +112,7 @@ export class DateTimeHelper {
     }
 
     convertToUTC(dateTime: string): string | null {
-        return DateTime.fromISO(dateTime).toISO();
+        return DateTime.fromISO(dateTime).toUTC().toISO();
     }
 
     private getNow(): DateTime<Valid> {

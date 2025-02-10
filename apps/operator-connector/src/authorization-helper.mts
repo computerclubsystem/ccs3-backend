@@ -33,6 +33,8 @@ export class AuthorizationHelper {
         map.set(OperatorRequestMessageType.createDeviceContinuationRequest, [PermissionName.devicesStart]);
         map.set(OperatorRequestMessageType.stopDeviceRequest, [PermissionName.devicesStop]);
         map.set(OperatorRequestMessageType.getShifts, [PermissionName.repoortsShifts]);
+        map.set(OperatorRequestMessageType.getAllSystemSettingsRequest, [PermissionName.systemSettingsRead]);
+        map.set(OperatorRequestMessageType.updateSystemSettingsValuesRequest, [PermissionName.systemSettingsUpdate]);
         this.messageTypeToPermissionMap = map;
     }
 

@@ -1,4 +1,10 @@
 export const enum MessageType {
+    // System settings
+    busUpdateSystemSettingsValuesRequest = 'bus-update-system-settings-values-request',
+    busUpdateSystemSettingsValuesReply = 'bus-update-system-settings-values-reply',
+    busGetAllSystemSettingsRequest = 'bus-get-all-system-settings-request',
+    busGetAllSystemSettingsReply = 'bus-get-all-system-settings-reply',
+
     busDeviceConnectivitiesNotification = 'bus-device-connectivities-notification',
     busDeviceGetByCertificateRequest = 'bus-device-get-by-certificate-request',
     busDeviceGetByCertificateReply = 'bus-device-get-by-certificate-reply',

@@ -1,0 +1,15 @@
+UPDATE system_setting
+SET description = 'Interval in seconds at which to calculate device statuses. Default value is 5. Recommended value is between 5 and 15.'
+WHERE name = 'device_status_refresh_interval';
+
+UPDATE system_setting
+SET description = 'Free seconds at the start of computer session. The price during this free period will be 0. If this setting has value of 0, there will be no free time at the start of the sessions. Default value is 180 (3 minutes).'
+WHERE name = 'free_seconds_at_start';
+
+UPDATE system_setting
+SET description = 'Token duration in seconds. How much time the token obtained after authentication is valid. Default value is 1800 seconds (30 minutes). Recommended value is between 300 seconds (5 minutes) and 3600 seconds (1 hour).'
+WHERE name = 'token_duration';
+
+UPDATE db_metadata
+SET value = '23'
+WHERE name = 'database-version';

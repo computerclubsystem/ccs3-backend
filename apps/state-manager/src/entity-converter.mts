@@ -20,8 +20,21 @@ import { IShift } from './storage/entities/shift.mjs';
 import { Shift } from '@computerclubsystem/types/entities/shift.mjs';
 import { IShiftsSummary } from './storage/entities/shifts-summary.mjs';
 import { ShiftsSummary } from '@computerclubsystem/types/entities/shifts-summary.mjs';
+import { ISystemSetting } from './storage/entities/system-setting.mjs';
+import { SystemSetting } from '@computerclubsystem/types/entities/system-setting.mjs';
 
 export class EntityConverter {
+    fromStorageSystemSetting(storageSystemSetting: ISystemSetting): SystemSetting {
+        const systemSetting: SystemSetting = {
+            name: storageSystemSetting.name,
+            type: storageSystemSetting.type,
+            allowedValues: storageSystemSetting.allowedValues,
+            description: storageSystemSetting.description,
+            value: storageSystemSetting.value,
+        };
+        return systemSetting;
+    }
+
     fromStorageShiftsSummary(storageShiftsSummary: IShiftsSummary): ShiftsSummary {
         const shiftsSummary: ShiftsSummary = {
             completedSessionsCount: storageShiftsSummary.completed_sessions_count,

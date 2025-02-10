@@ -4,22 +4,31 @@ import { Message } from '@computerclubsystem/types/messages/declarations/message
 import { MessageStatItem } from './declarations.mjs';
 
 export class SubjectsService {
-    private readonly operatorsChannelBusMessageReceivedSubject = new Subject<Message<any>>();
-    private readonly operatorsChannelMessageStatSubject = new Subject<MessageStatItem>();
+    private readonly operatorsChannelBusMessageReceivedSubject = new Subject<Message<unknown>>();
+    private readonly sharedChannelBusMessageReceivedSubject = new Subject<Message<unknown>>();
+    private readonly messageStatSubject = new Subject<MessageStatItem>();
 
-    setOperatorsChannelMessageStat(msgStatItem: MessageStatItem): void {
-        this.operatorsChannelMessageStatSubject.next(msgStatItem);
+    setSharedChannelBusMessageReceived(message: Message<unknown>): void {
+        this.sharedChannelBusMessageReceivedSubject.next(message);
     }
 
-    getOperatorsChannelMessageStat(): Observable<MessageStatItem> {
-        return this.operatorsChannelMessageStatSubject.asObservable();
+    getSharedChannelBusMessageReceived(): Observable<Message<unknown>> {
+        return this.sharedChannelBusMessageReceivedSubject.asObservable();
     }
 
-    setOperatorsChannelBusMessageReceived(message: Message<any>): void {
+    setMessageStat(msgStatItem: MessageStatItem): void {
+        this.messageStatSubject.next(msgStatItem);
+    }
+
+    getMessageStat(): Observable<MessageStatItem> {
+        return this.messageStatSubject.asObservable();
+    }
+
+    setOperatorsChannelBusMessageReceived(message: Message<unknown>): void {
         this.operatorsChannelBusMessageReceivedSubject.next(message);
     }
 
-    getOperatorsChannelBusMessageReceived(): Observable<Message<any>> {
+    getOperatorsChannelBusMessageReceived(): Observable<Message<unknown>> {
         return this.operatorsChannelBusMessageReceivedSubject.asObservable();
     }
 }
