@@ -167,6 +167,8 @@ import { BusUpdateSystemSettingsValuesRequestMessageBody, createBusUpdateSystemS
 import { createOperatorUpdateSystemSettingsValuesReplyMessage } from '@computerclubsystem/types/messages/operators/operator-update-system-settings-values-reply.message.mjs';
 import { BusErrorCode } from '@computerclubsystem/types/messages/bus/declarations/bus-error-code.mjs';
 import { createBusGetAllSystemSettingsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings-request.message.mjs';
+import { SystemSetting } from '@computerclubsystem/types/entities/system-setting.mjs';
+import { BusAllSystemSettingsNotificationMessage, BusAllSystemSettingsNotificationMessageBody } from '@computerclubsystem/types/messages/bus/bus-all-system-settings-notification.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -853,14 +855,14 @@ export class OperatorConnector {
             });
     }
 
-    publishToSharedChannelAndWaitForReply<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData): Observable<Message<TReplyBody>> {
+    publishToSharedChannelAndWaitForReply<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData | null): Observable<Message<TReplyBody>> {
         const messageStatItem: MessageStatItem = {
             sentAt: this.getNowAsNumber(),
             channel: ChannelName.shared,
             correlationId: busMessage.header.correlationId,
             type: busMessage.header.type,
             completedAt: 0,
-            operatorId: clientData.userId,
+            operatorId: clientData?.userId,
         };
         if (!busMessage.header.correlationId) {
             busMessage.header.correlationId = this.createUUIDString();
@@ -1136,11 +1138,21 @@ export class OperatorConnector {
 
     processSharedBusMessage<TBody>(message: Message<TBody>): void {
         this.subjectsService.setSharedChannelBusMessageReceived(message);
-        // TODO: Process shared channel notifications messages - all reply messages should be processed by the requester
-        // const type = message.header.type;
-        // switch (type) {
-        // }
+        // Process shared channel notifications messages - all reply messages should be processed by the requester
+        const type = message.header.type;
+        switch (type) {
+            case MessageType.busAllSystemSettingsNotification:
+                this.processBusAllSystemSettingsNotificationMessage(message as BusAllSystemSettingsNotificationMessage);
+                break;
+        }
     }
+
+    processBusAllSystemSettingsNotificationMessage(message: BusAllSystemSettingsNotificationMessage): void {
+        this.state.systemSettings = message.body.systemSettings;
+        this.applySystemSettings(this.state.systemSettings);
+        // TODO: Send appropriate settings to all connected clients
+    }
+
 
     processOperatorsBusMessage<TBody>(message: Message<TBody>): void {
         this.subjectsService.setOperatorsChannelBusMessageReceived(message);
@@ -1590,6 +1602,7 @@ export class OperatorConnector {
             // Message statistics for operator channel
             operatorChannelMessageStatItems: [],
             clientConnectionsMonitorTimerHandle: undefined,
+            systemSettings: [],
         };
         return state;
     }
@@ -1625,9 +1638,26 @@ export class OperatorConnector {
         this.cacheHelper.initialize(this.cacheClient);
         this.subscribeToSubjects();
         await this.joinMessageBus();
+        this.requestAllSystemSettings();
         this.startWebSocketServer();
         this.startClientConnectionsMonitor();
         this.serveStaticFiles();
+    }
+
+    applySystemSettings(systemSettings: SystemSetting[]): void {
+        // TODO: Generate objects based on provided system settings
+    }
+
+    requestAllSystemSettings(): void {
+        const busReqMsg = createBusGetAllSystemSettingsRequestMessage();
+        this.publishToSharedChannelAndWaitForReply<BusGetAllSystemSettingsReplyMessageBody>(busReqMsg, null)
+            .subscribe(replyMsg => {
+                if (!replyMsg.header.failure) {
+                    this.state.systemSettings = replyMsg.body.systemSettings;
+                    // Generate objects based on system settings
+                    this.applySystemSettings(this.state.systemSettings);
+                }
+            });
     }
 
     subscribeToSubjects(): void {

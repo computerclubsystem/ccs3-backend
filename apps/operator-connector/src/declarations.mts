@@ -5,6 +5,7 @@ import { Permission } from '@computerclubsystem/types/entities/permission.mjs';
 import { TariffValidator } from './tariff-validator.mjs';
 import { BusDeviceStatusesMessage } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
 import { ChannelName } from '@computerclubsystem/types/channels/channel-name.mjs';
+import { SystemSetting } from '@computerclubsystem/types/entities/system-setting.mjs';
 
 export interface ConnectedClientData {
     connectionId: number;
@@ -68,6 +69,7 @@ export interface OperatorConnectorState {
     operatorChannelMessageStatItems: MessageStatItem[];
     clientConnectionsMonitorTimerHandle?: NodeJS.Timeout;
     lastBusDeviceStatusesMessage?: BusDeviceStatusesMessage;
+    systemSettings: SystemSetting[];
 }
 
 export interface OperatorConnectorValidators {

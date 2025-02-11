@@ -109,6 +109,7 @@ import { createBusGetAllSystemSettingsReplyMessage } from '@computerclubsystem/t
 import { BusUpdateSystemSettingsValuesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-system-settings-values-request.message.mjs';
 import { createBusUpdateSystemSettingsValuesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-system-settings-values-reply.message.mjs';
 import { SystemSettingsValidator } from './system-settings-validator.mjs';
+import { createBusAllSystemSettingsNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-all-system-settings-notification.message.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -2147,7 +2148,7 @@ export class StateManager {
         return this.publishMessage(ChannelName.devices, message);
     }
 
-    async publishToSharedChannel<TBody>(message: Message<TBody>, sourceMessage?: Message<any>): Promise<number> {
+    async publishToSharedChannel<TBody>(message: Message<TBody>, sourceMessage: Message<any> | null): Promise<number> {
         if (sourceMessage) {
             // Transfer source message common data (like round trip data) to destination message
             transferSharedMessageData(message, sourceMessage);
@@ -2604,7 +2605,7 @@ export class StateManager {
         return state;
     }
 
-    private async loadSystemSettings(): Promise<void> {
+    private async loadSystemSettings(): Promise<ISystemSetting[]> {
         const allSystemSettings = await this.storageProvider.getAllSystemSettings();
         const settingsMap = new Map<string, ISystemSetting>();
         allSystemSettings.forEach(x => settingsMap.set(x.name, x));
@@ -2616,6 +2617,7 @@ export class StateManager {
             [SystemSettingName.timezone]: settingsMap.get(SystemSettingName.timezone)?.value!,
             [SystemSettingName.seconds_before_restarting_stopped_computers]: getAsNumber(SystemSettingName.seconds_before_restarting_stopped_computers),
         };
+        return allSystemSettings;
     }
 
     private applySystemSettings(): void {
@@ -2641,7 +2643,7 @@ export class StateManager {
             return false;
         }
 
-        await this.loadSystemSettings();
+        const storageSystemSettings = await this.loadSystemSettings();
 
         this.applySystemSettingTimeZone();
         // TODO: Should we publish system settings to the shared channel ? They can contain sensitive information
@@ -2706,6 +2708,11 @@ export class StateManager {
         this.logger.log('CacheClient connected');
 
         await this.cacheStaticData();
+
+        const notificationMsg = createBusAllSystemSettingsNotificationMessage();
+        const systemSettings = storageSystemSettings.map(x => this.entityConverter.fromStorageSystemSetting(x));
+        notificationMsg.body.systemSettings = systemSettings;
+        this.publishToSharedChannel(notificationMsg, null);
 
         return true;
     }
