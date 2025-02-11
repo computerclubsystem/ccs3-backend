@@ -1,0 +1,18 @@
+INSERT INTO system_setting
+(
+    name,
+    type,
+    description,
+    value
+)
+VALUES
+(
+    'seconds_before_restarting_stopped_computers',
+    'integer',
+    'How much time in seconds to wait after the computer is stopped before restarting it. Default value is 120. Recommended value is 60 or more. If 0 is provided, the computer will not be restarted after it is stopped.',
+    '120'
+);
+
+UPDATE db_metadata
+SET value = '24'
+WHERE name = 'database-version';

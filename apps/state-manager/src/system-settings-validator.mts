@@ -22,7 +22,7 @@ export class SystemSettingsValidator {
                 }
                 case SystemSettingsName.free_seconds_at_start: {
                     const val = +item.value!;
-                    const isValid = val >= 0;
+                    const isValid = !this.isNullOrWhiteSpace(item.value) && val >= 0;
                     if (!isValid) {
                         result.failed = true;
                         result.errorCode = ValidateNameWithValuesErrorCode.outOfRange;
@@ -32,7 +32,8 @@ export class SystemSettingsValidator {
                     break;
                 }
                 case SystemSettingsName.timezone: {
-                    // We will consider timezones always valid - we could even have empty timezone which means to use the timezone configured on the server
+                    // We will consider timezones always valid
+                    // we could even have empty timezone which means to use the timezone configured on the server
                     result.failed = false;
                     break;
                 }
@@ -42,7 +43,18 @@ export class SystemSettingsValidator {
                     if (!isValid) {
                         result.failed = true;
                         result.errorCode = ValidateNameWithValuesErrorCode.outOfRange;
-                        result.errorMessage = this.getOutOfRangeErrorMessage(item) + '. Valid values are >= 60 seconds';
+                        result.errorMessage = this.getOutOfRangeErrorMessage(item) + '. Valid values are >= 60';
+                        return result;
+                    }
+                    break;
+                }
+                case SystemSettingsName.seconds_before_restarting_stopped_computers: {
+                    const val = +item.value!;
+                    const isValid = !this.isNullOrWhiteSpace(item.value) && val >= 0;
+                    if (!isValid) {
+                        result.failed = true;
+                        result.errorCode = ValidateNameWithValuesErrorCode.outOfRange;
+                        result.errorMessage = this.getOutOfRangeErrorMessage(item) + '. Valid values are >= 0';
                         return result;
                     }
                     break;
@@ -55,6 +67,16 @@ export class SystemSettingsValidator {
             }
         }
         return result;
+    }
+
+    private isNullOrWhiteSpace(value: string | null | undefined): boolean {
+        if (!value) {
+            return true;
+        }
+        if (value.trim().length === 0) {
+            return true;
+        }
+        return false;
     }
 
     private getOutOfRangeErrorMessage(systemSettingNameWithValue: SystemSettingNameWithValue): string {

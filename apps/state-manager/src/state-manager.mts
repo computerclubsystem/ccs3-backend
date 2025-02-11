@@ -2595,6 +2595,7 @@ export class StateManager {
                 // Empty timezone means the current computer timezone will be used
                 [SystemSettingName.timezone]: '',
                 [SystemSettingName.free_seconds_at_start]: 180,
+                [SystemSettingName.seconds_before_restarting_stopped_computers]: 120,
             },
             lastDeviceStatusRefreshAt: 0,
             deviceStatusRefreshInProgress: false,
@@ -2613,6 +2614,7 @@ export class StateManager {
             [SystemSettingName.token_duration]: 1000 * getAsNumber(SystemSettingName.token_duration),
             [SystemSettingName.free_seconds_at_start]: getAsNumber(SystemSettingName.free_seconds_at_start),
             [SystemSettingName.timezone]: settingsMap.get(SystemSettingName.timezone)?.value!,
+            [SystemSettingName.seconds_before_restarting_stopped_computers]: getAsNumber(SystemSettingName.seconds_before_restarting_stopped_computers),
         };
     }
 
@@ -2743,6 +2745,7 @@ interface StateManagerStateSystemSettings {
     [SystemSettingName.token_duration]: number;
     [SystemSettingName.timezone]: string;
     [SystemSettingName.free_seconds_at_start]: number;
+    [SystemSettingName.seconds_before_restarting_stopped_computers]: number;
 }
 
 interface UserAuthDataCacheValue {
