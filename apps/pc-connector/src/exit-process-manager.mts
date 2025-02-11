@@ -1,4 +1,4 @@
-import { Logger } from "./logger.mjs";
+import { Logger } from './logger.mjs';
 
 export class ExitProcessManager {
     private map!: Map<ProcessExitCode, ProcessExitData>;

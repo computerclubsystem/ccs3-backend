@@ -51,6 +51,10 @@ import { DeviceToServerChangePrepaidTariffPasswordByCustomerRequestMessage } fro
 import { createBusChangePrepaidTariffPasswordByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-change-prepaid-tariff-password-by-customer-request.message.mjs';
 import { BusChangePrepaidTariffPasswordByCustomerReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-change-prepaid-tariff-password-by-customer-reply.message.mjs';
 import { createServerToDeviceChangePrepaidTariffPasswordPasswordByCustomerReplyMessage } from '@computerclubsystem/types/messages/devices/server-to-device-change-prepaid-tariff-password-by-customer-reply.message.mjs';
+import { createBusGetAllSystemSettingsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings-request.message.mjs';
+import { BusGetAllSystemSettingsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings-reply.message.mjs';
+import { SystemSetting } from '@computerclubsystem/types/entities/system-setting.mjs';
+import { BusAllSystemSettingsNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-all-system-settings-notification.message.mjs';
 
 export class PcConnector {
     wssServer!: WssServer;
@@ -76,9 +80,26 @@ export class PcConnector {
         this.exitProcessManager.setLogger(this.logger);
         this.exitProcessManager.init();
         await this.joinMessageBus();
+        this.requestAllSystemSettings();
         this.startWebSocketServer();
         this.startClientConnectionsMonitor();
         this.startMainTimer();
+    }
+
+    applySystemSettings(systemSettings: SystemSetting[]): void {
+        // TODO: Generate objects based on provided system settings
+    }
+
+    requestAllSystemSettings(): void {
+        const busReqMsg = createBusGetAllSystemSettingsRequestMessage();
+        this.publishToSharedChannelAndWaitForReply<BusGetAllSystemSettingsReplyMessageBody>(busReqMsg, null)
+            .subscribe(replyMsg => {
+                if (!replyMsg.header.failure) {
+                    this.state.systemSettings = replyMsg.body.systemSettings;
+                    // Generate objects based on system settings
+                    this.applySystemSettings(this.state.systemSettings);
+                }
+            });
     }
 
     private processDeviceConnected(args: ClientConnectedEventArgs): void {
@@ -265,17 +286,32 @@ export class PcConnector {
                 this.processDevicesBusMessage(message);
                 break;
             case ChannelName.shared:
+                this.processSharedBusMessage(message);
                 break;
         }
+    }
+
+    processSharedBusMessage<TBody>(message: Message<TBody>): void {
+        this.subjectsService.setSharedChannelBusMessageReceived(message);
+        const type = message.header.type;
+        switch (type) {
+            case MessageType.busAllSystemSettingsNotification:
+                this.processBusAllSystemSettingsNotificationMessage(message as BusAllSystemSettingsNotificationMessage);
+                break;
+        }
+    }
+
+    processBusAllSystemSettingsNotificationMessage(message: BusAllSystemSettingsNotificationMessage): void {
+        this.state.systemSettings = message.body.systemSettings;
+        this.applySystemSettings(this.state.systemSettings);
+        // TODO: Send appropriate settings to all connected clients
     }
 
     processDevicesBusMessage<TBody>(message: Message<TBody>): void {
         this.subjectsService.setDevicesChannelBusMessageReceived(message);
         const type = message.header.type;
+        // Process only notification messages. Reply message should be processed by the caller
         switch (type) {
-            case MessageType.busDeviceGetByCertificateReply:
-                // this.processDeviceGetByCertificateReply(message as BusDeviceGetByCertificateReplyMessage);
-                break;
             case MessageType.busDeviceStatuses:
                 this.processDeviceStatusesMessage(message as BusDeviceStatusesMessage);
                 break;
@@ -444,6 +480,7 @@ export class PcConnector {
             sentAt: this.getNowAsNumber(),
             correlationId: busMessage.header.correlationId,
             type: busMessage.header.type,
+            channel: ChannelName.devices,
             completedAt: 0,
             deviceId: clientData.deviceId,
         };
@@ -462,7 +499,36 @@ export class PcConnector {
             }),
             finalize(() => {
                 messageStatItem.completedAt = this.getNowAsNumber();
-                this.subjectsService.setDevicesChannelMessageStat(messageStatItem);
+                this.subjectsService.setChannelMessageStat(messageStatItem);
+            }),
+        );
+    }
+
+    publishToSharedChannelAndWaitForReply<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData | null): Observable<Message<TReplyBody>> {
+        const messageStatItem: MessageStatItem = {
+            sentAt: this.getNowAsNumber(),
+            channel: ChannelName.shared,
+            correlationId: busMessage.header.correlationId,
+            type: busMessage.header.type,
+            completedAt: 0,
+            deviceId: clientData?.deviceId,
+        };
+        if (!busMessage.header.correlationId) {
+            busMessage.header.correlationId = this.createUUIDString();
+        }
+        messageStatItem.correlationId = busMessage.header.correlationId;
+        return this.publishToSharedChannel(busMessage).pipe(
+            filter(msg => !!msg.header.correlationId && msg.header.correlationId === busMessage.header.correlationId),
+            first(),
+            timeout(this.state.messageBusReplyTimeout),
+            catchError(err => {
+                messageStatItem.error = err;
+                // TODO: This will complete the observable. The subscriber will not know about the error/timeout
+                return of();
+            }),
+            finalize(() => {
+                messageStatItem.completedAt = this.getNowAsNumber();
+                this.subjectsService.setChannelMessageStat(messageStatItem);
             }),
         );
     }
@@ -476,9 +542,10 @@ export class PcConnector {
         return this.subjectsService.getDevicesChannelBusMessageReceived();
     }
 
-    // private async publishToSharedChannel<TBody>(message: Message<TBody>): Promise<void> {
-    //     this.publishToChannel(message, ChannelName.shared);
-    // }
+    private publishToSharedChannel<TBody>(message: Message<TBody>): Observable<Message<any>> {
+        this.publishToChannel(message, ChannelName.shared);
+        return this.subjectsService.getSharedChannelBusMessageReceived();
+    }
 
     private async publishToChannel<TBody>(message: Message<TBody>, channelName: ChannelName): Promise<void> {
         message.header.source = this.messageBusIdentifier;
@@ -698,6 +765,7 @@ export class PcConnector {
             lastConnectivitySnapshotTimestamp: this.getNowAsNumber(),
             connectivitySnapshotInterval: 10000,
             messageBusReplyTimeout: 5000,
+            systemSettings: [],
         };
         return state;
     }
@@ -775,4 +843,6 @@ interface PcConnectorState {
     connectivitySnapshotInterval: number;
 
     messageBusReplyTimeout: number;
+
+    systemSettings: SystemSetting[];
 }

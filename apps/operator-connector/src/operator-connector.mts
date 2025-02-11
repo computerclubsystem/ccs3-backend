@@ -1153,7 +1153,6 @@ export class OperatorConnector {
         // TODO: Send appropriate settings to all connected clients
     }
 
-
     processOperatorsBusMessage<TBody>(message: Message<TBody>): void {
         this.subjectsService.setOperatorsChannelBusMessageReceived(message);
         // TODO: Process operators channel notifications messages - all reply messages should be processed by the requester

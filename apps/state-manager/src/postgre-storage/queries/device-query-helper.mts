@@ -4,7 +4,7 @@
 // DO NOTHING | DO UPDATE SET column1 = value1, column2 = value2, ...;
 
 import { IDevice } from 'src/storage/entities/device.mjs';
-import { IQueryTextWithParamsResult } from "./query-with-params.mjs";
+import { IQueryTextWithParamsResult } from './query-with-params.mjs';
 
 export class DeviceQueryHelper {
     createDeviceQueryData(device: IDevice): IQueryTextWithParamsResult {
