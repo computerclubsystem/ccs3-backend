@@ -15,6 +15,9 @@ export const enum MessageType {
     busDeviceUnknownDeviceConnectedRequest = 'bus-device-unknown-device-connected-request',
     busDeviceUnknownDeviceConnectedReply = 'bus-device-unknown-device-connected-reply',
 
+    busCreateDeviceRequest = 'bus-create-device-request',
+    busCreateDeviceReply = 'bus-create-device-reply',
+
     // Authentication
     busOperatorAuthRequest = 'bus-operator-auth-request',
     busOperatorAuthReply = 'bus-operator-auth-reply',

@@ -2,6 +2,7 @@ export enum BusErrorCode {
     serverError = 'server-error',
     deviceAlreadyStarted = 'device-already-started',
     deviceIdIsRequired = 'device-id-is-required',
+    deviceIpAddressIsRequired = 'device-ip-address-is-required',
     tariffIdIsRequired = 'tariff-id-is-required',
     deviceIsNotStarted = 'device-is-not-started',
     deviceIsInUse = 'device-is-in-use',

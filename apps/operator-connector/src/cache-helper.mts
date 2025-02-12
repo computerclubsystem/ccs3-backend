@@ -1,4 +1,5 @@
 import { RedisCacheClient } from '@computerclubsystem/redis-client';
+import { Device } from '@computerclubsystem/types/entities/device.mjs';
 import { OperatorConnectionRoundTripData } from '@computerclubsystem/types/messages/operators/declarations/operator-connection-roundtrip-data.mjs';
 
 export class CacheHelper {

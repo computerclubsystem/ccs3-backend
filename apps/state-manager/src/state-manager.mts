@@ -110,6 +110,8 @@ import { BusUpdateSystemSettingsValuesRequestMessage } from '@computerclubsystem
 import { createBusUpdateSystemSettingsValuesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-system-settings-values-reply.message.mjs';
 import { SystemSettingsValidator } from './system-settings-validator.mjs';
 import { createBusAllSystemSettingsNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-all-system-settings-notification.message.mjs';
+import { BusCreateDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-request.message.mjs';
+import { createBusCreateDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-reply.message.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -203,6 +205,9 @@ export class StateManager {
     processOperatorsChannelMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busCreateDeviceRequest:
+                this.processBusCreateDeviceRequestMessage(message as BusCreateDeviceRequestMessage);
+                break;
             case MessageType.busGetShiftsRequest:
                 this.processBusGetShiftsRequestMessage(message as BusGetShiftsRequestMessage);
                 break;
@@ -330,6 +335,50 @@ export class StateManager {
         }
 
         return true;
+    }
+
+    async processBusCreateDeviceRequestMessage(message: BusCreateDeviceRequestMessage): Promise<void> {
+        const replyMsg = createBusCreateDeviceReplyMessage();
+        try {
+            const device: Device = message.body.device;
+            if (!device?.ipAddress) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceIpAddressIsRequired,
+                    description: 'Device IP address is required',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            if (this.isWhiteSpace(device.certificateThumbprint)) {
+                // Empty / whitespace strings for certificateThumbprint will be treated as nulls
+                // to allow creating more than one device with no certificateThumbprint
+                // because it is constrained to be unique allowing only nulls to be more than one
+                device.certificateThumbprint = null;
+            }
+            device.createdAt = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
+            const storageDeviceToCreate = this.entityConverter.deviceToStorageDevice(device);
+            const createdStorageDevice = await this.storageProvider.createDevice(storageDeviceToCreate);
+            const storageDeviceStatus: IDeviceStatus = {
+                device_id: createdStorageDevice.id,
+                enabled: false,
+                start_reason: null,
+                started: false,
+                started_at: null,
+                stopped_at: null,
+                total: null,
+            }
+            // Create record in device statuses database table
+            await this.storageProvider.addOrUpdateDeviceStatusEnabled(storageDeviceStatus);
+            this.logger.log('New device created. Device Id', createdStorageDevice.id);
+            await this.cacheAllDevices();
+            const createdDevice = this.entityConverter.storageDeviceToDevice(createdStorageDevice);
+            replyMsg.body.device = createdDevice;
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
     }
 
     async processBusGetShiftsRequestMessage(message: BusGetShiftsRequestMessage): Promise<void> {
@@ -2563,7 +2612,7 @@ export class StateManager {
         return;
     }
 
-    private isWhiteSpace(string?: string): boolean {
+    private isWhiteSpace(string?: string | null): boolean {
         return !(string?.trim());
     }
 

@@ -157,7 +157,7 @@ import { BusCompleteShiftReplyMessageBody } from '@computerclubsystem/types/mess
 import { createOperatorCompleteShiftReplyMessage } from '@computerclubsystem/types/messages/operators/operator-complete-shift-reply.message.mjs';
 import { OperatorGetShiftsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-shifts-request.message.mjs';
 import { createBusGetShiftsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-shifts-request.message.mjs';
-import { BusGetShiftsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-shifts-reply.message.mjs';
+import { BusGetShiftsReplyMessageBody, createBusGetShiftsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-shifts-reply.message.mjs';
 import { createOperatorGetShiftsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-shifts-reply.message.mjs';
 import { OperatorGetAllSystemSettingsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-system-settings-request.message.mjs';
 import { BusGetAllSystemSettingsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings-reply.message.mjs';
@@ -169,6 +169,11 @@ import { BusErrorCode } from '@computerclubsystem/types/messages/bus/declaration
 import { createBusGetAllSystemSettingsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings-request.message.mjs';
 import { SystemSetting } from '@computerclubsystem/types/entities/system-setting.mjs';
 import { BusAllSystemSettingsNotificationMessage, BusAllSystemSettingsNotificationMessageBody } from '@computerclubsystem/types/messages/bus/bus-all-system-settings-notification.message.mjs';
+import { OperatorCreateDeviceRequestMessage } from '@computerclubsystem/types/messages/operators/operator-create-device-request.message.mjs';
+import { BusCreateDeviceRequestMessage, BusCreateDeviceRequestMessageBody, createBusCreateDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-request.message.mjs';
+import { createOperatorCreateDeviceReplyMessage } from '@computerclubsystem/types/messages/operators/operator-create-device-reply.message.mjs';
+import { BusCreateDeviceReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-create-device-reply.message.mjs';
+import { BusUpdateSystemSettingsValuesReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-update-system-settings-values-reply.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -241,6 +246,9 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorRequestMessageType.createDeviceRequest:
+                this.processOperatorCreateDeviceRequestMessage(clientData, message as OperatorCreateDeviceRequestMessage);
+                break;
             case OperatorRequestMessageType.updateSystemSettingsValuesRequest:
                 this.processOperatorUpdateSystemSettingsValuesRequestMessage(clientData, message as OperatorUpdateSystemSettingsValuesRequestMessage);
                 break;
@@ -347,10 +355,22 @@ export class OperatorConnector {
         }
     }
 
+    processOperatorCreateDeviceRequestMessage(clientData: ConnectedClientData, message: OperatorCreateDeviceRequestMessage): void {
+        const busReqMsg = createBusCreateDeviceRequestMessage();
+        busReqMsg.body.device = message.body.device;
+        this.publishToOperatorsChannelAndWaitForReply<BusCreateDeviceReplyMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorCreateDeviceReplyMessage();
+                operatorReplyMsg.body.device = busReplyMsg.body.device;
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
     processOperatorUpdateSystemSettingsValuesRequestMessage(clientData: ConnectedClientData, message: OperatorUpdateSystemSettingsValuesRequestMessage): void {
         const busReqMsg = createBusUpdateSystemSettingsValuesRequestMessage();
         busReqMsg.body.systemSettingsNameWithValues = message.body.systemSettingsNameWithValues;
-        this.publishToSharedChannelAndWaitForReply<BusUpdateSystemSettingsValuesRequestMessageBody>(busReqMsg, clientData)
+        this.publishToSharedChannelAndWaitForReply<BusUpdateSystemSettingsValuesReplyMessageBody>(busReqMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorUpdateSystemSettingsValuesReplyMessage();
                 this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
@@ -1307,7 +1327,7 @@ export class OperatorConnector {
         return result;
     }
 
-    processBusDeviceStatusesMessage(message: BusDeviceStatusesMessage): void {
+    async processBusDeviceStatusesMessage(message: BusDeviceStatusesMessage): Promise<void> {
         // Store the last device statuses bus message so we can send it back to operators on request
         this.state.lastBusDeviceStatusesMessage = message;
         // Send device statuses message to all connected operators that can read this information

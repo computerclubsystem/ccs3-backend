@@ -1,5 +1,6 @@
 export enum PermissionName {
     all = 'all',
+    devicesCreate = 'devices:create',
     devicesStart = 'devices:start',
     devicesStop = 'devices:stop',
     devicesReadStatus = 'devices:read-status',

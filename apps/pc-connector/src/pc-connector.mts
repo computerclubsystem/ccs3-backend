@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { Message } from '@computerclubsystem/types/messages/declarations/message.mjs';
 import { Device } from '@computerclubsystem/types/entities/device.mjs';
 import {
-    CreateConnectedRedisClientOptions, RedisClientMessageCallback, RedisPubClient, RedisSubClient
+    CreateConnectedRedisClientOptions, RedisCacheClient, RedisClientMessageCallback, RedisPubClient, RedisSubClient
 } from '@computerclubsystem/redis-client';
 import { ChannelName } from '@computerclubsystem/types/channels/channel-name.mjs';
 import { createBusDeviceGetByCertificateRequestMessage } from '@computerclubsystem/types/messages/bus/bus-device-get-by-certificate-request.message.mjs';
@@ -55,6 +55,8 @@ import { createBusGetAllSystemSettingsRequestMessage } from '@computerclubsystem
 import { BusGetAllSystemSettingsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings-reply.message.mjs';
 import { SystemSetting } from '@computerclubsystem/types/entities/system-setting.mjs';
 import { BusAllSystemSettingsNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-all-system-settings-notification.message.mjs';
+import { CacheHelper } from './cache-helper.mjs';
+import { UdpHelper } from './udp-helper.mjs';
 
 export class PcConnector {
     wssServer!: WssServer;
@@ -66,6 +68,9 @@ export class PcConnector {
     private state = this.createDefaultState();
     private readonly subClient = new RedisSubClient();
     private readonly pubClient = new RedisPubClient();
+    private readonly cacheClient = new RedisCacheClient();
+    private readonly cacheHelper = new CacheHelper();
+    private readonly udpHelper = new UdpHelper();
     private readonly messageBusIdentifier = 'ccs3/pc-connector';
     private logger = new Logger();
     private exitProcessManager = new ExitProcessManager();
@@ -76,6 +81,7 @@ export class PcConnector {
     private readonly subjectsService = new SubjectsService();
 
     async start(): Promise<void> {
+        this.cacheHelper.initialize(this.cacheClient);
         this.issuerSubjectInfo = this.certificateHelper.createIssuerSubjectInfo(this.envVars.CCS3_CA_ISSUER_CERTIFICATE_SUBJECT.value!);
         this.exitProcessManager.setLogger(this.logger);
         this.exitProcessManager.init();
@@ -349,6 +355,71 @@ export class PcConnector {
                 }
             }
         }
+        try {
+            this.processBusDeviceStatusesMessageForNoCertificateDevices(deviceStatuses);
+        } catch (err) {
+            this.logger.error(`Can't process no-certificate devices`, err);
+        }
+    }
+
+    async processBusDeviceStatusesMessageForNoCertificateDevices(deviceStatuses: DeviceStatus[]): Promise<void> {
+        // TODO: Try to not load devices every time - load them on start-up and also add notification from state-manager when devices are changed
+        const allDevices = await this.cacheHelper.getAllDevices();
+        if (!allDevices) {
+            return;
+        }
+
+        const devicesWithoutCertificateThumbprints = allDevices.filter(x => x.enabled && x.approved && !x.certificateThumbprint && x.description);
+        for (const noCertDevice of devicesWithoutCertificateThumbprints) {
+            const deviceStatus = deviceStatuses.find(x => x.deviceId === noCertDevice.id);
+            if (deviceStatus) {
+                // Device status always exists
+                const desc = noCertDevice.description || '';
+                const descLines = desc.split('\n');
+                const trimmedLines = descLines.map(x => x.trim());
+                let packetToSend: string | undefined;
+                let port: number;
+                if (deviceStatus.started) {
+                    // Must be started - find StartPacket
+                    const startPacketLine = trimmedLines.find(x => x.startsWith('StartPacket='));
+                    if (startPacketLine) {
+                        const parts = startPacketLine.split('=');
+                        packetToSend = parts[1].trim();
+                    }
+                } else {
+                    // Must be stopped - find StopPacket
+                    const stopPacketLine = trimmedLines.find(x => x.startsWith('StopPacket='));
+                    if (stopPacketLine) {
+                        const parts = stopPacketLine.split('=');
+                        packetToSend = parts[1].trim();
+                    }
+                }
+                const portLine = trimmedLines.find(x => x.startsWith('Port='));
+                if (portLine) {
+                    const portParts = portLine.split('=');
+                    port = +(portParts[1].trim());
+                }
+                if (packetToSend && (packetToSend.length % 2) === 0) {
+                    const buffer = this.hexStringToBuffer(packetToSend);
+                    try {
+                        this.udpHelper.send(buffer, port!, noCertDevice.ipAddress);
+                    } catch (err) {
+                        this.logger.warn(`Can't send UDP packet ${packetToSend} to ${noCertDevice.ipAddress}:${port!}. Error: ${err}`);
+                    }
+                } else {
+                    // Packet to send is not valid   
+                }
+            }
+        }
+    }
+
+    hexStringToBuffer(hexString: string): Buffer {
+        const arr: number[] = [];
+        for (let i = 0; i < hexString.length - 1; i += 2) {
+            const hex = hexString.substring(i, i + 2);
+            arr.push(parseInt(hex, 16));
+        }
+        return Buffer.from(arr);
     }
 
     processDeviceGetByCertificateReply(message: BusDeviceGetByCertificateReplyMessage, clientData: ConnectedClientData): void {
@@ -615,6 +686,23 @@ export class PcConnector {
         this.logger.log('PubClient connecting to Redis');
         await this.pubClient.connect(pubClientOptions);
         this.logger.log('PubClient connected to Redis');
+
+        await this.connectCacheClient(redisHost!, redisPort!);
+    }
+
+    async connectCacheClient(redisHost: string, redisPort: number): Promise<void> {
+        const redisCacheClientOptions: CreateConnectedRedisClientOptions = {
+            host: redisHost,
+            port: redisPort,
+            errorCallback: err => this.logger.error('CacheClient error', err),
+            reconnectStrategyCallback: (retries: number, err: Error) => {
+                this.logger.error('CacheClient reconnect strategy error', retries, err);
+                return 5000;
+            },
+        };
+        this.logger.log('CacheClient connecting');
+        await this.cacheClient.connect(redisCacheClientOptions);
+        this.logger.log('CacheClient connected');
     }
 
     private processSubClientError(error: any): void {

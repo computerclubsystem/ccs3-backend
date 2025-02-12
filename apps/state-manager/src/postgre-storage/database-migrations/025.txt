@@ -1,0 +1,14 @@
+INSERT INTO permission
+(
+    name,
+    description
+)
+VALUES
+(
+    'devices:create',
+    'Allows creating new devices.'
+);
+
+UPDATE db_metadata
+SET value = '25'
+WHERE name = 'database-version';
