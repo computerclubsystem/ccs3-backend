@@ -35,25 +35,16 @@ export class DeviceQueryHelper {
     }
 
     updateDeviceQueryData(device: IDevice): IQueryTextWithParamsResult {
-        const params: [
-            string,
-            string,
-            string | undefined,
-            string | undefined,
-            boolean,
-            boolean,
-            number | undefined,
-            number,
-        ] = [
-                device.certificate_thumbprint,
-                device.ip_address,
-                device.name,
-                device.description,
-                device.approved,
-                device.enabled,
-                device.device_group_id,
-                device.id,
-            ];
+        const params = [
+            device.certificate_thumbprint,
+            device.ip_address,
+            device.name,
+            device.description,
+            device.approved,
+            device.enabled,
+            device.device_group_id,
+            device.id,
+        ];
         return {
             text: this.updateDeviceQueryText,
             params,
