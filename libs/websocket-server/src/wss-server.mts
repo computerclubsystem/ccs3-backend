@@ -23,8 +23,9 @@ export class WssServer {
             ca: config.caCert,
             // requestCert is needed so the clients send their certificates
             requestCert: true,
-            // Accept invalid / self-signed certificates
-            rejectUnauthorized: false,
+            // If the client doesn't provide certificate with the same issuer as ca: config.caCert
+            // it will not be able to connect to the server
+            rejectUnauthorized: true,
         });
         this.wsServer = new WebSocketServer({
             server: this.httpsServer,

@@ -23,7 +23,7 @@ import {
 import { ExitProcessManager, ProcessExitCode } from './exit-process-manager.mjs';
 import { Logger } from './logger.mjs';
 import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
-import { CertificateHelper, CertificateIssuerSubjectInfo } from './certificate-helper.mjs';
+import { CertificateHelper } from './certificate-helper.mjs';
 import { DeviceConnectionEventType } from '@computerclubsystem/types/entities/declarations/device-connection-event-type.mjs';
 import { ConnectivityHelper } from './connectivity-helper.mjs';
 import { BusDeviceConnectivityItem, createBusDeviceConnectivitiesNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-device-connectivities-notification.message.mjs';
@@ -74,7 +74,6 @@ export class PcConnector {
     private readonly messageBusIdentifier = 'ccs3/pc-connector';
     private logger = new Logger();
     private exitProcessManager = new ExitProcessManager();
-    private issuerSubjectInfo!: CertificateIssuerSubjectInfo;
     private readonly certificateHelper = new CertificateHelper();
     private readonly connectivityHelper = new ConnectivityHelper();
     private readonly errorHelper = new ErrorHelper();
@@ -82,7 +81,6 @@ export class PcConnector {
 
     async start(): Promise<void> {
         this.cacheHelper.initialize(this.cacheClient);
-        this.issuerSubjectInfo = this.certificateHelper.createIssuerSubjectInfo(this.envVars.CCS3_CA_ISSUER_CERTIFICATE_SUBJECT.value!);
         this.exitProcessManager.setLogger(this.logger);
         this.exitProcessManager.init();
         await this.joinMessageBus();
@@ -124,13 +122,6 @@ export class PcConnector {
                 args.certificate?.fingerprint,
                 ', Connection Id:', args.connectionId
             );
-            this.wssServer.closeConnection(args.connectionId);
-            return;
-        }
-        const clientCertificateIssuer = args.certificate.issuer;
-        const issuerMatches = this.certificateHelper.issuerMatches(clientCertificateIssuer, this.issuerSubjectInfo);
-        if (!issuerMatches) {
-            this.logger.warn('The client certificate issuer', clientCertificateIssuer, 'does not match the one configured in environment variable', this.envVars.CCS3_CA_ISSUER_CERTIFICATE_SUBJECT, this.issuerSubjectInfo);
             this.wssServer.closeConnection(args.connectionId);
             return;
         }

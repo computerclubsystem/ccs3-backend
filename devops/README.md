@@ -24,10 +24,6 @@ kubectl create secret generic pc-connector-certs --from-file=ccs3-pc-connector.c
 ```bash
 kubectl create secret generic operator-connector-certs --from-file=ccs3-operator-connector.crt --from-file=ccs3-operator-connector.key --from-file=ccs3-ca.crt
 ```
-- `ccs3-ca-issuer-certificate-subject` - this secret must contain the CCS3 CA certificate subject in key `subject`. Sample:
-```bash
-kubectl create secret generic ccs3-ca-issuer-certificate-subject --from-literal=subject="C=BG,ST=Varna,L=Varna,O=CCS3,OU=Development,CN=CCS3 Certificate Authority"
-```
 - `redis-host` - this one is needed by the applications running inside the cluster to reach the message broker. It should set the name of the Valkey service defined in the Kubernetes .yaml file (`ccs3-valkey-service`) to key `host` or if you have external message broker compatible with Valkey, provide it here:
 ```bash
 kubectl create secret generic redis-host --from-literal=host=ccs3-valkey-service

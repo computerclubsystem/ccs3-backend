@@ -147,11 +147,6 @@ spec:
             secretKeyRef:
               name: redis-host
               key: host
-        - name: CCS3_CA_ISSUER_CERTIFICATE_SUBJECT
-          valueFrom:
-            secretKeyRef:
-              name: ccs3-ca-issuer-certificate-subject
-              key: subject
         resources:
           limits:
             memory: 128Mi
@@ -213,11 +208,6 @@ spec:
             secretKeyRef:
               name: redis-host
               key: host
-        - name: CCS3_CA_ISSUER_CERTIFICATE_SUBJECT
-          valueFrom:
-            secretKeyRef:
-              name: ccs3-ca-issuer-certificate-subject
-              key: subject
         resources:
           limits:
             memory: 128Mi
