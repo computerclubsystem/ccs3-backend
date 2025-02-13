@@ -23,15 +23,15 @@ export class ShiftQueryHelper {
         SELECT
             SUM(total_amount) AS total_amount,
             SUM(completed_sessions_total) AS completed_sessions_total,
-            SUM(completed_sessions_count) AS completed_sessions_count,
+            SUM(completed_sessions_count)::int AS completed_sessions_count,
             SUM(running_sessions_total) AS running_sessions_total,
-            SUM(running_sessions_count) AS running_sessions_count,
+            SUM(running_sessions_count)::int AS running_sessions_count,
             SUM(continuations_total) AS continuations_total,
-            SUM(continuations_count) AS continuations_count,
+            SUM(continuations_count)::int AS continuations_count,
             SUM(created_prepaid_tariffs_total) AS created_prepaid_tariffs_total,
-            SUM(created_prepaid_tariffs_count) AS created_prepaid_tariffs_count,
+            SUM(created_prepaid_tariffs_count)::int AS created_prepaid_tariffs_count,
             SUM(recharged_prepaid_tariffs_total) AS recharged_prepaid_tariffs_total,
-            SUM(recharged_prepaid_tariffs_count) AS recharged_prepaid_tariffs_count
+            SUM(recharged_prepaid_tariffs_count)::int AS recharged_prepaid_tariffs_count
         FROM shift
         WHERE completed_at > $1 AND completed_at < $2
     `;
