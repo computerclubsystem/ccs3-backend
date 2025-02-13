@@ -21,11 +21,11 @@ export class WssServer {
             cert: config.cert,
             key: config.key,
             ca: config.caCert,
-            // requestCert is needed so the clients send their certificates
-            requestCert: true,
-            // If the client doesn't provide certificate with the same issuer as ca: config.caCert
+            // If true, clients must send their certificates
+            requestCert: config.requestCert,
+            // If true and if the client doesn't provide certificate with the same issuer as ca: config.caCert
             // it will not be able to connect to the server
-            rejectUnauthorized: true,
+            rejectUnauthorized: config.rejectUnauthorized,
         });
         this.wsServer = new WebSocketServer({
             server: this.httpsServer,
@@ -229,6 +229,8 @@ export interface WssServerConfig {
     key: string;
     caCert: string;
     port: number;
+    requestCert: boolean;
+    rejectUnauthorized: boolean;
 }
 
 export interface ConnectionEventArgs {

@@ -1754,6 +1754,9 @@ export class OperatorConnector {
             key: readFileSync(this.envVars.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_KEY_FILE_PATH.value).toString(),
             caCert: readFileSync(this.envVars.CCS3_OPERATOR_CONNECTOR_ISSUER_CERTIFICATE_CRT_FILE_PATH.value).toString(),
             port: this.envVars.CCS3_OPERATOR_CONNECTOR_PORT.value,
+            // Currently, operators does not provide certificates so we will allow such connections
+            requestCert: false,
+            rejectUnauthorized: false,
         };
         this.wssServer.start(wssServerConfig);
         this.wssEmitter = this.wssServer.getEmitter();

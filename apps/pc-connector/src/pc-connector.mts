@@ -729,6 +729,9 @@ export class PcConnector {
             key: fs.readFileSync(this.envVars.CCS3_PC_CONNECTOR_CERTIFICATE_KEY_FILE_PATH.value!).toString(),
             caCert: fs.readFileSync(this.envVars.CCS3_PC_CONNECTOR_ISSUER_CERTIFICATE_CRT_FILE_PATH.value!).toString(),
             port: this.envVars.CCS3_PC_CONNECTOR_PORT.value!,
+            // All devices connecting to pc-connector must provide certificate signed with the same CA as the one provided in caCert
+            requestCert: true,
+            rejectUnauthorized: true,
         };
         this.wssServer.start(wssServerConfig);
         this.wssEmitter = this.wssServer.getEmitter();
