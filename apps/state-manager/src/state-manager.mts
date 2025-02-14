@@ -267,9 +267,9 @@ export class StateManager {
             case MessageType.busGetTariffByIdRequest:
                 this.processBusGetTariffByIdRequestMessage(message as BusGetTariffByIdRequestMessage);
                 break;
-                case MessageType.busCreatePrepaidTariffRequest:
-                    this.processBusCreatePrepaidTariffRequestMessage(message as BusCreatePrepaidTariffRequestMessage);
-                    break;
+            case MessageType.busCreatePrepaidTariffRequest:
+                this.processBusCreatePrepaidTariffRequestMessage(message as BusCreatePrepaidTariffRequestMessage);
+                break;
             case MessageType.busCreateTariffRequest:
                 this.processBusCreateTariffRequestMessage(message as BusCreateTariffRequestMessage);
                 break;
@@ -462,6 +462,15 @@ export class StateManager {
                 note: message.body.note,
             } as IShift;
             const addedStorageShift = await this.storageProvider.addShift(storageShiftToAdd);
+            if (!addedStorageShift) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.cannotCompleteShift,
+                    description: 'Cannot complete the shift',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
             const shift = this.entityConverter.storageShiftToShift(addedStorageShift);
             replyMsg.body.shift = shift;
             this.publishToOperatorsChannel(replyMsg, message);

@@ -25,6 +25,9 @@ import { TariffRechargeQueryHelper } from './tariff-recharge-query-helper.mjs';
 import { ShiftQueryHelper } from './shift-query-helper.mjs';
 import { IShift } from 'src/storage/entities/shift.mjs';
 import { ISystemSettingNameWithValue } from 'src/storage/entities/system-setting-name-with-value.mjs';
+import { ShiftDeviceStatusQueryHelper } from './shift-device-status-query-helper.mjs';
+import { IShiftDeviceStatus } from 'src/storage/entities/shift-device-status.mjs';
+import { ShiftDeviceContinuationQueryHelper } from './shift-device-continuation-query-helper.mjs';
 
 export class QueryUtils {
     private readonly helpers = {
@@ -42,7 +45,21 @@ export class QueryUtils {
         deviceContinuation: new DeviceContinuationQueryHelper(),
         tariffRecharge: new TariffRechargeQueryHelper(),
         shift: new ShiftQueryHelper(),
+        shiftDeviceStatus: new ShiftDeviceStatusQueryHelper(),
+        shiftDeviceContinuation: new ShiftDeviceContinuationQueryHelper(),
     };
+
+    insertAllDeviceContinuationsQueryData(shiftId: number): IQueryTextWithParamsResult {
+        return this.helpers.shiftDeviceContinuation.insertAllDeviceContinuationsQueryData(shiftId);
+    }
+
+    insertAllDeviceStatusesQueryData(shiftId: number): IQueryTextWithParamsResult {
+        return this.helpers.shiftDeviceStatus.insertAllDeviceStatusesQueryData(shiftId);
+    }
+
+    addShiftDeviceStatusQueryData(shiftDeviceStatus: IShiftDeviceStatus): IQueryTextWithParamsResult {
+        return this.helpers.shiftDeviceStatus.addShiftDeviceStatus(shiftDeviceStatus);
+    }
 
     getRechargedTariffsForDateTimeIntervalQueryData(fromDate: string | undefined | null, toDate: string): IQueryTextWithParamsResult {
         return this.helpers.tariffRecharge.getRechargedTariffsForDateTimeInterval(fromDate, toDate);

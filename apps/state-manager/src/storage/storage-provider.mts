@@ -51,7 +51,7 @@ export interface StorageProvider {
     // Shift
     getLastShift(): Promise<IShift | undefined>;
     getCompletedSessionsSummary(fromDate: string | null | undefined, toDate: string): Promise<ICompletedSessionsSummary>;
-    addShift(shift: IShift): Promise<IShift>;
+    addShift(shift: IShift): Promise<IShift | undefined>;
     getShifts(fromDate: string, toDate: string, userId: number | null | undefined): Promise<IShift[]>;
     getShiftsSummary(fromDate: string, toDate: string, userId: number | null | undefined): Promise<IShiftsSummary>;
 

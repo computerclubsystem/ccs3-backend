@@ -45,4 +45,5 @@ export enum BusErrorCode {
     passwordDoesNotMatch = 'password-does-not-match',
     shiftStatusesDoesNotMatch = 'shift-status-does-not-match',
     invalidDate = 'invalid-date',
+    cannotCompleteShift = 'cannot-complete-shift',
 }

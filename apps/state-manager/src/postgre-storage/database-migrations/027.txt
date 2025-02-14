@@ -1,0 +1,46 @@
+CREATE TABLE shift_device_status
+(
+    id serial NOT NULL,
+    shift_id integer NOT NULL,
+    device_id integer NOT NULL,
+    started boolean NOT NULL,
+    start_reason integer,
+    started_at timestamp without time zone,
+    stopped_at timestamp without time zone,
+    total numeric(10, 2),
+    enabled boolean NOT NULL,
+    started_by_user_id integer,
+    stopped_by_user_id integer,
+    PRIMARY KEY (id),
+    FOREIGN KEY (shift_id)
+        REFERENCES shift (id),
+    FOREIGN KEY (device_id)
+        REFERENCES device (id),
+    FOREIGN KEY (started_by_user_id)
+        REFERENCES "user" (id),
+    FOREIGN KEY (stopped_by_user_id)
+        REFERENCES "user" (id)
+);
+
+CREATE TABLE shift_device_continuation
+(
+    id serial NOT NULL,
+    shift_id integer NOT NULL,
+    device_id integer NOT NULL,
+    tariff_id integer NOT NULL,
+    user_id integer NOT NULL,
+    requested_at timestamp without time zone NOT NULL,
+    PRIMARY KEY (id),
+    FOREIGN KEY (shift_id)
+        REFERENCES shift (id),
+    FOREIGN KEY (device_id)
+        REFERENCES device (id),
+    FOREIGN KEY (tariff_id)
+        REFERENCES tariff (id),
+    FOREIGN KEY (user_id)
+        REFERENCES "user" (id)
+);
+
+UPDATE db_metadata
+SET value = '27'
+WHERE name = 'database-version';

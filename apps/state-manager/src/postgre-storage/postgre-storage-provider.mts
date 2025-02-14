@@ -28,6 +28,7 @@ import { ITariffRecharge } from 'src/storage/entities/tariff-recharge.mjs';
 import { IShift } from 'src/storage/entities/shift.mjs';
 import { IShiftsSummary } from 'src/storage/entities/shifts-summary.mjs';
 import { ISystemSettingNameWithValue } from 'src/storage/entities/system-setting-name-with-value.mjs';
+import { IShiftDeviceStatus } from 'src/storage/entities/shift-device-status.mjs';
 
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
@@ -93,10 +94,40 @@ export class PostgreStorageProvider implements StorageProvider {
         return res.rows[0] as IShiftsSummary;
     }
 
-    async addShift(shift: IShift): Promise<IShift> {
-        const queryData = this.queryUtils.addShiftQueryData(shift);
-        const res = await this.execQuery(queryData.text, queryData.params);
-        return res.rows[0] as IShift;
+    async addShift(shift: IShift): Promise<IShift | undefined> {
+        let transactionClient: pg.PoolClient | undefined;
+        let result: IShift | undefined;
+        try {
+            transactionClient = await this.getPoolClient();
+            await transactionClient.query('BEGIN');
+
+            // First create the shift
+            const addShiftQueryData = this.queryUtils.addShiftQueryData(shift);
+            const addShiftQueryRes = await transactionClient.query(addShiftQueryData.text, addShiftQueryData.params);
+            const createdShift = addShiftQueryRes.rows[0] as IShift | undefined;
+            if (!createdShift) {
+                await transactionClient.query('ROLLBACK');
+                return undefined;
+            }
+
+            // Then get all records from device_status and create them in shift_device_status for the created shift
+            const insertIntoShiftDeviceStatusTableQueryData = this.queryUtils.insertAllDeviceStatusesQueryData(createdShift.id);
+            await transactionClient.query(insertIntoShiftDeviceStatusTableQueryData.text, insertIntoShiftDeviceStatusTableQueryData.params);
+
+            // Now get all records from device_continuation and create them in shift_device_continuation for the created shift
+            const insertAllDeviceContinuationsQueryData = this.queryUtils.insertAllDeviceContinuationsQueryData(createdShift.id);
+            await transactionClient.query(insertAllDeviceContinuationsQueryData.text, insertAllDeviceContinuationsQueryData.params);
+
+            await transactionClient?.query('COMMIT');
+            result = createdShift;
+            return result;
+        } catch (err) {
+            result = undefined;
+            await transactionClient?.query('ROLLBACK');
+            throw err;
+        } finally {
+            transactionClient?.release();
+        }
     }
 
     async getCompletedSessionsSummary(fromDate: string | null | undefined, toDate: string): Promise<ICompletedSessionsSummary> {
@@ -121,14 +152,14 @@ export class PostgreStorageProvider implements StorageProvider {
             const sourceDeviceStatusResult = await transactionClient.query(sourceDeviceStatusQueryData.text, sourceDeviceStatusQueryData.params);
             const sourceDeviceStatus = sourceDeviceStatusResult.rows[0] as IDeviceStatus;
             if (!sourceDeviceStatus) {
-                await transactionClient?.query('ROLLBACK');
+                await transactionClient.query('ROLLBACK');
                 return undefined;
             }
             const targetDeviceStatusQueryData = this.queryUtils.getDeviceStatusQuery(targetDeviceId);
             const targetDeviceStatusResult = await transactionClient.query(targetDeviceStatusQueryData.text, targetDeviceStatusQueryData.params);
             const targetDeviceStatus = targetDeviceStatusResult.rows[0] as IDeviceStatus;
             if (!targetDeviceStatus) {
-                await transactionClient?.query('ROLLBACK');
+                await transactionClient.query('ROLLBACK');
                 return undefined;
             }
             // Just switch device ids
@@ -139,14 +170,14 @@ export class PostgreStorageProvider implements StorageProvider {
             const updatedSourceDeviceStatusResult = await transactionClient.query(updateSourceDeviceStatusQueryData.text, updateSourceDeviceStatusQueryData.params);
             const updatedSourceDeviceStatus = updatedSourceDeviceStatusResult.rows[0] as IDeviceStatus;
             if (!updatedSourceDeviceStatus) {
-                await transactionClient?.query('ROLLBACK');
+                await transactionClient.query('ROLLBACK');
                 return undefined;
             }
             const updateTargetDeviceStatusQueryData = this.queryUtils.updateDeviceStatusQuery(targetDeviceStatus);
             const updatedTargetDeviceStatusResult = await transactionClient.query(updateTargetDeviceStatusQueryData.text, updateTargetDeviceStatusQueryData.params);
             const updatedTargetDeviceStatus = updatedTargetDeviceStatusResult.rows[0] as IDeviceStatus;
             if (!updatedTargetDeviceStatus) {
-                await transactionClient?.query('ROLLBACK');
+                await transactionClient.query('ROLLBACK');
                 return undefined;
             }
 
@@ -155,7 +186,7 @@ export class PostgreStorageProvider implements StorageProvider {
             const updateDeviceContinuationDeviceIdResult = await transactionClient.query(updateDeviceContinuationDeviceIdQueryData.text, updateDeviceContinuationDeviceIdQueryData.params);
 
             // TODO: Save record in new table with source and target device status properties, the user id that made the transfer and current date-time
-            await transactionClient?.query('COMMIT');
+            await transactionClient.query('COMMIT');
             result = {
                 sourceDeviceStatus: sourceDeviceStatus,
                 targetDeviceStatus: targetDeviceStatus,
