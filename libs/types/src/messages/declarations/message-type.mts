@@ -64,6 +64,8 @@ export const enum MessageType {
     busGetAllTariffsReply = 'bus-get-all-tariffs-reply',
     busCreateTariffRequest = 'bus-create-tariff-request',
     busCreateTariffReply = 'bus-create-tariff-reply',
+    busCreatePrepaidTariffRequest = 'bus-create-prepaid-tariff-request',
+    busCreatePrepaidTariffReply = 'bus-create-prepaid-tariff-reply',
     busUpdateTariffRequest = 'bus-update-tariff-request',
     busUpdateTariffReply = 'bus-update-tariff-reply',
     busRechargeTariffDurationRequest = 'bus-recharge-tariff-duration-request',

@@ -1,0 +1,14 @@
+INSERT INTO permission
+(
+    name,
+    description
+)
+VALUES
+(
+    'tariffs:create-prepaid',
+    'Allows creating prepaid tariffs.'
+);
+
+UPDATE db_metadata
+SET value = '26'
+WHERE name = 'database-version';

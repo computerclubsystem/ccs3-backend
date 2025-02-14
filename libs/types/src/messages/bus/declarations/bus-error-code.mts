@@ -12,6 +12,7 @@ export enum BusErrorCode {
     deviceIsNotActive = 'device-is-not-active',
     tariffIsNotActive = 'tariff-is-not-active',
     tariffIsNotPrepaidType = 'tariff-is-not-prepaid-type',
+    tariffMustNotBeOfPrepaidType = 'tariff-must-not-be-of-prepaid-type',
     cantUseTheTariffNow = 'cant-use-the-tariff-now',
     cantStartTheTariffNow = 'cant-start-the-tariff-now',
     cantStartTheTariffAtSpecifiedTime = 'cant-start-the-tariff-at-specified-time',

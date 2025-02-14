@@ -18,6 +18,7 @@ export class AuthorizationHelper {
         map.set(OperatorRequestMessageType.getRoleWithPermissionsRequest, [PermissionName.rolesRead]);
         map.set(OperatorRequestMessageType.getAllRolesRequest, [PermissionName.rolesRead]);
         map.set(OperatorRequestMessageType.createTariffRequest, [PermissionName.tariffsCreate]);
+        map.set(OperatorRequestMessageType.createPrepaidTariffRequest, [PermissionName.tariffsCreatePrepaid]);
         map.set(OperatorRequestMessageType.updateTariffRequest, [PermissionName.tariffsUpdate]);
         map.set(OperatorRequestMessageType.getTariffByIdRequest, [PermissionName.tariffsRead]);
         map.set(OperatorRequestMessageType.getAllTariffsRequest, [PermissionName.tariffsRead]);

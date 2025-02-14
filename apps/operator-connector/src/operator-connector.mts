@@ -174,6 +174,10 @@ import { BusCreateDeviceRequestMessage, BusCreateDeviceRequestMessageBody, creat
 import { createOperatorCreateDeviceReplyMessage } from '@computerclubsystem/types/messages/operators/operator-create-device-reply.message.mjs';
 import { BusCreateDeviceReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-create-device-reply.message.mjs';
 import { BusUpdateSystemSettingsValuesReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-update-system-settings-values-reply.message.mjs';
+import { OperatorCreatePrepaidTariffRequestMessage } from '@computerclubsystem/types/messages/operators/operator-create-prepaid-tariff-request.message.mjs';
+import { createBusCreatePrepaidTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-prepaid-tariff-request.message.mjs';
+import { BusCreatePrepaidTariffReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-create-prepaid-tariff-reply.message.mjs';
+import { createOperatorCreatePrepaidTariffReplyMessage } from '@computerclubsystem/types/messages/operators/operator-create-prepaid-tariff-reply.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -320,6 +324,9 @@ export class OperatorConnector {
                 break;
             case OperatorRequestMessageType.getTariffByIdRequest:
                 this.processOperatorGetTariffByIdRequestMessage(clientData, message as OperatorGetTariffByIdRequestMessage);
+                break;
+            case OperatorRequestMessageType.createPrepaidTariffRequest:
+                this.processOperatorCreatePrepaidTariffRequestMessage(clientData, message as OperatorCreatePrepaidTariffRequestMessage);
                 break;
             case OperatorRequestMessageType.createTariffRequest:
                 this.processOperatorCreateTariffRequestMessage(clientData, message as OperatorCreateTariffRequestMessage);
@@ -777,6 +784,41 @@ export class OperatorConnector {
             });
     }
 
+    processOperatorCreatePrepaidTariffRequestMessage(clientData: ConnectedClientData, message: OperatorCreatePrepaidTariffRequestMessage): void {
+        const validateTariffResult = this.validators.tariff.validateTariff(message.body.tariff);
+        if (!validateTariffResult.success) {
+            const errorReplyMsg = createOperatorCreateTariffReplyMessage();
+            errorReplyMsg.header.failure = true;
+            errorReplyMsg.header.errors = [{
+                code: OperatorReplyMessageErrorCode.tariffCreationError,
+                description: `${validateTariffResult.errorCode}: ${validateTariffResult.errorMessage}`,
+            }] as MessageError[];
+            this.sendReplyMessageToOperator(errorReplyMsg, clientData, message);
+            return;
+        }
+        const requestedTariff: Tariff = message.body.tariff;
+        requestedTariff.description = requestedTariff.description?.trim();
+        requestedTariff.name = requestedTariff.name.trim();
+
+        const busRequestMsg = createBusCreatePrepaidTariffRequestMessage();
+        busRequestMsg.body.tariff = requestedTariff;
+        busRequestMsg.body.passwordHash = message.body.passwordHash;
+        this.publishToOperatorsChannelAndWaitForReply<BusCreatePrepaidTariffReplyMessageBody>(busRequestMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorCreatePrepaidTariffReplyMessage();
+                operatorReplyMsg.body.tariff = busReplyMsg.body.tariff;
+                if (busReplyMsg.header.failure) {
+                    operatorReplyMsg.header.failure = true;
+                    operatorReplyMsg.header.errors = [{
+                        code: OperatorReplyMessageErrorCode.tariffCreationError,
+                        description: `Can't create tariff. Check if tariff with the same name already exist`,
+                    }] as MessageError[];
+                    // TODO: Set error in the response header. For this to work we need to have different request and reply headers
+                }
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
     processOperatorCreateTariffRequestMessage(clientData: ConnectedClientData, message: OperatorCreateTariffRequestMessage): void {
         const validateTariffResult = this.validators.tariff.validateTariff(message.body.tariff);
         if (!validateTariffResult.success) {
@@ -795,7 +837,6 @@ export class OperatorConnector {
 
         const busRequestMsg = createBusCreateTariffRequestMessage();
         busRequestMsg.body.tariff = requestedTariff;
-        busRequestMsg.body.passwordHash = message.body.passwordHash;
         this.publishToOperatorsChannelAndWaitForReply<BusCreateTariffReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorCreateTariffReplyMessage();

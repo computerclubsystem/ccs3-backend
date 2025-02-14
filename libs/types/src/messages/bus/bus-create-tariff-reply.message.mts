@@ -10,11 +10,10 @@ export interface BusCreateTariffReplyMessageBody {
 export interface BusCreateTariffReplyMessage extends Message<BusCreateTariffReplyMessageBody> {
 }
 
-export function createBusCreateTariffReplyMessage<TBody>(sourceMessage?: Message<TBody> | null): BusCreateTariffReplyMessage {
+export function createBusCreateTariffReplyMessage(): BusCreateTariffReplyMessage {
     const msg: BusCreateTariffReplyMessage = {
         header: { type: MessageType.busCreateTariffReply },
         body: {} as BusCreateTariffReplyMessageBody,
     };
-    transferSharedMessageData(msg, sourceMessage);
     return msg;
 };
