@@ -157,20 +157,20 @@ import { BusCompleteShiftReplyMessageBody } from '@computerclubsystem/types/mess
 import { createOperatorCompleteShiftReplyMessage } from '@computerclubsystem/types/messages/operators/operator-complete-shift-reply.message.mjs';
 import { OperatorGetShiftsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-shifts-request.message.mjs';
 import { createBusGetShiftsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-shifts-request.message.mjs';
-import { BusGetShiftsReplyMessageBody, createBusGetShiftsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-shifts-reply.message.mjs';
+import { BusGetShiftsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-shifts-reply.message.mjs';
 import { createOperatorGetShiftsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-shifts-reply.message.mjs';
 import { OperatorGetAllSystemSettingsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-system-settings-request.message.mjs';
 import { BusGetAllSystemSettingsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings-reply.message.mjs';
 import { createOperatorGetAllSystemSettingsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-system-settings-reply.message.mjs';
 import { OperatorUpdateSystemSettingsValuesRequestMessage } from '@computerclubsystem/types/messages/operators/operator-update-system-settings-values-request.message.mjs';
-import { BusUpdateSystemSettingsValuesRequestMessageBody, createBusUpdateSystemSettingsValuesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-system-settings-values-request.message.mjs';
+import { createBusUpdateSystemSettingsValuesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-system-settings-values-request.message.mjs';
 import { createOperatorUpdateSystemSettingsValuesReplyMessage } from '@computerclubsystem/types/messages/operators/operator-update-system-settings-values-reply.message.mjs';
 import { BusErrorCode } from '@computerclubsystem/types/messages/bus/declarations/bus-error-code.mjs';
 import { createBusGetAllSystemSettingsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings-request.message.mjs';
 import { SystemSetting } from '@computerclubsystem/types/entities/system-setting.mjs';
-import { BusAllSystemSettingsNotificationMessage, BusAllSystemSettingsNotificationMessageBody } from '@computerclubsystem/types/messages/bus/bus-all-system-settings-notification.message.mjs';
+import { BusAllSystemSettingsNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-all-system-settings-notification.message.mjs';
 import { OperatorCreateDeviceRequestMessage } from '@computerclubsystem/types/messages/operators/operator-create-device-request.message.mjs';
-import { BusCreateDeviceRequestMessage, BusCreateDeviceRequestMessageBody, createBusCreateDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-request.message.mjs';
+import { createBusCreateDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-request.message.mjs';
 import { createOperatorCreateDeviceReplyMessage } from '@computerclubsystem/types/messages/operators/operator-create-device-reply.message.mjs';
 import { BusCreateDeviceReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-create-device-reply.message.mjs';
 import { BusUpdateSystemSettingsValuesReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-update-system-settings-values-reply.message.mjs';
@@ -1530,6 +1530,7 @@ export class OperatorConnector {
 
     createOperatorConfigurationMessage(): OperatorConfigurationNotificationMessage {
         const configurationMsg = createOperatorConfigurationNotificationMessage();
+        // TODO: Add other values here
         configurationMsg.body.pingInterval = this.state.pingInterval;
         return configurationMsg;
     }
@@ -1585,6 +1586,16 @@ export class OperatorConnector {
         clientData.sentMessagesCount++;
         this.logger.log('Sending notification message to operator', clientData, message.header.type, message);
         this.wssServer.sendJSON(message, clientData.connectionId);
+    }
+
+    sendNotificationMessageToAllOperators<TBody>(message: OperatorNotificationMessage<TBody>): void {
+        const allConnectedClientsData = this.getAllConnectedClientsData();
+        for (const item of allConnectedClientsData) {
+            const clientData = item[1];
+            clientData.sentMessagesCount++;
+            this.logger.log('Sending notification message to operator', clientData, message.header.type, message);
+            this.wssServer.sendJSON(message, clientData.connectionId);
+        }
     }
 
     startClientConnectionsMonitor(): void {
@@ -1705,7 +1716,9 @@ export class OperatorConnector {
     }
 
     applySystemSettings(systemSettings: SystemSetting[]): void {
-        // TODO: Generate objects based on provided system settings
+        // TODO: Set this.state values according to systemSettings
+        const configurationMsg = this.createOperatorConfigurationMessage();
+        this.sendNotificationMessageToAllOperators(configurationMsg);
     }
 
     requestAllSystemSettings(): void {

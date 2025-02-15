@@ -2,6 +2,7 @@ import { DetailedPeerCertificate } from 'node:tls';
 import { EventEmitter } from 'node:events';
 import * as fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { catchError, filter, finalize, first, Observable, of, timeout } from 'rxjs';
 
 import { Message } from '@computerclubsystem/types/messages/declarations/message.mjs';
 import { Device } from '@computerclubsystem/types/entities/device.mjs';
@@ -29,8 +30,7 @@ import { ConnectivityHelper } from './connectivity-helper.mjs';
 import { BusDeviceConnectivityItem, createBusDeviceConnectivitiesNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-device-connectivities-notification.message.mjs';
 import { createServerToDeviceCurrentStatusNotificationMessageMessage } from '@computerclubsystem/types/messages/devices/server-to-device-current-status-notification.message.mjs';
 import { ServerToDeviceNotificationMessage } from '@computerclubsystem/types/messages/devices/declarations/server-to-device-notification-message.mjs';
-import { createServerToDeviceDeviceConfigurationNotificationMessage } from '@computerclubsystem/types/messages/devices/server-to-device-device-configuration-notification.message.mjs';
-import { catchError, filter, finalize, first, Observable, of, ReplaySubject, timeout } from 'rxjs';
+import { createServerToDeviceDeviceConfigurationNotificationMessage, ServerToDeviceDeviceConfigurationNotificationMessageBody } from '@computerclubsystem/types/messages/devices/server-to-device-device-configuration-notification.message.mjs';
 import { SubjectsService } from './subjects-service.mjs';
 import { MessageStatItem } from './declarations.mjs';
 import { DevicePartialMessage } from '@computerclubsystem/types/messages/devices/declarations/device-partial-message.mjs';
@@ -38,7 +38,7 @@ import { DeviceToServerNotificationMessageType } from '@computerclubsystem/types
 import { DeviceToServerRequestMessageType } from '@computerclubsystem/types/messages/devices/declarations/device-to-server-request-message-type.mjs';
 import { DeviceToServerStartOnPrepaidTariffRequestMessage } from '@computerclubsystem/types/messages/devices/device-to-server-start-on-prepaid-tariff-request.message.mjs';
 import { createServerToDeviceStartOnPrepaidTariffReplyMessage } from '@computerclubsystem/types/messages/devices/server-to-device-start-on-prepaid-tariff-reply.message.mjs';
-import { BusStartDeviceOnPrepaidTariffByCustomerReplyMessageBody, createBusStartDeviceOnPrepaidTariffByCustomerReplyMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer-reply.message.mjs';
+import { BusStartDeviceOnPrepaidTariffByCustomerReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer-reply.message.mjs';
 import { createBusStartDeviceOnPrepaidTariffByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer-request.message.mjs';
 import { ServerToDeviceReplyMessage } from '@computerclubsystem/types/messages/devices/declarations/server-to-device-reply-message.mjs';
 import { DeviceToServerRequestMessage } from '@computerclubsystem/types/messages/devices/declarations/device-to-server-request-message.mjs';
@@ -57,6 +57,7 @@ import { SystemSetting } from '@computerclubsystem/types/entities/system-setting
 import { BusAllSystemSettingsNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-all-system-settings-notification.message.mjs';
 import { CacheHelper } from './cache-helper.mjs';
 import { UdpHelper } from './udp-helper.mjs';
+import { SystemSettingsName } from '@computerclubsystem/types/entities/system-setting-name.mjs';
 
 export class PcConnector {
     wssServer!: WssServer;
@@ -92,6 +93,12 @@ export class PcConnector {
 
     applySystemSettings(systemSettings: SystemSetting[]): void {
         // TODO: Generate objects based on provided system settings
+        const allConnectedClientsData = this.getAllConnectedClientsData();
+        const msg = createServerToDeviceDeviceConfigurationNotificationMessage();
+        msg.body = this.createServerToDeviceDeviceConfigurationNotificationMessageBody(systemSettings);
+        for (const data of allConnectedClientsData) {
+            this.sendNotificationMessageToDevice(msg, data.connectionId);
+        }
     }
 
     requestAllSystemSettings(): void {
@@ -301,7 +308,6 @@ export class PcConnector {
     processBusAllSystemSettingsNotificationMessage(message: BusAllSystemSettingsNotificationMessage): void {
         this.state.systemSettings = message.body.systemSettings;
         this.applySystemSettings(this.state.systemSettings);
-        // TODO: Send appropriate settings to all connected clients
     }
 
     processDevicesBusMessage<TBody>(message: Message<TBody>): void {
@@ -459,9 +465,27 @@ export class PcConnector {
     private sendDeviceMessageDeviceConfiguration(connectionId: number): void {
         const msg = createServerToDeviceDeviceConfigurationNotificationMessage();
         // TODO: Get configuration from the database
-        msg.body.pingInterval = 10000;
-        msg.body.secondsAfterStoppedBeforeRestart = 180;
+        msg.body = this.createServerToDeviceDeviceConfigurationNotificationMessageBody(this.state.systemSettings);
         this.sendNotificationMessageToDevice(msg, connectionId);
+    }
+
+    private createServerToDeviceDeviceConfigurationNotificationMessageBody(systemSettings: SystemSetting[]): ServerToDeviceDeviceConfigurationNotificationMessageBody {
+        let result: ServerToDeviceDeviceConfigurationNotificationMessageBody = {} as ServerToDeviceDeviceConfigurationNotificationMessageBody;
+        if (!(systemSettings?.length > 0)) {
+            result = {
+                pingInterval: 10000,
+                secondsAfterStoppedBeforeRestart: 180,
+            };
+            return result;
+        }
+
+        const secondsBeforeRestartingStoppedComputersValue = systemSettings.find(x => x.name === SystemSettingsName.seconds_before_restarting_stopped_computers)?.value;
+        result = {
+            secondsAfterStoppedBeforeRestart: secondsBeforeRestartingStoppedComputersValue ? +secondsBeforeRestartingStoppedComputersValue : 180,
+            // TODO: Define pingInterval system setting
+            pingInterval: 10000,
+        };
+        return result;
     }
 
     private sendBusDeviceUnknownDeviceConnectedRequestMessage(ipAddress: string, connectionId: number, certificateThumbprint: string): void {
@@ -480,6 +504,10 @@ export class PcConnector {
             msg.body.certificateCommonName = data.certificate.subject.CN;
         }
         this.publishToDevicesChannel(msg);
+    }
+
+    private getAllConnectedClientsData(): ConnectedClientData[] {
+        return Array.from(this.connectedClients.values());
     }
 
     private getConnectedClientData(connectionId: number): ConnectedClientData | undefined {

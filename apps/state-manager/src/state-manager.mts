@@ -22,7 +22,7 @@ import { SystemSettingsName as SystemSettingName } from './storage/entities/cons
 import { EntityConverter } from './entity-converter.mjs';
 import { BusDeviceConnectionEventMessage } from '@computerclubsystem/types/messages/bus/bus-device-connection-event.message.mjs';
 import { IDeviceConnectionEvent } from './storage/entities/device-connection-event.mjs';
-import { BusOperatorAuthRequestMessage, BusOperatorAuthRequestMessageBody } from '@computerclubsystem/types/messages/bus/bus-operator-auth-request.message.mjs';
+import { BusOperatorAuthRequestMessage } from '@computerclubsystem/types/messages/bus/bus-operator-auth-request.message.mjs';
 import { BusOperatorAuthReplyMessage, createBusOperatorAuthReplyMessage } from '@computerclubsystem/types/messages/bus/bus-operator-auth-reply.message.mjs';
 import { transferSharedMessageData } from '@computerclubsystem/types/messages/utils.mjs';
 import { OperatorConnectionRoundTripData } from '@computerclubsystem/types/messages/operators/declarations/operator-connection-roundtrip-data.mjs';
@@ -183,9 +183,13 @@ export class StateManager {
             }
             await this.storageProvider.updateSystemSettingsValues(message.body.systemSettingsNameWithValues);
             // After update, load the settings again and apply them so they have immediate effect
-            await this.loadSystemSettings();
+            const storageSystemSettings = await this.loadSystemSettings();
             this.applySystemSettings();
             this.publishToSharedChannel(replyMsg, message);
+            // Also publish notification message so other services know about the new settings
+            const notificationMsg = createBusAllSystemSettingsNotificationMessage();
+            notificationMsg.body.systemSettings = storageSystemSettings.map(x => this.entityConverter.fromStorageSystemSetting(x));
+            this.publishNotificationMessageToSharedChannel(notificationMsg);
         } catch (err) {
             this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToSharedChannel(replyMsg, message);
@@ -2291,6 +2295,10 @@ export class StateManager {
             // Transfer source message common data (like round trip data) to destination message
             transferSharedMessageData(message, sourceMessage);
         }
+        return this.publishMessage(ChannelName.shared, message);
+    }
+
+    async publishNotificationMessageToSharedChannel<TBody>(message: Message<TBody>): Promise<number> {
         return this.publishMessage(ChannelName.shared, message);
     }
 
