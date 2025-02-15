@@ -8,4 +8,5 @@ export interface IDevice {
     approved: boolean;
     enabled: boolean;
     device_group_id?: number | null;
+    disable_transfer?: boolean | null;
 }

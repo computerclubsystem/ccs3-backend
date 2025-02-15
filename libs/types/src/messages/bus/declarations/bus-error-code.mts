@@ -7,6 +7,7 @@ export enum BusErrorCode {
     deviceIsNotStarted = 'device-is-not-started',
     deviceIsInUse = 'device-is-in-use',
     deviceNotFound = 'device-not-found',
+    deviceIsNotTransferrable = 'device-is-not-transferrable',
     tariffNotFound = 'tariff-not-found',
     tariffNotProvided = 'tariff-not-provided',
     deviceIsNotActive = 'device-is-not-active',

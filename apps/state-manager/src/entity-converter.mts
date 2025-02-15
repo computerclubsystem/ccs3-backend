@@ -227,6 +227,7 @@ export class EntityConverter {
             description: device.description,
             device_group_id: device.deviceGroupId,
             name: device.name,
+            disable_transfer: device.disableTransfer,
         };
         return storageDevice;
     }
@@ -242,6 +243,7 @@ export class EntityConverter {
             description: storageDevice.description,
             deviceGroupId: storageDevice.device_group_id,
             name: storageDevice.name,
+            disableTransfer: storageDevice.disable_transfer,
         };
         return device;
     }

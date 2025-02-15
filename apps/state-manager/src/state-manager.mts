@@ -486,7 +486,7 @@ export class StateManager {
     }
 
     async getShiftStatus(): Promise<ShiftStatus> {
-        const allTariffs = await this.getAndCacheAllTariffs();
+        const allTariffs = await this.getOrCacheAllTariffs();
         const nowISOString = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
 
         // Get last shift to know from which date-time to calculate current shift
@@ -597,7 +597,7 @@ export class StateManager {
                 this.publishToDevicesChannel(replyMsg, message);
                 return;
             }
-            const allDevices = await this.getAndCacheAllDevices();
+            const allDevices = await this.getOrCacheAllDevices();
             const device = allDevices.find(x => x.id === deviceId);
             if (!device) {
                 replyMsg.header.failure = true;
@@ -627,7 +627,7 @@ export class StateManager {
                 this.publishToDevicesChannel(replyMsg, message);
                 return;
             }
-            const allTariffs = await this.getAndCacheAllTariffs();
+            const allTariffs = await this.getOrCacheAllTariffs();
             const tariff = allTariffs.find(x => x.id === storageDeviceStatus.start_reason);
             if (!tariff) {
                 replyMsg.header.failure = true;
@@ -692,7 +692,7 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
-            const allTariffs = await this.getAndCacheAllTariffs();
+            const allTariffs = await this.getOrCacheAllTariffs();
             const tariff = allTariffs.find(x => x.id === message.body.tariffId);
             if (!tariff) {
                 replyMsg.header.failure = true;
@@ -814,7 +814,7 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
-            const allDevices = await this.getAndCacheAllDevices();
+            const allDevices = await this.getOrCacheAllDevices();
             const device = allDevices.find(x => x.id === deviceContinuation.deviceId);
             if (!device) {
                 replyMsg.header.failure = true;
@@ -834,7 +834,7 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
-            const allTariffs = await this.getAndCacheAllTariffs();
+            const allTariffs = await this.getOrCacheAllTariffs();
             const tariff = allTariffs.find(x => x.id === deviceContinuation.tariffId);
             if (!tariff) {
                 replyMsg.header.failure = true;
@@ -971,6 +971,45 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
+            const allDevices = await this.getOrCacheAllDevices();
+            const sourceDevice = allDevices.find(x => x.id === sourceDeviceId);
+            if (!sourceDevice) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceNotFound,
+                    description: `Source device with Id ${sourceDeviceId} not found`,
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            if (!!sourceDevice.disableTransfer) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceIsNotTransferrable,
+                    description: `Source device with Id ${sourceDeviceId} is not transferrable`,
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const targetDevice = allDevices.find(x => x.id === targetDeviceId);
+            if (!targetDevice) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceNotFound,
+                    description: `Target device with Id ${targetDevice} not found`,
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            if (!!targetDevice.disableTransfer) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceIsNotTransferrable,
+                    description: `Target device with Id ${targetDevice} is not transferrable`,
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
             const sourceDeviceStoreStatus = await this.storageProvider.getDeviceStatus(sourceDeviceId);
             if (!sourceDeviceStoreStatus) {
                 replyMsg.header.failure = true;
@@ -1076,7 +1115,7 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
-            const allTariffs = await this.getAndCacheAllTariffs();
+            const allTariffs = await this.getOrCacheAllTariffs();
             const tariff = allTariffs.find(x => x.id === storageDeviceStatus.start_reason)!;
             if (!this.isPrepaidType(tariff.type)) {
                 replyMsg.header.failure = true;
@@ -1204,7 +1243,7 @@ export class StateManager {
             const deviceStatus = this.createDeviceStatusFromStorageDeviceStatus(storageDeviceStatus);
             // totalTime must be in seconds
             deviceStatus.totalTime = totalTime;
-            const allTariffs = await this.getAndCacheAllTariffs();
+            const allTariffs = await this.getOrCacheAllTariffs();
             const tariff = allTariffs.find(x => x.id === deviceStatus.tariff)!;
             let totalAmount = storageDeviceStatus.total;
             if (this.isPrepaidType(tariff.type)) {
@@ -1568,7 +1607,7 @@ export class StateManager {
                 this.publishToDevicesChannel(replyMsg, message);
                 return;
             }
-            const allTariffs = await this.getAndCacheAllTariffs();
+            const allTariffs = await this.getOrCacheAllTariffs();
             const tariff = allTariffs.find(x => x.id === message.body.tariffId)!;
             if (!tariff) {
                 replyMsg.header.failure = true;
@@ -1615,7 +1654,7 @@ export class StateManager {
             const firstDeviceStartedForTariff = devicesStatusesByTariff.find(x => x.started && x.start_reason === tariff.id);
             if (firstDeviceStartedForTariff) {
                 // Started on another device
-                const allDevices = await this.getAndCacheAllDevices();
+                const allDevices = await this.getOrCacheAllDevices();
                 const device = allDevices.find(x => x.id === firstDeviceStartedForTariff.device_id);
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [
@@ -1676,7 +1715,7 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
-            const allTariffs = await this.getAndCacheAllTariffs();
+            const allTariffs = await this.getOrCacheAllTariffs();
             const tariff = allTariffs.find(x => x.id === message.body.tariffId)!;
             if (!tariff) {
                 const replyMsg = createBusStartDeviceReplyMessage();
@@ -1738,7 +1777,7 @@ export class StateManager {
                 if (firstDeviceStartedForTariff) {
                     // Started on another device
                     const replyMsg = createBusStartDeviceReplyMessage();
-                    const allDevices = await this.getAndCacheAllDevices();
+                    const allDevices = await this.getOrCacheAllDevices();
                     const device = allDevices.find(x => x.id === firstDeviceStartedForTariff.device_id);
                     replyMsg.header.failure = true;
                     replyMsg.header.errors = [
@@ -1836,7 +1875,7 @@ export class StateManager {
     async processBusGetTariffByIdRequestMessage(message: BusGetTariffByIdRequestMessage): Promise<void> {
         try {
             const replyMsg = createBusGetTariffByIdReplyMessage();
-            const allTariffs = await this.getAndCacheAllTariffs();
+            const allTariffs = await this.getOrCacheAllTariffs();
             const cachedTariff = allTariffs?.find(x => x.id === message.body.tariffId);
             if (cachedTariff) {
                 replyMsg.body.tariff = cachedTariff;
@@ -2288,7 +2327,7 @@ export class StateManager {
         return allTariffs;
     }
 
-    private async getAndCacheAllTariffs(): Promise<Tariff[]> {
+    private async getOrCacheAllTariffs(): Promise<Tariff[]> {
         let allTariffs = await this.cacheHelper.getAllTariffs();
         if (!allTariffs) {
             allTariffs = await this.cacheAllTariffs();
@@ -2303,7 +2342,7 @@ export class StateManager {
         return allDevices;
     }
 
-    private async getAndCacheAllDevices(): Promise<Device[]> {
+    private async getOrCacheAllDevices(): Promise<Device[]> {
         let allDevices = await this.cacheHelper.getAllDevices();
         if (!allDevices) {
             allDevices = await this.cacheAllDevices();
@@ -2324,8 +2363,8 @@ export class StateManager {
             this.state.deviceStatusRefreshInProgress = true;
             //            const storageDeviceStatuses = await this.storageProvider.getAllDeviceStatuses();
             const storageDeviceStatusesWithContinuationData = await this.storageProvider.getAllDeviceStatusesWithContinuationData();
-            const allTariffs = await this.getAndCacheAllTariffs();
-            let allDevices = await this.getAndCacheAllDevices();
+            const allTariffs = await this.getOrCacheAllTariffs();
+            let allDevices = await this.getOrCacheAllDevices();
             // TODO: We will process only enabled devices
             //       If the user disables device while it is started (the system should prevent this),
             //       it will not be processed here and will remain started until enabled again

@@ -17,6 +17,7 @@ export class DeviceQueryHelper {
             device.approved,
             device.enabled,
             device.device_group_id,
+            device.disable_transfer,
         ];
         return {
             text: this.createDeviceQueryText,
@@ -43,6 +44,7 @@ export class DeviceQueryHelper {
             device.approved,
             device.enabled,
             device.device_group_id,
+            device.disable_transfer,
             device.id,
         ];
         return {
@@ -73,11 +75,12 @@ export class DeviceQueryHelper {
             description,
             approved,
             enabled,
-            device_group_id
+            device_group_id,
+            disable_transfer
         )
         VALUES
         (
-            $1, $2, $3, $4, $5, $6, $7, $8
+            $1, $2, $3, $4, $5, $6, $7, $8, $9
         )
         RETURNING 
             id,
@@ -88,7 +91,8 @@ export class DeviceQueryHelper {
             description,
             approved,
             enabled,
-            device_group_id
+            device_group_id,
+            disable_transfer
     `;
 
     private readonly getDeviceByCertificateThumbprintQueryText = `
@@ -101,7 +105,8 @@ export class DeviceQueryHelper {
             created_at,
             approved,
             enabled,
-            device_group_id
+            device_group_id,
+            disable_transfer
         FROM device
         WHERE certificate_thumbprint = $1
         LIMIT 1
@@ -115,8 +120,9 @@ export class DeviceQueryHelper {
             description = $4,
             approved = $5,
             enabled = $6,
-            device_group_id = $7
-        WHERE id = $8
+            device_group_id = $7,
+            disable_transfer = $8
+        WHERE id = $9
         RETURNING 
             id,
             certificate_thumbprint,
@@ -126,11 +132,12 @@ export class DeviceQueryHelper {
             description,
             approved,
             enabled,
-            device_group_id
+            device_group_id,
+            disable_transfer
     `;
 
 
-    private getDeviceQueryText = `
+    private readonly getDeviceQueryText = `
         SELECT
             id,
             certificate_thumbprint,
@@ -140,7 +147,8 @@ export class DeviceQueryHelper {
             created_at,
             approved,
             enabled,
-            device_group_id
+            device_group_id,
+            disable_transfer
         FROM device
         WHERE id = $1
     `;
@@ -155,19 +163,8 @@ export class DeviceQueryHelper {
             created_at,
             approved,
             enabled,
-            device_group_id
+            device_group_id,
+            disable_transfer
         FROM device
     `;
-
-    // private readonly getDeviceStatusQueryText = `
-    //     SELECT 
-    //         device_id,
-    //         started,
-    //         start_reason,
-    //         started_at,
-    //         stopped_at,
-    //         total
-    //     FROM device_status
-    //     WHERE device_id = $1
-    // `;
 }

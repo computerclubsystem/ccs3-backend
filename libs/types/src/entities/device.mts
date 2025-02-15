@@ -8,4 +8,5 @@ export interface Device {
     approved: boolean;
     enabled: boolean;
     deviceGroupId?: number | null;
+    disableTransfer?: boolean | null;
 }

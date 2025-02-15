@@ -1,0 +1,6 @@
+ALTER TABLE device
+    ADD COLUMN disable_transfer boolean;
+
+UPDATE db_metadata
+SET value = '28'
+WHERE name = 'database-version';
