@@ -1,4 +1,5 @@
 export enum OperatorRequestMessageType {
+    changePasswordRequest = 'change-password-request',
     createDeviceRequest = 'create-device-request',
     updateSystemSettingsValuesRequest = 'update-system-settings-values-request',
     getAllSystemSettingsRequest = 'get-all-system-settings-request',
@@ -38,6 +39,7 @@ export enum OperatorRequestMessageType {
 }
 
 export enum OperatorReplyMessageType {
+    changePasswordReply = 'change-password-reply',
     createDeviceReply = 'create-device-reply',
     updateSystemSettingsValuesReply = 'update-system-settings-values-reply',
     getAllSystemSettingsReply = 'get-all-system-settings-reply',

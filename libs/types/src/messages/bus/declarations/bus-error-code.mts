@@ -35,6 +35,7 @@ export enum BusErrorCode {
     userNotFound = 'user-not-found',
     cantAuthenticateUser = 'cant-authenticate-user',
     passwordHashIsRequired = 'password-hash-is-required',
+    invalidPasswordHash = 'invalid-password-hash',
     allIdsAreRequired = 'all-ids-are-required',
     sourceDeviceMustBeStarted = 'source-device-must-be-started',
     targetDeviceMustBeStopped = 'source-device-must-be-stopped',

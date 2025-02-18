@@ -157,7 +157,7 @@ import { BusCompleteShiftReplyMessageBody } from '@computerclubsystem/types/mess
 import { createOperatorCompleteShiftReplyMessage } from '@computerclubsystem/types/messages/operators/operator-complete-shift-reply.message.mjs';
 import { OperatorGetShiftsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-shifts-request.message.mjs';
 import { createBusGetShiftsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-shifts-request.message.mjs';
-import { BusGetShiftsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-shifts-reply.message.mjs';
+import { BusGetShiftsReplyMessageBody, createBusGetShiftsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-shifts-reply.message.mjs';
 import { createOperatorGetShiftsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-shifts-reply.message.mjs';
 import { OperatorGetAllSystemSettingsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-system-settings-request.message.mjs';
 import { BusGetAllSystemSettingsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings-reply.message.mjs';
@@ -178,6 +178,10 @@ import { OperatorCreatePrepaidTariffRequestMessage } from '@computerclubsystem/t
 import { createBusCreatePrepaidTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-prepaid-tariff-request.message.mjs';
 import { BusCreatePrepaidTariffReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-create-prepaid-tariff-reply.message.mjs';
 import { createOperatorCreatePrepaidTariffReplyMessage } from '@computerclubsystem/types/messages/operators/operator-create-prepaid-tariff-reply.message.mjs';
+import { OperatorChangePasswordRequestMessage } from '@computerclubsystem/types/messages/operators/operator-change-password-request.message.mjs';
+import { createBusChangePasswordRequestMessage } from '@computerclubsystem/types/messages/bus/bus-change-password-request.message.mjs';
+import { BusChangePasswordReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-change-password-reply.message.mjs';
+import { createOperatorChangePasswordReplyMessage } from '@computerclubsystem/types/messages/operators/operator-change-password-reply.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -250,6 +254,9 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorRequestMessageType.changePasswordRequest:
+                this.processChangePasswordRequestMessage(clientData, message as OperatorChangePasswordRequestMessage);
+                break;
             case OperatorRequestMessageType.createDeviceRequest:
                 this.processOperatorCreateDeviceRequestMessage(clientData, message as OperatorCreateDeviceRequestMessage);
                 break;
@@ -360,6 +367,19 @@ export class OperatorConnector {
                 this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    processChangePasswordRequestMessage(clientData: ConnectedClientData, message: OperatorChangePasswordRequestMessage): void {
+        const busReqMsg = createBusChangePasswordRequestMessage();
+        busReqMsg.body.userId = clientData.userId!;
+        busReqMsg.body.currentPasswordHash = message.body.currentPasswordHash;
+        busReqMsg.body.newPasswordHash = message.body.newPasswordHash;
+        this.publishToOperatorsChannelAndWaitForReply<BusChangePasswordReplyMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorChangePasswordReplyMessage();
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
     }
 
     processOperatorCreateDeviceRequestMessage(clientData: ConnectedClientData, message: OperatorCreateDeviceRequestMessage): void {

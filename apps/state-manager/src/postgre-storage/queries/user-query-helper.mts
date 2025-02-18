@@ -2,6 +2,24 @@ import { IUser } from 'src/storage/entities/user.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
 
 export class UserQueryHelper {
+    changePasswordQueryData(userId: number, currentPasswordHash: string, newPasswordHash: string): IQueryTextWithParamsResult {
+        const params = [
+            userId,
+            currentPasswordHash,
+            newPasswordHash,
+        ];
+        return {
+            text: this.changePasswordQueryText,
+            params: params,
+        };
+    }
+
+    private readonly changePasswordQueryText = `
+        UPDATE "user"
+        SET password_hash = $3
+        WHERE id = $1 and password_hash = $2
+    `;
+
     updateUserQueryData(user: IUser, passwordHash?: string): IQueryTextWithParamsResult {
         const params: unknown[] = [
             user.enabled,

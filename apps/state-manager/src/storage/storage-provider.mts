@@ -21,6 +21,7 @@ import { IShiftsSummary } from './entities/shifts-summary.mjs';
 import { ISystemSettingNameWithValue } from './entities/system-setting-name-with-value.mjs';
 
 export interface StorageProvider {
+    changePassword(userId: number, currentPasswordHash: string, newPasswordHash: string): Promise<boolean>;
     getAllUsers(): Promise<IUser[]>;
     getUserByUsernameAndPasswordHash(username: string, passwordHash: string): Promise<IUser | undefined>;
     getUserById(userId: number): Promise<IUser | undefined>;

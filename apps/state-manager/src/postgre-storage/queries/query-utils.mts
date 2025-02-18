@@ -49,6 +49,10 @@ export class QueryUtils {
         shiftDeviceContinuation: new ShiftDeviceContinuationQueryHelper(),
     };
 
+    changePasswordQueryData(userId: number, currentPasswordHash: string, newPasswordHash: string): IQueryTextWithParamsResult {
+        return this.helpers.user.changePasswordQueryData(userId, currentPasswordHash, newPasswordHash);
+    }
+
     insertAllDeviceContinuationsQueryData(shiftId: number): IQueryTextWithParamsResult {
         return this.helpers.shiftDeviceContinuation.insertAllDeviceContinuationsQueryData(shiftId);
     }

@@ -70,6 +70,13 @@ export class PostgreStorageProvider implements StorageProvider {
         return result;
     }
 
+    async changePassword(userId: number, currentPasswordHash: string, newPasswordHash: string): Promise<boolean> {
+        const queryData = this.queryUtils.changePasswordQueryData(userId, currentPasswordHash, newPasswordHash);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rowCount === 1;
+    }
+
+
     async getRechargedTariffsForDateTimeInterval(fromDate: string, toDate: string): Promise<ITariffRecharge[]> {
         const queryData = this.queryUtils.getRechargedTariffsForDateTimeIntervalQueryData(fromDate, toDate);
         const res = await this.execQuery(queryData.text, queryData.params);

@@ -21,6 +21,8 @@ export const enum MessageType {
     // Authentication
     busOperatorAuthRequest = 'bus-operator-auth-request',
     busOperatorAuthReply = 'bus-operator-auth-reply',
+    busChangePasswordRequest = 'bus-change-password-request',
+    busChangePasswordReply = 'bus-change-password-reply',
 
     // Shifts
     busGetCurrentShiftStatusRequest = 'bus-get-current-shift-status-request',

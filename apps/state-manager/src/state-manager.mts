@@ -114,6 +114,8 @@ import { BusCreateDeviceRequestMessage } from '@computerclubsystem/types/message
 import { createBusCreateDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-reply.message.mjs';
 import { BusCreatePrepaidTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-prepaid-tariff-request.message.mjs';
 import { createBusCreatePrepaidTariffReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-prepaid-tariff-reply.message.mjs';
+import { BusChangePasswordRequestMessage } from '@computerclubsystem/types/messages/bus/bus-change-password-request.message.mjs';
+import { createBusChangePasswordReplyMessage } from '@computerclubsystem/types/messages/bus/bus-change-password-reply.message.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -211,6 +213,9 @@ export class StateManager {
     processOperatorsChannelMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busChangePasswordRequest:
+                this.processBusChangePasswordRequestMessage(message as BusChangePasswordRequestMessage);
+                break;
             case MessageType.busCreateDeviceRequest:
                 this.processBusCreateDeviceRequestMessage(message as BusCreateDeviceRequestMessage);
                 break;
@@ -344,6 +349,47 @@ export class StateManager {
         }
 
         return true;
+    }
+    async processBusChangePasswordRequestMessage(message: BusChangePasswordRequestMessage): Promise<void> {
+        const replyMsg = createBusChangePasswordReplyMessage();
+        try {
+            if (!(message.body.userId > 0)) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userIdIsRequired,
+                    description: 'User ID is required',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            if (!message.body.currentPasswordHash
+                || !message.body.newPasswordHash
+                || message.body.currentPasswordHash.length !== 128
+                || message.body.newPasswordHash.length !== 128
+            ) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.invalidPasswordHash,
+                    description: 'Password hash is invalid',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const res = await this.storageProvider.changePassword(message.body.userId, message.body.currentPasswordHash, message.body.newPasswordHash);
+            if (!res) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.passwordDoesNotMatch,
+                    description: 'Specified current password does not match',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
     }
 
     async processBusCreateDeviceRequestMessage(message: BusCreateDeviceRequestMessage): Promise<void> {
