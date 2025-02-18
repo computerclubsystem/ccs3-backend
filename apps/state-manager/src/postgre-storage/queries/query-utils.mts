@@ -28,6 +28,9 @@ import { ISystemSettingNameWithValue } from 'src/storage/entities/system-setting
 import { ShiftDeviceStatusQueryHelper } from './shift-device-status-query-helper.mjs';
 import { IShiftDeviceStatus } from 'src/storage/entities/shift-device-status.mjs';
 import { ShiftDeviceContinuationQueryHelper } from './shift-device-continuation-query-helper.mjs';
+import { UserProfileSettingQueryHelper } from './user-profile-setting-query-helper.mjs';
+import { UserProfileQueryHelper } from './user-profile-query-helper.mjs';
+import { IUserProfileSettingWithValue } from 'src/storage/entities/user-profile-setting-with-value.mjs';
 
 export class QueryUtils {
     private readonly helpers = {
@@ -47,7 +50,21 @@ export class QueryUtils {
         shift: new ShiftQueryHelper(),
         shiftDeviceStatus: new ShiftDeviceStatusQueryHelper(),
         shiftDeviceContinuation: new ShiftDeviceContinuationQueryHelper(),
+        userProfileSetting: new UserProfileSettingQueryHelper(),
+        userProfile: new UserProfileQueryHelper(),
     };
+
+    updateUserProfileSettingQueryData(userId: number, profileSettings: IUserProfileSettingWithValue): IQueryTextWithParamsResult {
+        return this.helpers.userProfile.updateUserProfileSettingQueryData(userId, profileSettings);
+    }
+
+    getUserProfileSettingWithValuesQueryData(userId: number): IQueryTextWithParamsResult {
+        return this.helpers.userProfile.getUserProfileSettingWithValuesQueryData(userId);
+    }
+
+    getAllUserProfileSettingsQueryData(): IQueryTextWithParamsResult {
+        return this.helpers.userProfileSetting.getAllUserProfileSettingsQueryData();
+    }
 
     changePasswordQueryData(userId: number, currentPasswordHash: string, newPasswordHash: string): IQueryTextWithParamsResult {
         return this.helpers.user.changePasswordQueryData(userId, currentPasswordHash, newPasswordHash);

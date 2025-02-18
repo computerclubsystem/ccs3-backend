@@ -19,8 +19,7 @@ import { IDeviceSession } from 'src/storage/entities/device-session.mjs';
 import { IRole } from 'src/storage/entities/role.mjs';
 import { IPermission } from 'src/storage/entities/permission.mjs';
 import {
-    CompleteDeviceStatusUpdateResult, ICompletedSessionsSummary, ICurrentContinuationsSummary,
-    ICurrentSessionsSummary, IncreaseTariffRemainingSecondsResult, ITariffRechargesSummary,
+    CompleteDeviceStatusUpdateResult, ICompletedSessionsSummary, IncreaseTariffRemainingSecondsResult,
     TransferDeviceResult
 } from 'src/storage/results.mjs';
 import { IDeviceContinuation } from 'src/storage/entities/device-continuation.mjs';
@@ -28,7 +27,8 @@ import { ITariffRecharge } from 'src/storage/entities/tariff-recharge.mjs';
 import { IShift } from 'src/storage/entities/shift.mjs';
 import { IShiftsSummary } from 'src/storage/entities/shifts-summary.mjs';
 import { ISystemSettingNameWithValue } from 'src/storage/entities/system-setting-name-with-value.mjs';
-import { IShiftDeviceStatus } from 'src/storage/entities/shift-device-status.mjs';
+import { IUserProfileSetting } from 'src/storage/entities/user-profile-setting.mjs';
+import { IUserProfileSettingWithValue } from 'src/storage/entities/user-profile-setting-with-value.mjs';
 
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
@@ -68,6 +68,37 @@ export class PostgreStorageProvider implements StorageProvider {
             return parseFloat(numericString);
         });
         return result;
+    }
+
+    async updateUserProfileSettings(userId: number, profileSettings: IUserProfileSettingWithValue[]): Promise<void> {
+        let transactionClient: pg.PoolClient | undefined;
+        try {
+            transactionClient = await this.getPoolClient();
+            await transactionClient.query('BEGIN');
+            for (const profileSetting of profileSettings) {
+                const queryData = this.queryUtils.updateUserProfileSettingQueryData(userId, profileSetting);
+                await transactionClient.query(queryData.text, queryData.params);
+            }
+            await transactionClient?.query('COMMIT');
+        } catch (err) {
+            await transactionClient?.query('ROLLBACK');
+            throw err;
+        } finally {
+            transactionClient?.release();
+        }
+    }
+
+
+    async getUserProfileSettingWithValues(userId: number): Promise<IUserProfileSettingWithValue[]> {
+        const queryData = this.queryUtils.getUserProfileSettingWithValuesQueryData(userId);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows as IUserProfileSettingWithValue[];
+    }
+
+    async getAllUserProfileSettings(): Promise<IUserProfileSetting[]> {
+        const queryData = this.queryUtils.getAllUserProfileSettingsQueryData();
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows as IUserProfileSetting[];
     }
 
     async changePassword(userId: number, currentPasswordHash: string, newPasswordHash: string): Promise<boolean> {

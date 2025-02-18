@@ -64,14 +64,14 @@ export class AuthorizationHelper {
 
         switch (messageType) {
             case OperatorRequestMessageType.authRequest:
-            case OperatorRequestMessageType.pingRequest:
-            case OperatorRequestMessageType.refreshTokenRequest:
-            case OperatorRequestMessageType.signOutRequest:
                 result.authorized = true;
                 result.reason = IsAuthorizedResultReason.permissionIsNotRequired;
                 break;
+            case OperatorRequestMessageType.pingRequest:
+            case OperatorRequestMessageType.refreshTokenRequest:
+            case OperatorRequestMessageType.signOutRequest:
             case OperatorRequestMessageType.getAllPermissionsRequest:
-                // OperatorRequestMessageType.getAllPermissionsRequest does not need permission to be executed
+            case OperatorRequestMessageType.getProfileSettingsRequest:
                 // The user only needs to be successfully authenticated
                 if (isUserAuthenticated) {
                     result.authorized = true;

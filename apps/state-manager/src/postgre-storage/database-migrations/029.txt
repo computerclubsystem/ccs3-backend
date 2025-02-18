@@ -1,0 +1,35 @@
+CREATE TABLE user_profile_setting
+(
+    name text NOT NULL,
+    description text,
+    PRIMARY KEY (name)
+);
+
+CREATE TABLE user_profile
+(
+    id serial NOT NULL,
+    user_id integer NOT NULL,
+    setting_name text NOT NULL,
+    setting_value text,
+    PRIMARY KEY (id),
+    UNIQUE (user_id, setting_name),
+    FOREIGN KEY (user_id)
+        REFERENCES "user" (id),
+    FOREIGN KEY (setting_name)
+        REFERENCES user_profile_setting (name)
+);
+
+INSERT INTO user_profile_setting
+(
+    name,
+    description
+)
+VALUES
+(
+    'custom_css',
+    'Custom CSS to load when the user logs in'
+);
+
+UPDATE db_metadata
+SET value = '29'
+WHERE name = 'database-version';

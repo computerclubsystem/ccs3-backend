@@ -24,6 +24,12 @@ export const enum MessageType {
     busChangePasswordRequest = 'bus-change-password-request',
     busChangePasswordReply = 'bus-change-password-reply',
 
+    // Profile
+    busUpdateProfileSettingsRequest = 'bus-update-profile-settings-request',
+    busUpdateProfileSettingsReply = 'bus-update-profile-settings-reply',
+    busGetProfileSettingsRequest = 'bus-get-profile-settings-request',
+    busGetProfileSettingsReply = 'bus-get-profile-settings-reply',
+
     // Shifts
     busGetCurrentShiftStatusRequest = 'bus-get-current-shift-status-request',
     busGetCurrentShiftStatusReply = 'bus-get-current-shift-status-reply',

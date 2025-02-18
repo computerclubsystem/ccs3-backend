@@ -19,8 +19,13 @@ import { IShift } from './entities/shift.mjs';
 import { ITariffRecharge } from './entities/tariff-recharge.mjs';
 import { IShiftsSummary } from './entities/shifts-summary.mjs';
 import { ISystemSettingNameWithValue } from './entities/system-setting-name-with-value.mjs';
+import { IUserProfileSetting } from './entities/user-profile-setting.mjs';
+import { IUserProfileSettingWithValue } from './entities/user-profile-setting-with-value.mjs';
 
 export interface StorageProvider {
+    updateUserProfileSettings(userId: number, profileSettings: IUserProfileSettingWithValue[]): Promise<void>;
+    getUserProfileSettingWithValues(userId: number): Promise<IUserProfileSettingWithValue[]>;
+    getAllUserProfileSettings(): Promise<IUserProfileSetting[]>;
     changePassword(userId: number, currentPasswordHash: string, newPasswordHash: string): Promise<boolean>;
     getAllUsers(): Promise<IUser[]>;
     getUserByUsernameAndPasswordHash(username: string, passwordHash: string): Promise<IUser | undefined>;

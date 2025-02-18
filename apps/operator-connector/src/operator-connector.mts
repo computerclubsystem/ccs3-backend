@@ -182,6 +182,14 @@ import { OperatorChangePasswordRequestMessage } from '@computerclubsystem/types/
 import { createBusChangePasswordRequestMessage } from '@computerclubsystem/types/messages/bus/bus-change-password-request.message.mjs';
 import { BusChangePasswordReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-change-password-reply.message.mjs';
 import { createOperatorChangePasswordReplyMessage } from '@computerclubsystem/types/messages/operators/operator-change-password-reply.message.mjs';
+import { OperatorGetProfileSettingsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-profile-settings-request.message.mjs';
+import { createBusGetProfileSettingsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-profile-settings-request.message.mjs';
+import { BusGetProfileSettingsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-profile-settings-reply.message.mjs';
+import { createOperatorGetProfileSettingsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-profile-settings-reply.message.mjs';
+import { OperatorUpdateProfileSettingsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-update-profile-settings-request.message.mjs';
+import { createBusUpdateProfileSettingsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-profile-settings-request.message.mjs';
+import { BusUpdateProfileSettingsReplyMessage, BusUpdateProfileSettingsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-update-profile-settings-reply.message.mjs';
+import { createOperatorUpdateProfileSettingsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-update-profile-settings-reply.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -254,6 +262,12 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorRequestMessageType.updateProfileSettingsRequest:
+                this.processOperatorUpdateProfileSettingsRequestMessage(clientData, message as OperatorUpdateProfileSettingsRequestMessage);
+                break;
+            case OperatorRequestMessageType.getProfileSettingsRequest:
+                this.processOperatorGetProfileSettingsRequestMessage(clientData, message as OperatorGetProfileSettingsRequestMessage);
+                break;
             case OperatorRequestMessageType.changePasswordRequest:
                 this.processChangePasswordRequestMessage(clientData, message as OperatorChangePasswordRequestMessage);
                 break;
@@ -367,6 +381,31 @@ export class OperatorConnector {
                 this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    processOperatorUpdateProfileSettingsRequestMessage(clientData: ConnectedClientData, message: OperatorUpdateProfileSettingsRequestMessage): void {
+        const busReqMsg = createBusUpdateProfileSettingsRequestMessage();
+        busReqMsg.body.profileSettings = message.body.profileSettings;
+        busReqMsg.body.userId = clientData.userId!;
+        this.publishToOperatorsChannelAndWaitForReply<BusUpdateProfileSettingsReplyMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorUpdateProfileSettingsReplyMessage();
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    processOperatorGetProfileSettingsRequestMessage(clientData: ConnectedClientData, message: OperatorGetProfileSettingsRequestMessage): void {
+        const busReqMsg = createBusGetProfileSettingsRequestMessage();
+        busReqMsg.body.userId = clientData.userId!;
+        this.publishToOperatorsChannelAndWaitForReply<BusGetProfileSettingsReplyMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorGetProfileSettingsReplyMessage();
+                operatorReplyMsg.body.settings = busReplyMsg.body.settings;
+                operatorReplyMsg.body.username = busReplyMsg.body.username;
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
     }
 
     processChangePasswordRequestMessage(clientData: ConnectedClientData, message: OperatorChangePasswordRequestMessage): void {

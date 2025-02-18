@@ -116,6 +116,12 @@ import { BusCreatePrepaidTariffRequestMessage } from '@computerclubsystem/types/
 import { createBusCreatePrepaidTariffReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-prepaid-tariff-reply.message.mjs';
 import { BusChangePasswordRequestMessage } from '@computerclubsystem/types/messages/bus/bus-change-password-request.message.mjs';
 import { createBusChangePasswordReplyMessage } from '@computerclubsystem/types/messages/bus/bus-change-password-reply.message.mjs';
+import { BusGetProfileSettingsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-profile-settings-request.message.mjs';
+import { createBusGetProfileSettingsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-profile-settings-reply.message.mjs';
+import { UserProfileSettingWithValue } from '@computerclubsystem/types/entities/user-profile-setting-with-value.mjs';
+import { BusUpdateProfileSettingsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-profile-settings-request.message.mjs';
+import { createBusUpdateProfileSettingsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-profile-settings-reply.message.mjs';
+import { IUserProfileSettingWithValue } from './storage/entities/user-profile-setting-with-value.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -213,6 +219,12 @@ export class StateManager {
     processOperatorsChannelMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busUpdateProfileSettingsRequest:
+                this.processBusUpdateProfileSettingsRequestMessage(message as BusUpdateProfileSettingsRequestMessage);
+                break;
+            case MessageType.busGetProfileSettingsRequest:
+                this.processBusGetProfileSettingsRequestMessage(message as BusGetProfileSettingsRequestMessage);
+                break;
             case MessageType.busChangePasswordRequest:
                 this.processBusChangePasswordRequestMessage(message as BusChangePasswordRequestMessage);
                 break;
@@ -350,6 +362,81 @@ export class StateManager {
 
         return true;
     }
+
+    async processBusUpdateProfileSettingsRequestMessage(message: BusUpdateProfileSettingsRequestMessage): Promise<void> {
+        const replyMsg = createBusUpdateProfileSettingsReplyMessage();
+        try {
+            if (!(message.body.userId > 0)) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userIdIsRequired,
+                    description: 'User ID is required',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const profileSettings: UserProfileSettingWithValue[] = message.body.profileSettings;
+            const hasEmptyName = profileSettings.some(x => this.isWhiteSpace(x.name));
+            if (hasEmptyName) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.nameCannotBeEmpty,
+                    description: 'Name cannot be empty',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const storeSettings = profileSettings.map(x => ({ setting_name: x.name, setting_value: x.value } as IUserProfileSettingWithValue));
+            await this.storageProvider.updateUserProfileSettings(message.body.userId, storeSettings);
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+
+    async processBusGetProfileSettingsRequestMessage(message: BusGetProfileSettingsRequestMessage): Promise<void> {
+        const replyMsg = createBusGetProfileSettingsReplyMessage();
+        try {
+            if (!(message.body.userId > 0)) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userIdIsRequired,
+                    description: 'User ID is required',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const storageProfileSettingWithValues = await this.storageProvider.getUserProfileSettingWithValues(message.body.userId);
+            const profileSettings: UserProfileSettingWithValue[] = storageProfileSettingWithValues.map(x => ({
+                name: x.setting_name,
+                value: x.setting_value,
+            } as UserProfileSettingWithValue));
+            const allProfileSettings = await this.storageProvider.getAllUserProfileSettings();
+            for (const profileSetting of allProfileSettings) {
+                const existingSetting = profileSettings.find(x => x.name === profileSetting.name);
+                if (existingSetting) {
+                    // The setting is created for this user profile - set its description
+                    existingSetting.description = profileSetting.description;
+                } else {
+                    // The setting is not yet created for this user profile - add it to the result
+                    profileSettings.push({
+                        name: profileSetting.name,
+                        description: profileSetting.description,
+                    });
+                }
+            }
+            const storageUser = await this.storageProvider.getUserById(message.body.userId);
+            replyMsg.body.settings = profileSettings;
+            replyMsg.body.username = storageUser!.username;
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
     async processBusChangePasswordRequestMessage(message: BusChangePasswordRequestMessage): Promise<void> {
         const replyMsg = createBusChangePasswordReplyMessage();
         try {
@@ -475,7 +562,7 @@ export class StateManager {
     async processBusCompleteShiftRequestMessage(message: BusCompleteShiftRequestMessage): Promise<void> {
         const replyMsg = createBusCompleteShiftReplyMessage();
         try {
-            if (!message.body.userId) {
+            if (!(message.body.userId > 0)) {
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [{
                     code: BusErrorCode.userIdIsRequired,
@@ -733,7 +820,7 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
-            if (!message.body.userId) {
+            if (!(message.body.userId > 0)) {
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [{
                     code: BusErrorCode.userIdIsRequired,
@@ -1745,7 +1832,7 @@ export class StateManager {
 
     async processBusStartDeviceRequestMessage(message: BusStartDeviceRequestMessage): Promise<void> {
         try {
-            if (!message.body.userId) {
+            if (!(message.body.userId > 0)) {
                 const replyMsg = createBusStartDeviceReplyMessage();
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [

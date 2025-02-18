@@ -1,4 +1,5 @@
 export enum BusErrorCode {
+    nameCannotBeEmpty = 'name-cannot-be-empty',
     serverError = 'server-error',
     deviceAlreadyStarted = 'device-already-started',
     deviceIdIsRequired = 'device-id-is-required',
