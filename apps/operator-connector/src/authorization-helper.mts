@@ -19,6 +19,7 @@ export class AuthorizationHelper {
         map.set(OperatorRequestMessageType.getAllRolesRequest, [PermissionName.rolesRead]);
         map.set(OperatorRequestMessageType.createTariffRequest, [PermissionName.tariffsCreate]);
         map.set(OperatorRequestMessageType.createPrepaidTariffRequest, [PermissionName.tariffsCreatePrepaid]);
+        map.set(OperatorRequestMessageType.rechargeTariffDurationRequest, [PermissionName.tariffsRechargeDuration]);
         map.set(OperatorRequestMessageType.updateTariffRequest, [PermissionName.tariffsUpdate]);
         map.set(OperatorRequestMessageType.getTariffByIdRequest, [PermissionName.tariffsRead]);
         map.set(OperatorRequestMessageType.getAllTariffsRequest, [PermissionName.tariffsRead]);
@@ -32,11 +33,13 @@ export class AuthorizationHelper {
         map.set(OperatorRequestMessageType.startDeviceRequest, [PermissionName.devicesStart]);
         map.set(OperatorRequestMessageType.transferDeviceRequest, [PermissionName.devicesStart]);
         map.set(OperatorRequestMessageType.createDeviceContinuationRequest, [PermissionName.devicesStart]);
+        map.set(OperatorRequestMessageType.deleteDeviceContinuationRequest, [PermissionName.devicesStart]);
         map.set(OperatorRequestMessageType.stopDeviceRequest, [PermissionName.devicesStop]);
-        map.set(OperatorRequestMessageType.getShifts, [PermissionName.repoortsShifts]);
+        map.set(OperatorRequestMessageType.getShifts, [PermissionName.reportsShifts]);
         map.set(OperatorRequestMessageType.getAllSystemSettingsRequest, [PermissionName.systemSettingsRead]);
         map.set(OperatorRequestMessageType.updateSystemSettingsValuesRequest, [PermissionName.systemSettingsUpdate]);
         map.set(OperatorRequestMessageType.createDeviceRequest, [PermissionName.devicesCreate]);
+        map.set(OperatorRequestMessageType.completeShiftRequest, [PermissionName.devicesStart]);
         this.messageTypeToPermissionMap = map;
     }
 
