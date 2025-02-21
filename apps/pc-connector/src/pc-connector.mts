@@ -400,6 +400,8 @@ export class PcConnector {
                     const buffer = this.hexStringToBuffer(packetToSend);
                     this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: sending to ${noCertDevice.ipAddress}:${port!} ${packetToSend} , bytes length ${buffer.length}`);
                     try {
+                        // TODO: This must be configuration
+                        await this.delay(500);
                         this.udpHelper.send(buffer, port!, noCertDevice.ipAddress);
                     } catch (err) {
                         this.logger.warn(`Can't send UDP packet ${packetToSend} to ${noCertDevice.ipAddress}:${port!}. Error: ${err}`);
@@ -410,6 +412,12 @@ export class PcConnector {
                 }
             }
         }
+    }
+
+    async delay(ms: number): Promise<void> {
+        return new Promise((resolve, reject) => {
+            setTimeout(() => resolve(), ms);
+        });
     }
 
     hexStringToBuffer(hexString: string): Buffer {
