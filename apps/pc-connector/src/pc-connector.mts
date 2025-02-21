@@ -400,8 +400,7 @@ export class PcConnector {
                     const buffer = this.hexStringToBuffer(packetToSend);
                     this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: sending to ${noCertDevice.ipAddress}:${port!} ${packetToSend} , bytes length ${buffer.length}`);
                     try {
-                        const bytesSent = await this.udpHelper.send(buffer, port!, noCertDevice.ipAddress);
-                        this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: bytes sent ${bytesSent}`);
+                        this.udpHelper.send(buffer, port!, noCertDevice.ipAddress);
                     } catch (err) {
                         this.logger.warn(`Can't send UDP packet ${packetToSend} to ${noCertDevice.ipAddress}:${port!}. Error: ${err}`);
                     }
