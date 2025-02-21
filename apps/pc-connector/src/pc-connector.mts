@@ -401,7 +401,7 @@ export class PcConnector {
                     this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: sending to ${noCertDevice.ipAddress}:${port!} ${packetToSend} , bytes length ${buffer.length}`);
                     try {
                         // TODO: This must be configuration
-                        await this.delay(500);
+                        await this.delay(250);
                         this.udpHelper.send(buffer, port!, noCertDevice.ipAddress);
                     } catch (err) {
                         this.logger.warn(`Can't send UDP packet ${packetToSend} to ${noCertDevice.ipAddress}:${port!}. Error: ${err}`);
