@@ -403,6 +403,7 @@ export class PcConnector {
                     const portParts = portLine.split('=');
                     port = +(portParts[1].trim());
                 }
+                this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: port ${port!}`);
                 if (packetToSend && (packetToSend.length % 2) === 0) {
                     this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: sending packet ${packetToSend}`);
                     const buffer = this.hexStringToBuffer(packetToSend);
