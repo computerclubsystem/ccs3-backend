@@ -363,27 +363,22 @@ export class PcConnector {
         // TODO: Try to not load devices every time - load them on start-up and also add notification from state-manager when devices are changed
         const allDevices = await this.cacheHelper.getAllDevices();
         if (!allDevices) {
-            this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: Can't get all devices`);
             return;
         }
 
         const devicesWithoutCertificateThumbprints = allDevices.filter(x => x.enabled && x.approved && !x.certificateThumbprint && x.description);
-        this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: devicesWithoutCertificateThumbprints: ${devicesWithoutCertificateThumbprints.map(x => x.name)}`);
         for (const noCertDevice of devicesWithoutCertificateThumbprints) {
             const deviceStatus = deviceStatuses.find(x => x.deviceId === noCertDevice.id);
-            this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: deviceStatus: Id: ${noCertDevice.id}, IP: ${noCertDevice.ipAddress}, status ${deviceStatus?.started}`);
             if (deviceStatus) {
                 // Device status always exists
                 const desc = noCertDevice.description || '';
                 const descLines = desc.split('\n');
                 const trimmedLines = descLines.map(x => x.trim());
-                this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: trimmedLines: ${trimmedLines.join('<CRLF>')}`);
                 let packetToSend: string | undefined;
                 let port: number;
                 if (deviceStatus.started) {
                     // Must be started - find StartPacket
                     const startPacketLine = trimmedLines.find(x => x.startsWith('StartPacket='));
-                    this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: deviceStatus: started, startPacketLine: ${startPacketLine}`);
                     if (startPacketLine) {
                         const parts = startPacketLine.split('=');
                         packetToSend = parts[1].trim();
@@ -391,26 +386,22 @@ export class PcConnector {
                 } else {
                     // Must be stopped - find StopPacket
                     const stopPacketLine = trimmedLines.find(x => x.startsWith('StopPacket='));
-                    this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: deviceStatus: not started, stopPacketLine: ${stopPacketLine}`);
                     if (stopPacketLine) {
                         const parts = stopPacketLine.split('=');
                         packetToSend = parts[1].trim();
                     }
                 }
-                this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: packetToSend: ${packetToSend}`);
                 const portLine = trimmedLines.find(x => x.startsWith('Port='));
                 if (portLine) {
                     const portParts = portLine.split('=');
                     port = +(portParts[1].trim());
                 }
-                this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: port ${port!}`);
                 if (packetToSend && (packetToSend.length % 2) === 0) {
-                    this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: sending packet ${packetToSend}`);
                     const buffer = this.hexStringToBuffer(packetToSend);
-                    this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: sending bytes length ${buffer.length}`);
+                    this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: sending to ${noCertDevice.ipAddress}:${port!} ${packetToSend} , bytes length ${buffer.length}`);
                     try {
                         const bytesSent = await this.udpHelper.send(buffer, port!, noCertDevice.ipAddress);
-                    this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: bytes sent ${bytesSent}`);
+                        this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: bytes sent ${bytesSent}`);
                     } catch (err) {
                         this.logger.warn(`Can't send UDP packet ${packetToSend} to ${noCertDevice.ipAddress}:${port!}. Error: ${err}`);
                     }
