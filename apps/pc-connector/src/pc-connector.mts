@@ -398,7 +398,6 @@ export class PcConnector {
                 }
                 if (packetToSend && (packetToSend.length % 2) === 0) {
                     const buffer = this.hexStringToBuffer(packetToSend);
-                    this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: sending to ${noCertDevice.ipAddress}:${port!} ${packetToSend} , bytes length ${buffer.length}`);
                     try {
                         // TODO: This must be configuration
                         await this.delay(250);
