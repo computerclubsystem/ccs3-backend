@@ -15,9 +15,25 @@ export class UserProfileQueryHelper {
     }
 
     private readonly updateUserProfileSettingQueryText = `
-        UPDATE user_profile
+        INSERT INTO user_profile
+        (
+            setting_value,
+            setting_name,
+            user_id
+        )
+        VALUES
+        (
+            $1,
+            $2,
+            $3
+        )
+        ON CONFLICT (user_id, setting_name) DO UPDATE
         SET setting_value = $1
-        WHERE setting_name = $2 AND user_id = $3
+        RETURNING
+            id,
+            user_id,
+            setting_name,
+            setting_value
     `;
 
     getUserProfileSettingWithValuesQueryData(userId: number): IQueryTextWithParamsResult {
