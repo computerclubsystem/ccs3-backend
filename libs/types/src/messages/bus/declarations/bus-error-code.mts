@@ -1,4 +1,8 @@
 export enum BusErrorCode {
+    cantCreateDeviceGroup = 'cant-create-device-group',
+    deviceGroupIsRequired = 'device-group-is-required',
+    deviceGroupNotFound = 'device-group-not-found',
+    deviceGroupIdIsRequired = 'device-group-id-is-required',
     nameCannotBeEmpty = 'name-cannot-be-empty',
     serverError = 'server-error',
     deviceAlreadyStarted = 'device-already-started',
@@ -12,6 +16,7 @@ export enum BusErrorCode {
     tariffNotFound = 'tariff-not-found',
     tariffNotProvided = 'tariff-not-provided',
     deviceIsNotActive = 'device-is-not-active',
+    tariffIsNotAvailable = 'tariff-is-not-available',
     tariffIsNotActive = 'tariff-is-not-active',
     tariffIsNotPrepaidType = 'tariff-is-not-prepaid-type',
     tariffMustNotBeOfPrepaidType = 'tariff-must-not-be-of-prepaid-type',
@@ -49,4 +54,5 @@ export enum BusErrorCode {
     shiftStatusesDoesNotMatch = 'shift-status-does-not-match',
     invalidDate = 'invalid-date',
     cannotCompleteShift = 'cannot-complete-shift',
+    targetDeviceIsNotAvailableForTransfer = 'target-device-is-not-available-for-transfer',
 }

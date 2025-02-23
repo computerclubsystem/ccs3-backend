@@ -1,4 +1,9 @@
 export enum OperatorRequestMessageType {
+    getAllAllowedDeviceObjectsRequest = 'get-all-allowed-device-objects-request',
+    updateDeviceGroupRequest = 'update-device-group-request',
+    createDeviceGroupRequest = 'create-device-group-request',
+    getDeviceGroupDataRequest = 'get-device-group-data-request',
+    getAllDeviceGroupsRequest = 'get-all-device-groups-request',
     updateProfileSettingsRequest = 'update-profile-settings-request',
     getProfileSettingsRequest = 'get-profile-settings-request',
     changePasswordRequest = 'change-password-request',
@@ -41,6 +46,11 @@ export enum OperatorRequestMessageType {
 }
 
 export enum OperatorReplyMessageType {
+    getAllAllowedDeviceObjectsReply = 'get-all-allowed-device-objects-reply',
+    updateDeviceGroupReply = 'update-device-group-reply',
+    createDeviceGroupReply = 'create-device-group-reply',
+    getDeviceGroupDataReply = 'get-device-group-data-reply',
+    getAllDeviceGroupsReply = 'get-all-device-groups-reply',
     updateProfileSettingsReply = 'update-profile-settings-reply',
     getProfileSettingsReply = 'get-profile-settings-reply',
     changePasswordReply = 'change-password-reply',

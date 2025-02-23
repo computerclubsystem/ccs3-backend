@@ -1,4 +1,18 @@
 export const enum MessageType {
+    // Allowed device objects
+    busGetAllAllowedDeviceObjectsRequest = 'bus-get-all-allowed-device-objects-request',
+    busGetAllAllowedDeviceObjectsReply = 'bus-get-all-allowed-device-objects-reply',
+
+    // Device groups
+    busUpdateDeviceGroupRequest = 'bus-update-device-group-request',
+    busUpdateDeviceGroupReply = 'bus-update-device-group-reply',
+    busCreateDeviceGroupRequest = 'bus-create-device-group-request',
+    busCreateDeviceGroupReply = 'bus-create-device-group-reply',
+    busGetAllDeviceGroupsRequest = 'bus-get-all-device-groups-request',
+    busGetAllDeviceGroupsReply = 'bus-get-all-device-groups-reply',
+    busGetDeviceGroupDataRequest = 'bus-get-device-group-data-request',
+    busGetDeviceGroupDataReply = 'bus-get-device-group-data-reply',
+
     // System settings
     busUpdateSystemSettingsValuesRequest = 'bus-update-system-settings-values-request',
     busUpdateSystemSettingsValuesReply = 'bus-update-system-settings-values-reply',

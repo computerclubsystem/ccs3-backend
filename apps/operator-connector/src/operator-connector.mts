@@ -188,8 +188,28 @@ import { BusGetProfileSettingsReplyMessageBody } from '@computerclubsystem/types
 import { createOperatorGetProfileSettingsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-profile-settings-reply.message.mjs';
 import { OperatorUpdateProfileSettingsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-update-profile-settings-request.message.mjs';
 import { createBusUpdateProfileSettingsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-profile-settings-request.message.mjs';
-import { BusUpdateProfileSettingsReplyMessage, BusUpdateProfileSettingsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-update-profile-settings-reply.message.mjs';
+import { BusUpdateProfileSettingsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-update-profile-settings-reply.message.mjs';
 import { createOperatorUpdateProfileSettingsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-update-profile-settings-reply.message.mjs';
+import { OperatorGetAllDeviceGroupsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-device-groups-request.message.mjs';
+import { createBusGetAllDeviceGroupsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-device-groups-request.message.mjs';
+import { BusGetAllDeviceGroupsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-all-device-groups-reply.message.mjs';
+import { createOperatorGetAllDeviceGroupsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-device-groups-reply.message.mjs';
+import { OperatorGetDeviceGroupDataRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-device-group-data-request.message.mjs';
+import { createBusGetDeviceGroupDataRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-group-data-request.message.mjs';
+import { BusGetDeviceGroupDataReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-device-group-data-reply.message.mjs';
+import { createOperatorGetDeviceGroupDataReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-device-group-data-reply.message.mjs';
+import { OperatorCreateDeviceGroupRequestMessage } from '@computerclubsystem/types/messages/operators/operator-create-device-group-request.message.mjs';
+import { createBusCreateDeviceGroupRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-group-request.message.mjs';
+import { BusCreateDeviceGroupReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-create-device-group-reply.message.mjs';
+import { createOperatorCreateDeviceGroupReplyMessage } from '@computerclubsystem/types/messages/operators/operator-create-device-group-reply.message.mjs';
+import { OperatorUpdateDeviceGroupRequestMessage } from '@computerclubsystem/types/messages/operators/operator-update-device-group-request.message.mjs';
+import { BusUpdateDeviceGroupReplyMessageBody, createBusUpdateDeviceGroupReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-device-group-reply.message.mjs';
+import { createOperatorUpdateDeviceGroupReplyMessage } from '@computerclubsystem/types/messages/operators/operator-update-device-group-reply.message.mjs';
+import { createBusUpdateDeviceGroupRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-device-group-request.message.mjs';
+import { OperatorGetAllAllowedDeviceObjectsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-allowed-device-objects-request.message.mjs';
+import { createBusGetAllAllowedDeviceObjectsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-allowed-device-objects-request.message.mjs';
+import { BusGetAllAllowedDeviceObjectsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-all-allowed-device-objects-reply.message.mjs';
+import { createOperatorGetAllAllowedDeviceObjectsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-allowed-device-objects-reply.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -262,6 +282,21 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorRequestMessageType.getAllAllowedDeviceObjectsRequest:
+                this.processOperatorGetAllAllowedDeviceObjectsRequestMessage(clientData, message as OperatorGetAllAllowedDeviceObjectsRequestMessage);
+                break;
+            case OperatorRequestMessageType.updateDeviceGroupRequest:
+                this.processOperatorUpdateDeviceGroupRequestMessage(clientData, message as OperatorUpdateDeviceGroupRequestMessage);
+                break;
+            case OperatorRequestMessageType.createDeviceGroupRequest:
+                this.processOperatorCreateDeviceGroupRequestMessage(clientData, message as OperatorCreateDeviceGroupRequestMessage);
+                break;
+            case OperatorRequestMessageType.getDeviceGroupDataRequest:
+                this.processOperatorGetDeviceGroupDataRequestMessage(clientData, message as OperatorGetDeviceGroupDataRequestMessage);
+                break;
+            case OperatorRequestMessageType.getAllDeviceGroupsRequest:
+                this.processOperatorGetAllDeviceGroupsRequestMessage(clientData, message as OperatorGetAllDeviceGroupsRequestMessage);
+                break;
             case OperatorRequestMessageType.updateProfileSettingsRequest:
                 this.processOperatorUpdateProfileSettingsRequestMessage(clientData, message as OperatorUpdateProfileSettingsRequestMessage);
                 break;
@@ -382,6 +417,67 @@ export class OperatorConnector {
                 break;
         }
     }
+
+    processOperatorGetAllAllowedDeviceObjectsRequestMessage(clientData: ConnectedClientData, message: OperatorGetAllAllowedDeviceObjectsRequestMessage): void {
+        const busReqMsg = createBusGetAllAllowedDeviceObjectsRequestMessage();
+        this.publishToOperatorsChannelAndWaitForReply<BusGetAllAllowedDeviceObjectsReplyMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorGetAllAllowedDeviceObjectsReplyMessage();
+                operatorReplyMsg.body.allowedDeviceObjects = busReplyMsg.body.allowedDeviceObjects;
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    processOperatorUpdateDeviceGroupRequestMessage(clientData: ConnectedClientData, message: OperatorUpdateDeviceGroupRequestMessage): void {
+        const busReqMsg = createBusUpdateDeviceGroupRequestMessage();
+        busReqMsg.body.deviceGroup = message.body.deviceGroup;
+        busReqMsg.body.assignedTariffIds = message.body.assignedTariffIds;
+        this.publishToOperatorsChannelAndWaitForReply<BusUpdateDeviceGroupReplyMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorUpdateDeviceGroupReplyMessage();
+                operatorReplyMsg.body.deviceGroup = busReplyMsg.body.deviceGroup;
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    processOperatorCreateDeviceGroupRequestMessage(clientData: ConnectedClientData, message: OperatorCreateDeviceGroupRequestMessage): void {
+        const busReqMsg = createBusCreateDeviceGroupRequestMessage();
+        busReqMsg.body.deviceGroup = message.body.deviceGroup;
+        busReqMsg.body.assignedTariffIds = message.body.assignedTariffIds;
+        this.publishToOperatorsChannelAndWaitForReply<BusCreateDeviceGroupReplyMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorCreateDeviceGroupReplyMessage();
+                operatorReplyMsg.body.deviceGroup = busReplyMsg.body.deviceGroup;
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    processOperatorGetDeviceGroupDataRequestMessage(clientData: ConnectedClientData, message: OperatorGetDeviceGroupDataRequestMessage): void {
+        const busReqMsg = createBusGetDeviceGroupDataRequestMessage();
+        busReqMsg.body.deviceGroupId = message.body.deviceGroupId;
+        this.publishToOperatorsChannelAndWaitForReply<BusGetDeviceGroupDataReplyMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorGetDeviceGroupDataReplyMessage();
+                operatorReplyMsg.body.deviceGroupData = busReplyMsg.body.deviceGroupData;
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    processOperatorGetAllDeviceGroupsRequestMessage(clientData: ConnectedClientData, message: OperatorGetAllDeviceGroupsRequestMessage): void {
+        const busReqMsg = createBusGetAllDeviceGroupsRequestMessage();
+        this.publishToOperatorsChannelAndWaitForReply<BusGetAllDeviceGroupsReplyMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorGetAllDeviceGroupsReplyMessage();
+                operatorReplyMsg.body.deviceGroups = busReplyMsg.body.deviceGroups;
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
 
     processOperatorUpdateProfileSettingsRequestMessage(clientData: ConnectedClientData, message: OperatorUpdateProfileSettingsRequestMessage): void {
         const busReqMsg = createBusUpdateProfileSettingsRequestMessage();

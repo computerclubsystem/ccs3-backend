@@ -22,9 +22,32 @@ import { IShiftsSummary } from './storage/entities/shifts-summary.mjs';
 import { ShiftsSummary } from '@computerclubsystem/types/entities/shifts-summary.mjs';
 import { ISystemSetting } from './storage/entities/system-setting.mjs';
 import { SystemSetting } from '@computerclubsystem/types/entities/system-setting.mjs';
+import { IDeviceGroup } from './storage/entities/device-group.mjs';
+import { DeviceGroup } from '@computerclubsystem/types/entities/device-group.mjs';
 
 export class EntityConverter {
-    fromStorageSystemSetting(storageSystemSetting: ISystemSetting): SystemSetting {
+    toStorageDeviceGroup(deviceGroup: DeviceGroup): IDeviceGroup {
+        const storageDeviceGroup: IDeviceGroup = {
+            id: deviceGroup.id,
+            name: deviceGroup.name,
+            description: deviceGroup.description,
+            enabled: deviceGroup.enabled,
+            restrict_device_transfers: deviceGroup.restrictDeviceTransfers,
+        };
+        return storageDeviceGroup;
+    }
+    toDeviceGroup(storageDeviceGroup: IDeviceGroup): DeviceGroup {
+        const deviceGroup: DeviceGroup = {
+            id: storageDeviceGroup.id,
+            name: storageDeviceGroup.name,
+            description: storageDeviceGroup.description,
+            enabled: storageDeviceGroup.enabled,
+            restrictDeviceTransfers: storageDeviceGroup.restrict_device_transfers,
+        };
+        return deviceGroup;
+    }
+
+    toSystemSetting(storageSystemSetting: ISystemSetting): SystemSetting {
         const systemSetting: SystemSetting = {
             name: storageSystemSetting.name,
             type: storageSystemSetting.type,
@@ -35,7 +58,7 @@ export class EntityConverter {
         return systemSetting;
     }
 
-    fromStorageShiftsSummary(storageShiftsSummary: IShiftsSummary): ShiftsSummary {
+    toShiftsSummary(storageShiftsSummary: IShiftsSummary): ShiftsSummary {
         const shiftsSummary: ShiftsSummary = {
             completedSessionsCount: storageShiftsSummary.completed_sessions_count,
             completedSessionsTotal: storageShiftsSummary.completed_sessions_total,
@@ -52,7 +75,7 @@ export class EntityConverter {
         return shiftsSummary;
     }
 
-    storageShiftToShift(storageShift: IShift): Shift {
+    toShift(storageShift: IShift): Shift {
         const shift: Shift = {
             id: storageShift.id,
             completedSessionsCount: storageShift.completed_sessions_count,
@@ -78,7 +101,7 @@ export class EntityConverter {
      * @param deviceContinuation 
      * @returns IDeviceContinuation without requestedAt set
      */
-    storageDeviceContinuationToDeviceContinuation(storageDeviceContinuation: IDeviceContinuation): DeviceContinuation {
+    toDeviceContinuation(storageDeviceContinuation: IDeviceContinuation): DeviceContinuation {
         const result: DeviceContinuation = {
             deviceId: storageDeviceContinuation.deviceId,
             tariffId: storageDeviceContinuation.tariffId,
@@ -92,7 +115,7 @@ export class EntityConverter {
      * @param deviceContinuation 
      * @returns IDeviceContinuation without requestedAt set
      */
-    deviceContinuationToStorageDeviceContinuation(deviceContinuation: DeviceContinuation): IDeviceContinuation {
+    toStorageDeviceContinuation(deviceContinuation: DeviceContinuation): IDeviceContinuation {
         const result: IDeviceContinuation = {
             deviceId: deviceContinuation.deviceId,
             tariffId: deviceContinuation.tariffId,
@@ -101,7 +124,7 @@ export class EntityConverter {
         return result;
     }
 
-    userToStorageUser(user: User): IUser {
+    toStorageUser(user: User): IUser {
         const storageUser: IUser = {
             created_at: user.createdAt,
             enabled: user.enabled,
@@ -112,7 +135,7 @@ export class EntityConverter {
         return storageUser;
     }
 
-    storageUserToUser(storageUser: IUser): User {
+    toUSer(storageUser: IUser): User {
         const user: User = {
             createdAt: storageUser.created_at,
             enabled: storageUser.enabled,
@@ -123,7 +146,7 @@ export class EntityConverter {
         return user;
     }
 
-    storagePermissionToPermission(storagePermission: IPermission): Permission {
+    toPermission(storagePermission: IPermission): Permission {
         const permission: Permission = {
             id: storagePermission.id,
             name: storagePermission.name,
@@ -132,7 +155,7 @@ export class EntityConverter {
         return permission;
     }
 
-    storageRoleToRole(storageRole: IRole): Role {
+    toRole(storageRole: IRole): Role {
         const role: Role = {
             enabled: storageRole.enabled,
             id: storageRole.id,
@@ -142,7 +165,7 @@ export class EntityConverter {
         return role;
     }
 
-    roleToStorageRole(role: Role): IRole {
+    toStorageRole(role: Role): IRole {
         const storageRole: IRole = {
             enabled: role.enabled,
             id: role.id,
@@ -160,7 +183,7 @@ export class EntityConverter {
         return (operatorConnectionEventType as number) as OperatorConnectionEventTypeStorage;
     }
 
-    storageDeviceStatusToDeviceStatus(storageDeviceStatus: IDeviceStatus): DeviceStatus {
+    toDeviceStatus(storageDeviceStatus: IDeviceStatus): DeviceStatus {
         const deviceStatus: DeviceStatus = {
             deviceId: storageDeviceStatus.device_id,
             enabled: storageDeviceStatus.enabled,
@@ -172,7 +195,7 @@ export class EntityConverter {
         return deviceStatus;
     }
 
-    storageTariffToTariff(storageTariff: ITariff): Tariff {
+    toTariff(storageTariff: ITariff): Tariff {
         const tariff: Tariff = {
             createdAt: storageTariff.created_at,
             enabled: storageTariff.enabled,
@@ -194,7 +217,7 @@ export class EntityConverter {
         return tariff;
     }
 
-    tariffToStorageTariff(tariff: Tariff): ITariff {
+    toStorageTariff(tariff: Tariff): ITariff {
         const storageTariff: ITariff = {
             created_at: tariff.createdAt,
             enabled: tariff.enabled,
@@ -216,7 +239,7 @@ export class EntityConverter {
         return storageTariff;
     }
 
-    deviceToStorageDevice(device: Device): IDevice {
+    toStorageDevice(device: Device): IDevice {
         const storageDevice: IDevice = {
             approved: device.approved,
             certificate_thumbprint: device.certificateThumbprint,
@@ -232,7 +255,7 @@ export class EntityConverter {
         return storageDevice;
     }
 
-    storageDeviceToDevice(storageDevice: IDevice): Device {
+    toDevice(storageDevice: IDevice): Device {
         const device: Device = {
             approved: storageDevice.approved,
             certificateThumbprint: storageDevice.certificate_thumbprint,

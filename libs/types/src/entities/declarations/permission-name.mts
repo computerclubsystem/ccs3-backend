@@ -1,5 +1,7 @@
 export enum PermissionName {
     all = 'all',
+    deviceGroupsCreate = 'device-groups:create',
+    deviceGroupsUpdate = 'device-groups:update',
     devicesCreate = 'devices:create',
     devicesStart = 'devices:start',
     devicesStop = 'devices:stop',

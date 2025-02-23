@@ -21,8 +21,17 @@ import { IShiftsSummary } from './entities/shifts-summary.mjs';
 import { ISystemSettingNameWithValue } from './entities/system-setting-name-with-value.mjs';
 import { IUserProfileSetting } from './entities/user-profile-setting.mjs';
 import { IUserProfileSettingWithValue } from './entities/user-profile-setting-with-value.mjs';
+import { IDeviceGroup } from './entities/device-group.mjs';
+import { ITariffInDeviceGroup } from './entities/tariff-in-device-group.mjs';
 
 export interface StorageProvider {
+    getAllTariffsInDeviceGroups(): Promise<ITariffInDeviceGroup[]>;
+    updateDeviceGroup(deviceGroup: IDeviceGroup, assignedTariffIds: number[] | undefined | null): Promise<IDeviceGroup | undefined>;
+    createDeviceGroup(deviceGroup: IDeviceGroup, assignedTariffIds: number[] | undefined | null): Promise<IDeviceGroup | undefined>;
+    getAllDeviceIdsInDeviceGroup(deviceGroupId: number): Promise<number[]>;
+    getAllTariffIdsInDeviceGroup(deviceGroupId: number): Promise<number[]>;
+    getDeviceGroup(deviceGroupId: number): Promise<IDeviceGroup | undefined>;
+    getAllDeviceGroups(): Promise<IDeviceGroup[]>;
     updateUserProfileSettings(userId: number, profileSettings: IUserProfileSettingWithValue[]): Promise<void>;
     getUserProfileSettingWithValues(userId: number): Promise<IUserProfileSettingWithValue[]>;
     getAllUserProfileSettings(): Promise<IUserProfileSetting[]>;

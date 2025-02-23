@@ -29,6 +29,8 @@ import { IShiftsSummary } from 'src/storage/entities/shifts-summary.mjs';
 import { ISystemSettingNameWithValue } from 'src/storage/entities/system-setting-name-with-value.mjs';
 import { IUserProfileSetting } from 'src/storage/entities/user-profile-setting.mjs';
 import { IUserProfileSettingWithValue } from 'src/storage/entities/user-profile-setting-with-value.mjs';
+import { IDeviceGroup } from 'src/storage/entities/device-group.mjs';
+import { ITariffInDeviceGroup } from 'src/storage/entities/tariff-in-device-group.mjs';
 
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
@@ -68,6 +70,89 @@ export class PostgreStorageProvider implements StorageProvider {
             return parseFloat(numericString);
         });
         return result;
+    }
+
+    async getAllTariffsInDeviceGroups(): Promise<ITariffInDeviceGroup[]> {
+        const queryData = this.queryUtils.getAllTariffsInDeviceGroupsQueryData();
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows as ITariffInDeviceGroup[];
+    }
+
+    async updateDeviceGroup(deviceGroup: IDeviceGroup, assignedTariffIds: number[] | undefined | null): Promise<IDeviceGroup | undefined> {
+        let transactionClient: pg.PoolClient | undefined;
+        try {
+            transactionClient = await this.getPoolClient();
+            await transactionClient.query('BEGIN');
+            const updateDeviceGroupQueryData = this.queryUtils.updateDeviceGroupQueryData(deviceGroup);
+            const updatedDeviceGroupRes = await transactionClient.query(updateDeviceGroupQueryData.text, updateDeviceGroupQueryData.params);
+            const updatedDeviceGroup = updatedDeviceGroupRes.rows[0] as IDeviceGroup | undefined;
+            if (!updatedDeviceGroup) {
+                await transactionClient?.query('ROLLBACK');
+                return undefined;
+            }
+            if (assignedTariffIds) {
+                const replaceTariffIdsQueryData = this.queryUtils.replaceDeviceGroupTariffIdsQueryData(updatedDeviceGroup.id, assignedTariffIds);
+                await transactionClient.query(replaceTariffIdsQueryData.text, replaceTariffIdsQueryData.params);
+            }
+            await transactionClient.query('COMMIT');
+            return updatedDeviceGroup;
+        } catch (err) {
+            await transactionClient?.query('ROLLBACK');
+            throw err;
+        } finally {
+            transactionClient?.release();
+        }
+    }
+
+    async createDeviceGroup(deviceGroup: IDeviceGroup, assignedTariffIds: number[] | undefined | null): Promise<IDeviceGroup | undefined> {
+        let transactionClient: pg.PoolClient | undefined;
+        try {
+            transactionClient = await this.getPoolClient();
+            await transactionClient.query('BEGIN');
+            const createDeviceGroupQueryData = this.queryUtils.createDeviceGroupQueryData(deviceGroup);
+            const createdDeviceGroupRes = await transactionClient.query(createDeviceGroupQueryData.text, createDeviceGroupQueryData.params);
+            const createdDeviceGroup = createdDeviceGroupRes.rows[0] as IDeviceGroup | undefined;
+            if (!createdDeviceGroup) {
+                await transactionClient?.query('ROLLBACK');
+                return undefined;
+            }
+            if (assignedTariffIds) {
+                const replaceTariffIdsQueryData = this.queryUtils.replaceDeviceGroupTariffIdsQueryData(createdDeviceGroup.id, assignedTariffIds);
+                await transactionClient.query(replaceTariffIdsQueryData.text, replaceTariffIdsQueryData.params);
+            }
+            await transactionClient.query('COMMIT');
+            return createdDeviceGroup;
+        } catch (err) {
+            await transactionClient?.query('ROLLBACK');
+            throw err;
+        } finally {
+            transactionClient?.release();
+        }
+    }
+
+
+    async getAllDeviceIdsInDeviceGroup(deviceGroupId: number): Promise<number[]> {
+        const queryData = this.queryUtils.getAllDeviceIdsInDeviceGroupQueryData(deviceGroupId);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows.map((x: IDevice) => x.id) as number[];
+    }
+
+    async getAllTariffIdsInDeviceGroup(deviceGroupId: number): Promise<number[]> {
+        const queryData = this.queryUtils.getAllTariffIdsInDeviceGroupQueryData(deviceGroupId);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows.map((x: ITariffInDeviceGroup) => x.tariff_id) as number[];
+    }
+
+    async getDeviceGroup(deviceGroupId: number): Promise<IDeviceGroup | undefined> {
+        const queryData = this.queryUtils.getDeviceGroupQueryData(deviceGroupId);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows[0] as IDeviceGroup | undefined;
+    }
+
+    async getAllDeviceGroups(): Promise<IDeviceGroup[]> {
+        const queryData = this.queryUtils.getAllDeviceGroupsQueryData();
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows as IDeviceGroup[];
     }
 
     async updateUserProfileSettings(userId: number, profileSettings: IUserProfileSettingWithValue[]): Promise<void> {
