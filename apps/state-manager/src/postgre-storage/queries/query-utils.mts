@@ -31,6 +31,9 @@ import { ShiftDeviceContinuationQueryHelper } from './shift-device-continuation-
 import { UserProfileSettingQueryHelper } from './user-profile-setting-query-helper.mjs';
 import { UserProfileQueryHelper } from './user-profile-query-helper.mjs';
 import { IUserProfileSettingWithValue } from 'src/storage/entities/user-profile-setting-with-value.mjs';
+import { DeviceGroupQueryHelper } from './device-group-query-helper.mjs';
+import { TariffInDeviceGroupQueryHelper } from './tariff-in-device-group-query-helper.mjs';
+import { IDeviceGroup } from 'src/storage/entities/device-group.mjs';
 
 export class QueryUtils {
     private readonly helpers = {
@@ -52,7 +55,40 @@ export class QueryUtils {
         shiftDeviceContinuation: new ShiftDeviceContinuationQueryHelper(),
         userProfileSetting: new UserProfileSettingQueryHelper(),
         userProfile: new UserProfileQueryHelper(),
+        deviceGroup: new DeviceGroupQueryHelper(),
+        tariffInDeviceGroup: new TariffInDeviceGroupQueryHelper(),
     };
+
+    getAllTariffsInDeviceGroupsQueryData(): IQueryTextWithParamsResult {
+        return this.helpers.tariffInDeviceGroup.getAllTariffsInDeviceGroupsQueryData();
+    }
+    updateDeviceGroupQueryData(deviceGroup: IDeviceGroup): IQueryTextWithParamsResult {
+        return this.helpers.deviceGroup.updateDeviceGroupQueryData(deviceGroup);
+    }
+
+    replaceDeviceGroupTariffIdsQueryData(deviceGroupId: number, tariffIds: number[]): IQueryTextWithParamsResult {
+        return this.helpers.tariffInDeviceGroup.replaceDeviceGroupTariffIdsQueryData(deviceGroupId, tariffIds);
+    }
+
+    createDeviceGroupQueryData(deviceGroup: IDeviceGroup): IQueryTextWithParamsResult {
+        return this.helpers.deviceGroup.createDeviceGroupQueryData(deviceGroup);
+    }
+
+    getAllDeviceIdsInDeviceGroupQueryData(deviceGroupId: number): IQueryTextWithParamsResult {
+        return this.helpers.device.getAllDeviceIdsInDeviceGroupQueryData(deviceGroupId);
+    }
+
+    getAllTariffIdsInDeviceGroupQueryData(deviceGroupId: number): IQueryTextWithParamsResult {
+        return this.helpers.tariffInDeviceGroup.getAllTariffIdsInDeviceGroupQueryData(deviceGroupId);
+    }
+
+    getDeviceGroupQueryData(deviceGroupId: number): IQueryTextWithParamsResult {
+        return this.helpers.deviceGroup.getDeviceGroupQueryData(deviceGroupId);
+    }
+
+    getAllDeviceGroupsQueryData(): IQueryTextWithParamsResult {
+        return this.helpers.deviceGroup.getAllDeviceGroupsQueryData();
+    }
 
     updateUserProfileSettingQueryData(userId: number, profileSettings: IUserProfileSettingWithValue): IQueryTextWithParamsResult {
         return this.helpers.userProfile.updateUserProfileSettingQueryData(userId, profileSettings);

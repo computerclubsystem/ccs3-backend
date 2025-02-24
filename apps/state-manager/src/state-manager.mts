@@ -122,6 +122,21 @@ import { UserProfileSettingWithValue } from '@computerclubsystem/types/entities/
 import { BusUpdateProfileSettingsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-profile-settings-request.message.mjs';
 import { createBusUpdateProfileSettingsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-profile-settings-reply.message.mjs';
 import { IUserProfileSettingWithValue } from './storage/entities/user-profile-setting-with-value.mjs';
+import { BusGetAllDeviceGroupsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-device-groups-request.message.mjs';
+import { createBusGetAllDeviceGroupsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-device-groups-reply.message.mjs';
+import { BusGetDeviceGroupDataRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-group-data-request.message.mjs';
+import { createBusGetDeviceGroupDataReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-group-data-reply.message.mjs';
+import { DeviceGroupData } from '@computerclubsystem/types/entities/device-group-data.mjs';
+import { BusCreateDeviceGroupRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-group-request.message.mjs';
+import { createBusCreateDeviceGroupReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-group-reply.message.mjs';
+import { DeviceGroup } from '@computerclubsystem/types/entities/device-group.mjs';
+import { BusUpdateDeviceGroupRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-device-group-request.message.mjs';
+import { createBusUpdateDeviceGroupReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-device-group-reply.message.mjs';
+import { BusGetAllAllowedDeviceObjectsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-allowed-device-objects-request.message.mjs';
+import { createBusGetAllAllowedDeviceObjectsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-allowed-device-objects-reply.message.mjs';
+import { AllowedDeviceObjects } from '@computerclubsystem/types/entities/allowed-device-objects.mjs';
+import { IDeviceGroup } from './storage/entities/device-group.mjs';
+import { ITariffInDeviceGroup } from './storage/entities/tariff-in-device-group.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -196,7 +211,7 @@ export class StateManager {
             this.publishToSharedChannel(replyMsg, message);
             // Also publish notification message so other services know about the new settings
             const notificationMsg = createBusAllSystemSettingsNotificationMessage();
-            notificationMsg.body.systemSettings = storageSystemSettings.map(x => this.entityConverter.fromStorageSystemSetting(x));
+            notificationMsg.body.systemSettings = storageSystemSettings.map(x => this.entityConverter.toSystemSetting(x));
             this.publishNotificationMessageToSharedChannel(notificationMsg);
         } catch (err) {
             this.setErrorToReplyMessage(err, message, replyMsg);
@@ -208,7 +223,7 @@ export class StateManager {
         const replyMsg = createBusGetAllSystemSettingsReplyMessage();
         try {
             const storageAllSystemSettings = await this.storageProvider.getAllSystemSettings();
-            replyMsg.body.systemSettings = storageAllSystemSettings.map(x => this.entityConverter.fromStorageSystemSetting(x));
+            replyMsg.body.systemSettings = storageAllSystemSettings.map(x => this.entityConverter.toSystemSetting(x));
             this.publishToSharedChannel(replyMsg, message);
         } catch (err) {
             this.setErrorToReplyMessage(err, message, replyMsg);
@@ -219,6 +234,21 @@ export class StateManager {
     processOperatorsChannelMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busGetAllAllowedDeviceObjectsRequest:
+                this.processBusGetAllAllowedDeviceObjectsRequestMessage(message as BusGetAllAllowedDeviceObjectsRequestMessage);
+                break;
+            case MessageType.busUpdateDeviceGroupRequest:
+                this.processBusUpdateDeviceGroupRequestMessage(message as BusUpdateDeviceGroupRequestMessage);
+                break;
+            case MessageType.busCreateDeviceGroupRequest:
+                this.processBusCreateDeviceGroupRequestMessage(message as BusCreateDeviceGroupRequestMessage);
+                break;
+            case MessageType.busGetDeviceGroupDataRequest:
+                this.processBusGetDeviceGroupDataRequestMessage(message as BusGetDeviceGroupDataRequestMessage);
+                break;
+            case MessageType.busGetAllDeviceGroupsRequest:
+                this.processBusGetAllDeviceGroupsRequestMessage(message as BusGetAllDeviceGroupsRequestMessage);
+                break;
             case MessageType.busUpdateProfileSettingsRequest:
                 this.processBusUpdateProfileSettingsRequestMessage(message as BusUpdateProfileSettingsRequestMessage);
                 break;
@@ -363,6 +393,305 @@ export class StateManager {
         return true;
     }
 
+    async processBusGetAllAllowedDeviceObjectsRequestMessage(message: BusGetAllAllowedDeviceObjectsRequestMessage): Promise<void> {
+        const replyMsg = createBusGetAllAllowedDeviceObjectsReplyMessage();
+        try {
+            const allowedDeviceObjects: AllowedDeviceObjects[] = [];
+            const allDevices = await this.getOrCacheAllDevices();
+            const allTariffs = await this.getOrCacheAllTariffs();
+            const enabledTariffIdsSet = new Set<number>(allTariffs.filter(x => x.enabled).map(x => x.id));
+            const disabledTariffIdsSet = new Set<number>(allTariffs.filter(x => !x.enabled).map(x => x.id));
+            const storageAllDeviceGroups = await this.storageProvider.getAllDeviceGroups();
+            const storageDeviceGroupsMap = new Map<number, IDeviceGroup>(storageAllDeviceGroups.map(x => ([x.id, x])));
+            const storageAllTariffsInDeviceGroups = await this.storageProvider.getAllTariffsInDeviceGroups();
+            for (const device of allDevices) {
+                const allowedDeviceObjectsItem: AllowedDeviceObjects = {
+                    deviceId: device.id,
+                    allowedTariffIds: this.getAllowedDeviceTariffIds(
+                        device.deviceGroupId,
+                        storageAllTariffsInDeviceGroups,
+                        enabledTariffIdsSet,
+                        disabledTariffIdsSet,
+                    ),
+                    allowedTransferTargetDeviceIds: this.getAllowedDeviceTransferTargetDeviceIds(
+                        device,
+                        storageDeviceGroupsMap,
+                        allDevices,
+                    ),
+                };
+                allowedDeviceObjects.push(allowedDeviceObjectsItem);
+            }
+            replyMsg.body.allowedDeviceObjects = allowedDeviceObjects;
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+    private getAllowedDeviceTariffIds(
+        deviceGroupId: number | undefined | null,
+        storageTariffsInDeviceGroups: ITariffInDeviceGroup[],
+        enabledTariffIdsSet: Set<number>,
+        disabledTariffIdsSet: Set<number>,
+    ): number[] {
+        if (!deviceGroupId) {
+            // Device which is not in a group should be able to use all enabled tariffs
+            return [...enabledTariffIdsSet];
+        }
+        const tariffIdsSet = new Set<number>(storageTariffsInDeviceGroups.filter(x => x.device_group_id === deviceGroupId).map(x => x.tariff_id));
+        // Exclude disabled tariffs from tariffs in the device group
+        for (const item of disabledTariffIdsSet) {
+            tariffIdsSet.delete(item);
+        }
+        return [...tariffIdsSet];
+    }
+
+    /**
+     * TODO: Requires refactoring to simplify it
+     * @param device 
+     * @param storageDeviceGroupsMap 
+     * @param storageTariffsInDeviceGroups 
+     * @param allTariffs 
+     * @param allDevices 
+     * @returns 
+     */
+    private getAllowedDeviceTransferTargetDeviceIds(
+        device: Device,
+        storageDeviceGroupsMap: Map<number, IDeviceGroup>,
+        allDevices: Device[],
+    ): number[] {
+        if (device.disableTransfer) {
+            // Device transfer is disabled - allowed target devices must be empty array
+            return [];
+        }
+
+        const enabledAndTransferrableDevices = allDevices.filter(x => x.approved && x.enabled && !x.disableTransfer && x.id !== device.id);
+        const getTransferTargetDeviceIds = (
+            device: Device,
+            enabledAndTransferrableDevices: Device[],
+            storageDeviceGroupsMap: Map<number, IDeviceGroup>,
+        ): number[] => {
+            if (device.disableTransfer) {
+                return [];
+            }
+
+            const allowedTargetDeviceIdsSet = new Set<number>();
+            if (device.deviceGroupId) {
+                // The device is in a group
+                const deviceGroup = storageDeviceGroupsMap.get(device.deviceGroupId);
+                if (deviceGroup?.restrict_device_transfers) {
+                    // The device is in a group, which restricts transfer
+                    // Add only devices in this group as transfer targets
+                    const deviceGroupDevices = enabledAndTransferrableDevices.filter(x => x.deviceGroupId === deviceGroup.id);
+                    const idsSet = new Set<number>(deviceGroupDevices.map(x => x.id));
+                    return [...idsSet];
+                }
+
+                for (const device of enabledAndTransferrableDevices) {
+                    if (device.deviceGroupId) {
+                        // The target device is in group - check if the group restricts device transfers
+                        const deviceGroup = storageDeviceGroupsMap.get(device.deviceGroupId);
+                        if (!deviceGroup?.restrict_device_transfers) {
+                            // The target device group does not restrict device transfers
+                            // It can be used for transfer target
+                            // TODO: It is possible that the source group and target groups have different
+                            //       tariffs and then the transfer should be possible only if the device
+                            //       is started for tariff which is part of the target device group
+                            //       But also if the device has continuation, it should also be part of the target group tariffs
+                            //       Such logic becomes complex and for now we will allow such transfers
+                            //       event if the target device is in a group, that doesn't have source device tariff / continuation tariff
+                            allowedTargetDeviceIdsSet.add(device.id);
+                        }
+                    } else {
+                        // The target device is not in a group - add it to possible transfer targets
+                        allowedTargetDeviceIdsSet.add(device.id);
+                    }
+                }
+            } else {
+                // The device is not in a group
+                // Find other devices which are not in group
+                const devicesNotInGroup = enabledAndTransferrableDevices.filter(x => !x.deviceGroupId);
+                devicesNotInGroup.map(x => x.id).forEach(x => allowedTargetDeviceIdsSet.add(x));
+                // Add devices which are in groups which do not restrict transfer
+                const groupsWithoutTransferRestriction: IDeviceGroup[] = [];
+                for (const item of storageDeviceGroupsMap) {
+                    const storageDeviceGroup = item[1];
+                    if (!storageDeviceGroup.restrict_device_transfers) {
+                        groupsWithoutTransferRestriction.push(storageDeviceGroup);
+                    }
+                }
+                for (const noRestrictionGroup of groupsWithoutTransferRestriction) {
+                    const groupId = noRestrictionGroup.id;
+                    const devices = enabledAndTransferrableDevices.filter(x => x.deviceGroupId === groupId);
+                    const deviceGroupDeviceIds = devices.map(x => x.id);
+                    deviceGroupDeviceIds.forEach(x => allowedTargetDeviceIdsSet.add(x));
+                }
+            }
+            const result = [...allowedTargetDeviceIdsSet];
+            return result;
+        };
+
+        let allowedDeviceTransferTargetDeviceIds: number[] = [];
+        // Determine whether the device can be transferred and to which other devices
+        if (device.deviceGroupId) {
+            // The device is in a group
+            // Check if device group restricts transfer
+            const deviceGroup = storageDeviceGroupsMap.get(device.deviceGroupId)!;
+            if (deviceGroup.restrict_device_transfers) {
+                // The group restricts transferring device only to other devices in the same group
+                // Get all device ids in this group
+                const deviceIdsInDeviceGroupSet = new Set<number>(enabledAndTransferrableDevices.filter(x => x.deviceGroupId === device.deviceGroupId).map(x => x.id));
+                // Remove the current device id from the list
+                deviceIdsInDeviceGroupSet.delete(device.id);
+                // Set it to allowed devices ids for transfer
+                allowedDeviceTransferTargetDeviceIds = [...deviceIdsInDeviceGroupSet];
+            } else {
+                // The device group does not restrict transfers
+                // Allow the device to be transferred to
+                // other device if it does not restrict its transfer either directly or by its group (if in a group)
+                allowedDeviceTransferTargetDeviceIds = getTransferTargetDeviceIds(
+                    device,
+                    enabledAndTransferrableDevices,
+                    storageDeviceGroupsMap,
+                );
+            }
+        } else if (!device.deviceGroupId) {
+            // The device is not in a group
+            // It could be transferred to other devices which are not in group or to devices in a group
+            // which does not restrict transfers
+            allowedDeviceTransferTargetDeviceIds = getTransferTargetDeviceIds(
+                device,
+                enabledAndTransferrableDevices,
+                storageDeviceGroupsMap,
+            );
+        }
+        return allowedDeviceTransferTargetDeviceIds;
+    }
+
+    async processBusUpdateDeviceGroupRequestMessage(message: BusUpdateDeviceGroupRequestMessage): Promise<void> {
+        const replyMsg = createBusUpdateDeviceGroupReplyMessage();
+        try {
+            const deviceGroup: DeviceGroup = message.body.deviceGroup;
+            if (!deviceGroup) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceGroupIsRequired,
+                    description: 'Device group is required',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            if (!deviceGroup.id) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceGroupIdIsRequired,
+                    description: 'Device group ID is required',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            // TODO: Currently device groups are always enabled - we could remove this flag later if it does not make sense
+            deviceGroup.enabled = true;
+            const storageDeviceGroupToCreate = this.entityConverter.toStorageDeviceGroup(deviceGroup);
+            const createdStorageDeviceGroup = await this.storageProvider.updateDeviceGroup(storageDeviceGroupToCreate, message.body.assignedTariffIds);
+            if (!createdStorageDeviceGroup) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.cantCreateDeviceGroup,
+                    description: `Can't create device group`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            replyMsg.body.deviceGroup = this.entityConverter.toDeviceGroup(createdStorageDeviceGroup);
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+    async processBusCreateDeviceGroupRequestMessage(message: BusCreateDeviceGroupRequestMessage): Promise<void> {
+        const replyMsg = createBusCreateDeviceGroupReplyMessage();
+        try {
+            const deviceGroup: DeviceGroup = message.body.deviceGroup;
+            if (!deviceGroup) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceGroupIsRequired,
+                    description: 'Device group is required',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            // TODO: Currently device groups are always enabled - we could remove this flag later if it does not make sense
+            deviceGroup.enabled = true;
+            const storageDeviceGroupToCreate = this.entityConverter.toStorageDeviceGroup(deviceGroup);
+            const createdStorageDeviceGroup = await this.storageProvider.createDeviceGroup(storageDeviceGroupToCreate, message.body.assignedTariffIds);
+            if (!createdStorageDeviceGroup) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.cantCreateDeviceGroup,
+                    description: `Can't create device group`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            replyMsg.body.deviceGroup = this.entityConverter.toDeviceGroup(createdStorageDeviceGroup);
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+    async processBusGetDeviceGroupDataRequestMessage(message: BusGetDeviceGroupDataRequestMessage): Promise<void> {
+        const replyMsg = createBusGetDeviceGroupDataReplyMessage();
+        const deviceGroupData: DeviceGroupData = {} as DeviceGroupData;
+        try {
+            if (!(message.body.deviceGroupId > 0)) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceGroupIdIsRequired,
+                    description: 'Device group ID is required',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const storageDeviceGroup = await this.storageProvider.getDeviceGroup(message.body.deviceGroupId);
+            if (!storageDeviceGroup) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceGroupNotFound,
+                    description: `Device group with ID ${message.body.deviceGroupId} was not found`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            deviceGroupData.deviceGroup = this.entityConverter.toDeviceGroup(storageDeviceGroup);
+            deviceGroupData.assignedTariffIds = await this.storageProvider.getAllTariffIdsInDeviceGroup(message.body.deviceGroupId);
+            deviceGroupData.assignedDeviceIds = await this.storageProvider.getAllDeviceIdsInDeviceGroup(message.body.deviceGroupId);
+            replyMsg.body.deviceGroupData = deviceGroupData;
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
+    async processBusGetAllDeviceGroupsRequestMessage(message: BusGetAllDeviceGroupsRequestMessage): Promise<void> {
+        const replyMsg = createBusGetAllDeviceGroupsReplyMessage();
+        try {
+            const storageDeviceGroups = await this.storageProvider.getAllDeviceGroups();
+            replyMsg.body.deviceGroups = storageDeviceGroups.map(x => this.entityConverter.toDeviceGroup(x));
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
     async processBusUpdateProfileSettingsRequestMessage(message: BusUpdateProfileSettingsRequestMessage): Promise<void> {
         const replyMsg = createBusUpdateProfileSettingsReplyMessage();
         try {
@@ -499,7 +828,7 @@ export class StateManager {
                 device.certificateThumbprint = null;
             }
             device.createdAt = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
-            const storageDeviceToCreate = this.entityConverter.deviceToStorageDevice(device);
+            const storageDeviceToCreate = this.entityConverter.toStorageDevice(device);
             const createdStorageDevice = await this.storageProvider.createDevice(storageDeviceToCreate);
             const storageDeviceStatus: IDeviceStatus = {
                 device_id: createdStorageDevice.id,
@@ -514,7 +843,7 @@ export class StateManager {
             await this.storageProvider.addOrUpdateDeviceStatusEnabled(storageDeviceStatus);
             this.logger.log('New device created. Device Id', createdStorageDevice.id);
             await this.cacheAllDevices();
-            const createdDevice = this.entityConverter.storageDeviceToDevice(createdStorageDevice);
+            const createdDevice = this.entityConverter.toDevice(createdStorageDevice);
             replyMsg.body.device = createdDevice;
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
@@ -548,10 +877,10 @@ export class StateManager {
             }
             // TODO: Combine getShifts and getShiftsSummary in single transaction in the storage provider
             const storageShifts = await this.storageProvider.getShifts(fromDate, toDate, message.body.userId);
-            const shifts = storageShifts.map(x => this.entityConverter.storageShiftToShift(x));
+            const shifts = storageShifts.map(x => this.entityConverter.toShift(x));
             replyMsg.body.shifts = shifts;
             const storageShiftsSummary = await this.storageProvider.getShiftsSummary(fromDate, toDate, message.body.userId);
-            replyMsg.body.shiftsSummary = this.entityConverter.fromStorageShiftsSummary(storageShiftsSummary);
+            replyMsg.body.shiftsSummary = this.entityConverter.toShiftsSummary(storageShiftsSummary);
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.setErrorToReplyMessage(err, message, replyMsg);
@@ -608,7 +937,7 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
-            const shift = this.entityConverter.storageShiftToShift(addedStorageShift);
+            const shift = this.entityConverter.toShift(addedStorageShift);
             replyMsg.body.shift = shift;
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
@@ -872,7 +1201,7 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
-            replyMsg.body.tariff = this.entityConverter.storageTariffToTariff(increaseResult.tariff);
+            replyMsg.body.tariff = this.entityConverter.toTariff(increaseResult.tariff);
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusRechargeTariffDurationRequestMessage message`, message, err);
@@ -1032,10 +1361,27 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
-            const storageDeviceContinuation = this.entityConverter.deviceContinuationToStorageDeviceContinuation(deviceContinuation);
+
+            const isTariffAvailable = await this.isTariffAvailableForDevice(
+                deviceContinuation.deviceId,
+                deviceContinuation.tariffId,
+                allTariffs,
+            );
+            if (!isTariffAvailable) {
+                const replyMsg = createBusStartDeviceReplyMessage();
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.tariffIsNotAvailable,
+                    description: `The tariff Id ${tariff.id} ('${tariff.name}') is not available for the device`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+
+            const storageDeviceContinuation = this.entityConverter.toStorageDeviceContinuation(deviceContinuation);
             storageDeviceContinuation.requestedAt = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
             const createdDeviceContinuation = await this.storageProvider.createDeviceContinuation(storageDeviceContinuation);
-            const replyDeviceContinuation = this.entityConverter.storageDeviceContinuationToDeviceContinuation(createdDeviceContinuation);
+            const replyDeviceContinuation = this.entityConverter.toDeviceContinuation(createdDeviceContinuation);
             replyDeviceContinuation.requestedAt = this.dateTimeHelper.getNumberFromISOStringDateTime(createdDeviceContinuation.requestedAt)!;
             // TODO: Refresh only this device status
             await this.refreshDeviceStatuses()
@@ -1108,8 +1454,8 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
-            const allDevices = await this.getOrCacheAllDevices();
-            const sourceDevice = allDevices.find(x => x.id === sourceDeviceId);
+            const allEnabledDevices = (await this.getOrCacheAllDevices()).filter(x => x.approved && x.enabled);
+            const sourceDevice = allEnabledDevices.find(x => x.id === sourceDeviceId);
             if (!sourceDevice) {
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [{
@@ -1128,12 +1474,12 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
-            const targetDevice = allDevices.find(x => x.id === targetDeviceId);
+            const targetDevice = allEnabledDevices.find(x => x.id === targetDeviceId);
             if (!targetDevice) {
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [{
                     code: BusErrorCode.deviceNotFound,
-                    description: `Target device with Id ${targetDevice} not found`,
+                    description: `Target device with Id ${targetDeviceId} not found`,
                 }] as MessageError[];
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
@@ -1195,6 +1541,24 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
+            // Check if source device can be transfered to target device checking device groups
+            // TODO: Cache device groups
+            const storageAllDeviceGroups = await this.storageProvider.getAllDeviceGroups();
+            const storageDeviceGroupsMap = new Map<number, IDeviceGroup>(storageAllDeviceGroups.map(x => ([x.id, x])));
+            const availableTargetDeviceIds = this.getAllowedDeviceTransferTargetDeviceIds(
+                sourceDevice,
+                storageDeviceGroupsMap,
+                allEnabledDevices,
+            );
+            if (!availableTargetDeviceIds.includes(targetDeviceId)) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.targetDeviceIsNotAvailableForTransfer,
+                    description: `Target device with Id ${targetDeviceId} is not available for transfer`,
+                }] as MessageError[];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
             const transferDeviceResult = await this.storageProvider.transferDevice(sourceDeviceStoreStatus.device_id, targetDeviceStoreStatus.device_id, userId);
             if (!transferDeviceResult) {
                 replyMsg.header.failure = true;
@@ -1205,8 +1569,8 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
-            replyMsg.body.sourceDeviceStatus = this.entityConverter.storageDeviceStatusToDeviceStatus(transferDeviceResult.sourceDeviceStatus);
-            replyMsg.body.targetDeviceStatus = this.entityConverter.storageDeviceStatusToDeviceStatus(transferDeviceResult.targetDeviceStatus);
+            replyMsg.body.sourceDeviceStatus = this.entityConverter.toDeviceStatus(transferDeviceResult.sourceDeviceStatus);
+            replyMsg.body.targetDeviceStatus = this.entityConverter.toDeviceStatus(transferDeviceResult.targetDeviceStatus);
             await this.refreshDeviceStatuses();
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
@@ -1438,11 +1802,11 @@ export class StateManager {
             return;
         }
         try {
-            const storageUser = this.entityConverter.userToStorageUser(user);
+            const storageUser = this.entityConverter.toStorageUser(user);
             storageUser.updated_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
             const createdStorageUser = await this.storageProvider.updateUserWithRoles(storageUser, message.body.roleIds || [], message.body.passwordHash);
             if (createdStorageUser) {
-                replyMsg.body.user = this.entityConverter.storageUserToUser(createdStorageUser);
+                replyMsg.body.user = this.entityConverter.toUSer(createdStorageUser);
                 replyMsg.body.roleIds = message.body.roleIds;
             } else {
                 this.logger.warn(`Can't process BusUpdateUserWithRolesRequestMessage message. User was not updated`, message);
@@ -1488,7 +1852,7 @@ export class StateManager {
                 return;
             }
             const userRoleIds = await this.storageProvider.getUserRoleIds(userId);
-            replyMsg.body.user = this.entityConverter.storageUserToUser(storageUser);
+            replyMsg.body.user = this.entityConverter.toUSer(storageUser);
             replyMsg.body.roleIds = userRoleIds;
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
@@ -1522,11 +1886,11 @@ export class StateManager {
             return;
         }
         try {
-            const storageUser = this.entityConverter.userToStorageUser(user);
+            const storageUser = this.entityConverter.toStorageUser(user);
             storageUser.created_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
             const createdStorageUser = await this.storageProvider.createUserWithRoles(storageUser, message.body.passwordHash, message.body.roleIds || []);
             if (createdStorageUser) {
-                replyMsg.body.user = this.entityConverter.storageUserToUser(createdStorageUser);
+                replyMsg.body.user = this.entityConverter.toUSer(createdStorageUser);
                 replyMsg.body.roleIds = message.body.roleIds;
             } else {
                 this.logger.warn(`Can't process BusCreateUserWithRolesRequestMessage message. User was not created`, message);
@@ -1552,7 +1916,7 @@ export class StateManager {
         const replyMsg = createBusGetAllUsersReplyMessage();
         try {
             const allStorageUsers = await this.storageProvider.getAllUsers();
-            const allUsers = allStorageUsers.map(x => this.entityConverter.storageUserToUser(x))
+            const allUsers = allStorageUsers.map(x => this.entityConverter.toUSer(x))
             replyMsg.body.users = allUsers;
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
@@ -1577,10 +1941,10 @@ export class StateManager {
             return;
         }
         try {
-            const storageRole = this.entityConverter.roleToStorageRole(role);
+            const storageRole = this.entityConverter.toStorageRole(role);
             const updatedStorageRole = await this.storageProvider.updateRoleWithPermissions(storageRole, message.body.permissionIds || []);
             if (updatedStorageRole) {
-                replyMsg.body.role = this.entityConverter.storageRoleToRole(updatedStorageRole);
+                replyMsg.body.role = this.entityConverter.toRole(updatedStorageRole);
             } else {
                 this.logger.warn(`Can't process BusUpdateRoleWithPermissionsRequestMessage message. Role was not updated`, message);
                 replyMsg.header.failure = true;
@@ -1612,10 +1976,10 @@ export class StateManager {
             return;
         }
         try {
-            const storageRole = this.entityConverter.roleToStorageRole(role);
+            const storageRole = this.entityConverter.toStorageRole(role);
             const createdStorageRole = await this.storageProvider.createRoleWithPermissions(storageRole, message.body.permissionIds || []);
             if (createdStorageRole) {
-                replyMsg.body.role = this.entityConverter.storageRoleToRole(createdStorageRole);
+                replyMsg.body.role = this.entityConverter.toRole(createdStorageRole);
             } else {
                 this.logger.warn(`Can't process BusCreateRoleWithPermissionsRequestMessage message. Role was not created`, message);
                 replyMsg.header.failure = true;
@@ -1677,7 +2041,7 @@ export class StateManager {
             }
             const rolePermissionIds = await this.storageProvider.getRolePermissionIds(message.body.roleId);
             const allPermissions = await this.cacheHelper.getAllPermissions();
-            replyMsg.body.role = this.entityConverter.storageRoleToRole(storageRole);
+            replyMsg.body.role = this.entityConverter.toRole(storageRole);
             replyMsg.body.allPermissions = allPermissions;
             replyMsg.body.rolePermissionIds = rolePermissionIds;
             this.publishToOperatorsChannel(replyMsg, message);
@@ -1696,7 +2060,7 @@ export class StateManager {
         const replyMsg = createBusGetAllRolesReplyMessage();
         try {
             const allStorageRoles = await this.storageProvider.getAllRoles();
-            const allRoles = allStorageRoles.map(storageTole => this.entityConverter.storageRoleToRole(storageTole));
+            const allRoles = allStorageRoles.map(storageTole => this.entityConverter.toRole(storageTole));
             replyMsg.body.roles = allRoles;
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
@@ -1805,6 +2169,21 @@ export class StateManager {
                 return;
             }
 
+            const isTariffAvailable = await this.isTariffAvailableForDevice(
+                message.body.deviceId,
+                message.body.tariffId,
+                allTariffs,
+            );
+            if (!isTariffAvailable) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.tariffIsNotAvailable,
+                    description: `The tariff Id ${tariff.id} ('${tariff.name}') is not available for the device`,
+                }];
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+
             currentStorageDeviceStatus.enabled = true;
             currentStorageDeviceStatus.start_reason = message.body.tariffId;
             currentStorageDeviceStatus.started = true;
@@ -1828,6 +2207,24 @@ export class StateManager {
             }];
             this.publishToDevicesChannel(replyMsg, message);
         }
+    }
+
+    private async isTariffAvailableForDevice(deviceId: number, tariffId: number, allTariffs: Tariff[]): Promise<boolean> {
+        const allDevices = (await this.getOrCacheAllDevices()).filter(x => x.approved && x.enabled);
+        const device = allDevices.find(x => x.id === deviceId);
+        const enabledTariffIdsSet = new Set<number>(allTariffs.filter(x => x.enabled).map(x => x.id));
+        const disabledTariffIdsSet = new Set<number>(allTariffs.filter(x => !x.enabled).map(x => x.id));
+        const storageAllTariffsInDeviceGroups = await this.storageProvider.getAllTariffsInDeviceGroups();
+        const allowedDeviceTariffIds = this.getAllowedDeviceTariffIds(
+            device?.deviceGroupId,
+            storageAllTariffsInDeviceGroups,
+            enabledTariffIdsSet,
+            disabledTariffIdsSet
+        );
+        if (!allowedDeviceTariffIds.includes(tariffId)) {
+            return false;
+        }
+        return true;
     }
 
     async processBusStartDeviceRequestMessage(message: BusStartDeviceRequestMessage): Promise<void> {
@@ -1943,6 +2340,22 @@ export class StateManager {
                 }
             }
 
+            const isTariffAvailable = await this.isTariffAvailableForDevice(
+                message.body.deviceId,
+                message.body.tariffId,
+                allTariffs,
+            );
+            if (!isTariffAvailable) {
+                const replyMsg = createBusStartDeviceReplyMessage();
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.tariffIsNotAvailable,
+                    description: `The tariff Id ${tariff.id} ('${tariff.name}') is not available for the device`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+
             currentStorageDeviceStatus.enabled = true;
             currentStorageDeviceStatus.start_reason = message.body.tariffId;
             currentStorageDeviceStatus.started = true;
@@ -1981,7 +2394,7 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
-            const storageTariff = this.entityConverter.tariffToStorageTariff(tariff);
+            const storageTariff = this.entityConverter.toStorageTariff(tariff);
             storageTariff.updated_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
             const updatedTariff = await this.storageProvider.updateTariff(storageTariff, message.body.passwordHash);
             if (!updatedTariff) {
@@ -1993,7 +2406,7 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
-            replyMsg.body.tariff = this.entityConverter.storageTariffToTariff(updatedTariff);
+            replyMsg.body.tariff = this.entityConverter.toTariff(updatedTariff);
             // Refresh the tariffs
             await this.cacheAllTariffs();
             this.publishToOperatorsChannel(replyMsg, message);
@@ -2019,7 +2432,7 @@ export class StateManager {
             } else {
                 const storageTariff = await this.storageProvider.getTariffById(message.body.tariffId);
                 if (storageTariff) {
-                    replyMsg.body.tariff = this.entityConverter.storageTariffToTariff(storageTariff);
+                    replyMsg.body.tariff = this.entityConverter.toTariff(storageTariff);
                 } else {
                     replyMsg.header.failure = true;
                     replyMsg.header.errors = [{
@@ -2065,11 +2478,11 @@ export class StateManager {
                 return;
             }
             const tariffToCreate = this.tariffHelper.createTariffFromRequested(requestedTariffToCreate);
-            const storageTariffToCreate = this.entityConverter.tariffToStorageTariff(tariffToCreate);
+            const storageTariffToCreate = this.entityConverter.toStorageTariff(tariffToCreate);
             storageTariffToCreate.created_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
             const createdStorageTariff = await this.storageProvider.createTariff(storageTariffToCreate, message.body.passwordHash);
             await this.cacheAllTariffs();
-            const createdTariff = this.entityConverter.storageTariffToTariff(createdStorageTariff);
+            const createdTariff = this.entityConverter.toTariff(createdStorageTariff);
             replyMsg.body.tariff = createdTariff;
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
@@ -2107,11 +2520,11 @@ export class StateManager {
                 return;
             }
             const tariffToCreate = this.tariffHelper.createTariffFromRequested(requestedTariffToCreate);
-            const storageTariffToCreate = this.entityConverter.tariffToStorageTariff(tariffToCreate);
+            const storageTariffToCreate = this.entityConverter.toStorageTariff(tariffToCreate);
             storageTariffToCreate.created_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
             const createdStorageTariff = await this.storageProvider.createTariff(storageTariffToCreate, undefined);
             await this.cacheAllTariffs();
-            const createdTariff = this.entityConverter.storageTariffToTariff(createdStorageTariff);
+            const createdTariff = this.entityConverter.toTariff(createdStorageTariff);
             replyMsg.body.tariff = createdTariff;
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
@@ -2129,7 +2542,7 @@ export class StateManager {
         try {
             const allTariffs = await this.storageProvider.getAllTariffs(message.body.types);
             const replyMsg = createBusGetAllTariffsReplyMessage(message);
-            replyMsg.body.tariffs = allTariffs.map(tariff => this.entityConverter.storageTariffToTariff(tariff));
+            replyMsg.body.tariffs = allTariffs.map(tariff => this.entityConverter.toTariff(tariff));
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusGetAllTariffsRequestMessage message`, message, err);
@@ -2173,7 +2586,7 @@ export class StateManager {
                     return;
                 }
             }
-            const storageDevice = this.entityConverter.deviceToStorageDevice(message.body.device);
+            const storageDevice = this.entityConverter.toStorageDevice(message.body.device);
             const updatedStorageDevice = await this.storageProvider.updateDevice(storageDevice);
             await this.cacheAllDevices();
             const deviceStatusEnabled = updatedStorageDevice.approved && updatedStorageDevice.enabled;
@@ -2189,7 +2602,7 @@ export class StateManager {
             };
             await this.storageProvider.addOrUpdateDeviceStatusEnabled(deviceStatus);
             const replyMsg = createBusUpdateDeviceReplyMessage(message);
-            replyMsg.body.device = updatedStorageDevice && this.entityConverter.storageDeviceToDevice(updatedStorageDevice);
+            replyMsg.body.device = updatedStorageDevice && this.entityConverter.toDevice(updatedStorageDevice);
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusUpdateDeviceRequestMessage message`, message, err);
@@ -2207,7 +2620,7 @@ export class StateManager {
         try {
             const device = await this.storageProvider.getDeviceById(message.body.deviceId);
             const replyMsg = createBusDeviceGetByIdReplyMessage(message);
-            replyMsg.body.device = device && this.entityConverter.storageDeviceToDevice(device);
+            replyMsg.body.device = device && this.entityConverter.toDevice(device);
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusDeviceGetByIdRequestMessage message`, message, err);
@@ -2217,7 +2630,7 @@ export class StateManager {
     async processBusOperatorGetAllDevicesRequest(message: BusOperatorGetAllDevicesRequestMessage): Promise<void> {
         const storageDevices = await this.storageProvider.getAllDevices();
         const replyMsg = createBusOperatorGetAllDevicesReplyMessage(message);
-        replyMsg.body.devices = storageDevices.map(storageDevice => this.entityConverter.storageDeviceToDevice(storageDevice));
+        replyMsg.body.devices = storageDevices.map(storageDevice => this.entityConverter.toDevice(storageDevice));
         this.publishToOperatorsChannel(replyMsg, message);
     }
 
@@ -2278,7 +2691,7 @@ export class StateManager {
             const msg = createBusDeviceGetByCertificateReplyMessage();
             msg.header.correlationId = message.header.correlationId;
             msg.header.roundTripData = message.header.roundTripData;
-            msg.body.device = device && this.entityConverter.storageDeviceToDevice(device);
+            msg.body.device = device && this.entityConverter.toDevice(device);
             this.publishMessage(ChannelName.devices, msg);
         } catch (err) {
             this.logger.warn(`Can't process BusDeviceGetByCertificateRequestMessage message`, message, err);
@@ -2463,7 +2876,7 @@ export class StateManager {
 
     private async cacheAllTariffs(): Promise<Tariff[]> {
         const storageTariffs = await this.storageProvider.getAllTariffs();
-        const allTariffs = storageTariffs.map(x => this.entityConverter.storageTariffToTariff(x));
+        const allTariffs = storageTariffs.map(x => this.entityConverter.toTariff(x));
         await this.cacheHelper.setAllTariffs(allTariffs);
         return allTariffs;
     }
@@ -2478,7 +2891,7 @@ export class StateManager {
 
     private async cacheAllDevices(): Promise<Device[]> {
         const storageDevices = await this.storageProvider.getAllDevices();
-        const allDevices = storageDevices.map(x => this.entityConverter.storageDeviceToDevice(x));
+        const allDevices = storageDevices.map(x => this.entityConverter.toDevice(x));
         await this.cacheHelper.setAllDevices(allDevices);
         return allDevices;
     }
@@ -2493,7 +2906,7 @@ export class StateManager {
 
     private async cacheStaticData(): Promise<void> {
         const storageAllPermissions = await this.storageProvider.getAllPermissions();
-        const allPermissions = storageAllPermissions.map(x => this.entityConverter.storagePermissionToPermission(x));
+        const allPermissions = storageAllPermissions.map(x => this.entityConverter.toPermission(x));
         this.cacheHelper.setAllPermissions(allPermissions);
     }
 
@@ -2993,7 +3406,7 @@ export class StateManager {
         await this.cacheStaticData();
 
         const notificationMsg = createBusAllSystemSettingsNotificationMessage();
-        const systemSettings = storageSystemSettings.map(x => this.entityConverter.fromStorageSystemSetting(x));
+        const systemSettings = storageSystemSettings.map(x => this.entityConverter.toSystemSetting(x));
         notificationMsg.body.systemSettings = systemSettings;
         this.publishToSharedChannel(notificationMsg, null);
 

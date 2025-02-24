@@ -1,12 +1,26 @@
-// INSERT INTO table_name (column1, column2, ...)
-// VALUES (value1, value2, ...)
-// ON CONFLICT (conflict_column)
-// DO NOTHING | DO UPDATE SET column1 = value1, column2 = value2, ...;
-
 import { IDevice } from 'src/storage/entities/device.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
+import { SelectQueryBuilder, WhereClauseOperation } from './query-builder.mjs';
 
 export class DeviceQueryHelper {
+    getAllDeviceIdsInDeviceGroupQueryData(deviceGroupId: number): IQueryTextWithParamsResult {
+        const selectBuilder = new SelectQueryBuilder();
+        selectBuilder.setTableName(TableName.device);
+        selectBuilder.addSelectColumnName(ColumnName.id);
+        selectBuilder.addWhereClause({
+            columnName: ColumnName.device_group_id,
+            operation: WhereClauseOperation.equals,
+            parameterName: '$1',
+        });
+        const params = [
+            deviceGroupId,
+        ];
+        return {
+            text: selectBuilder.getQueryString(),
+            params: params,
+        };
+    }
+
     createDeviceQueryData(device: IDevice): IQueryTextWithParamsResult {
         const params: unknown[] = [
             device.certificate_thumbprint,
@@ -167,4 +181,21 @@ export class DeviceQueryHelper {
             disable_transfer
         FROM device
     `;
+}
+
+const enum TableName {
+    device = 'device',
+}
+
+const enum ColumnName {
+    id = 'id',
+    certificate_thumbprint = 'certificate_thumbprint',
+    ip_address = 'ip_address',
+    name = 'name',
+    description = 'description',
+    created_at = 'created_at',
+    approved = 'approved',
+    enabled = 'enabled',
+    device_group_id = 'device_group_id',
+    disable_transfer = 'disable_transfer',
 }
