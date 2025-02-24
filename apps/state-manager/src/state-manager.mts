@@ -515,11 +515,12 @@ export class StateManager {
                 devicesNotInGroup.map(x => x.id).forEach(x => allowedTargetDeviceIdsSet.add(x));
                 // Add devices which are in groups which do not restrict transfer
                 const groupsWithoutTransferRestriction: IDeviceGroup[] = [];
-                storageDeviceGroupsMap.values().forEach(x => {
-                    if (!x.restrict_device_transfers) {
-                        groupsWithoutTransferRestriction.push(x);
+                for (const item of storageDeviceGroupsMap) {
+                    const storageDeviceGroup = item[1];
+                    if (!storageDeviceGroup.restrict_device_transfers) {
+                        groupsWithoutTransferRestriction.push(storageDeviceGroup);
                     }
-                });
+                }
                 for (const noRestrictionGroup of groupsWithoutTransferRestriction) {
                     const groupId = noRestrictionGroup.id;
                     const devices = enabledAndTransferrableDevices.filter(x => x.deviceGroupId === groupId);
