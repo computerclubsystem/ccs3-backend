@@ -14,9 +14,9 @@ export class TariffValidator {
             result.errorMessage = 'The name is empty';
             return result;
         }
-        if (!(tariff.price > 0)) {
-            result.errorCode = ValidateTariffErrorCode.priceMustBeGreaterThanZero;
-            result.errorMessage = `Price must be greater than zero. It is '${tariff.price}'`;
+        if (!(tariff.price >= 0)) {
+            result.errorCode = ValidateTariffErrorCode.priceMustBeEqualOrGreaterThanZero;
+            result.errorMessage = `Price must be equal or greater than zero. It is '${tariff.price}'`;
             return result;
         }
 
@@ -90,7 +90,7 @@ export class TariffValidator {
 
 export enum ValidateTariffErrorCode {
     tariffNotProvided = 'tariff-not-provided',
-    priceMustBeGreaterThanZero = 'price-must-be-greater-than-0',
+    priceMustBeEqualOrGreaterThanZero = 'price-must-be-equal-or-greater-than-0',
     durationMustBeGreaterThanZero = 'duration-must-be-greater-than-0',
     fromAndToMustBeBetweenZeroAnd1439 = 'from-and-to-must-be-between-0-and-1439',
     restrictFromAndRestrictToMustBeBetweenZeroAnd1439 = 'restrict-from-and-restrict-to-must-be-between-0-and-1439',
