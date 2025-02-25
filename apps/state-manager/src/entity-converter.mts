@@ -191,6 +191,7 @@ export class EntityConverter {
             totalSum: storageDeviceStatus.total,
             tariff: storageDeviceStatus.start_reason,
             startedByUserId: storageDeviceStatus.started_by_user_id,
+            note: storageDeviceStatus.note,
         } as DeviceStatus;
         return deviceStatus;
     }

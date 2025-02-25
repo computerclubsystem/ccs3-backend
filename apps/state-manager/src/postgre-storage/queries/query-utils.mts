@@ -59,6 +59,10 @@ export class QueryUtils {
         tariffInDeviceGroup: new TariffInDeviceGroupQueryHelper(),
     };
 
+    setDeviceStatusNoteQueryData(deviceId: number, note: string | null): IQueryTextWithParamsResult {
+        return this.helpers.deviceStatus.setDeviceStatusNoteQueryData(deviceId, note);
+    }
+
     getAllTariffsInDeviceGroupsQueryData(): IQueryTextWithParamsResult {
         return this.helpers.tariffInDeviceGroup.getAllTariffsInDeviceGroupsQueryData();
     }

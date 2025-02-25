@@ -16,6 +16,7 @@ export interface DeviceStatus {
     enabled: boolean;
     startedByUserId?: number | null;
     canBeStoppedByCustomer?: boolean | null;
+    note?: string | null;
 }
 
 export interface BusDeviceStatusesMessageBody {

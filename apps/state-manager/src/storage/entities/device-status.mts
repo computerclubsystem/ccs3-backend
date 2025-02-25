@@ -8,6 +8,7 @@ export interface IDeviceStatus {
     enabled: boolean;
     started_by_user_id?: number | null;
     stopped_by_user_id?: number | null;
+    note?: string | null;
 }
 
 export interface IDeviceStatusWithContinuationData extends IDeviceStatus {

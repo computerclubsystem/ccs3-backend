@@ -1,4 +1,5 @@
 export enum OperatorRequestMessageType {
+    setDeviceStatusNoteRequest = 'set-device-status-note-request',
     getAllAllowedDeviceObjectsRequest = 'get-all-allowed-device-objects-request',
     updateDeviceGroupRequest = 'update-device-group-request',
     createDeviceGroupRequest = 'create-device-group-request',
@@ -46,6 +47,7 @@ export enum OperatorRequestMessageType {
 }
 
 export enum OperatorReplyMessageType {
+    setDeviceStatusNoteReply = 'set-device-status-note-reply',
     getAllAllowedDeviceObjectsReply = 'get-all-allowed-device-objects-reply',
     updateDeviceGroupReply = 'update-device-group-reply',
     createDeviceGroupReply = 'create-device-group-reply',

@@ -137,6 +137,7 @@ import { createBusGetAllAllowedDeviceObjectsReplyMessage } from '@computerclubsy
 import { AllowedDeviceObjects } from '@computerclubsystem/types/entities/allowed-device-objects.mjs';
 import { IDeviceGroup } from './storage/entities/device-group.mjs';
 import { ITariffInDeviceGroup } from './storage/entities/tariff-in-device-group.mjs';
+import { BusSetDeviceStatusNoteRequestMessage, createBusSetDeviceStatusNoteReplyMessage } from '@computerclubsystem/types/messages/bus/bus-set-device-status-note.messages.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -234,6 +235,9 @@ export class StateManager {
     processOperatorsChannelMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busSetDeviceStatusNoteRequest:
+                this.processBusSetDeviceStatusNoteRequestMessage(message as BusSetDeviceStatusNoteRequestMessage);
+                break;
             case MessageType.busGetAllAllowedDeviceObjectsRequest:
                 this.processBusGetAllAllowedDeviceObjectsRequestMessage(message as BusGetAllAllowedDeviceObjectsRequestMessage);
                 break;
@@ -391,6 +395,27 @@ export class StateManager {
         }
 
         return true;
+    }
+
+    async processBusSetDeviceStatusNoteRequestMessage(message: BusSetDeviceStatusNoteRequestMessage): Promise<void> {
+        const replyMsg = createBusSetDeviceStatusNoteReplyMessage();
+        try {
+            if (!(message.body.deviceId > 0)) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceIdIsRequired,
+                    description: 'Device Id is required',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            await this.storageProvider.setDeviceStatusNote(message.body.deviceId, message.body.note);
+            this.refreshDeviceStatuses();
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
     }
 
     async processBusGetAllAllowedDeviceObjectsRequestMessage(message: BusGetAllAllowedDeviceObjectsRequestMessage): Promise<void> {
@@ -3003,7 +3028,7 @@ export class StateManager {
                     }
                     deviceStatuses.push(calculatedDeviceStatus);
                 } else {
-                    // Device status for this device is not found - consider it in the default status
+                    // Device status for this device is not found - consider it is in the default status
                     deviceStatuses.push({
                         deviceId: enabledDevice.id,
                         enabled: true,
@@ -3154,6 +3179,7 @@ export class StateManager {
             tariff: storageDeviceStatusWithContinuationData.start_reason,
             startedByUserId: storageDeviceStatusWithContinuationData.started_by_user_id,
             continuationTariffId: storageDeviceStatusWithContinuationData.continuation_tariff_id,
+            note: storageDeviceStatusWithContinuationData.note,
         } as DeviceStatus;
         if (deviceStatus.startedAt && deviceStatus.stoppedAt) {
             deviceStatus.totalTime = Math.floor((deviceStatus.stoppedAt - deviceStatus.startedAt) / 1000);

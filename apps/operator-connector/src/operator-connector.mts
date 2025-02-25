@@ -210,6 +210,8 @@ import { OperatorGetAllAllowedDeviceObjectsRequestMessage } from '@computerclubs
 import { createBusGetAllAllowedDeviceObjectsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-allowed-device-objects-request.message.mjs';
 import { BusGetAllAllowedDeviceObjectsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-all-allowed-device-objects-reply.message.mjs';
 import { createOperatorGetAllAllowedDeviceObjectsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-allowed-device-objects-reply.message.mjs';
+import { createOperatorSetDeviceStatusNoteReplyMessage, OperatorSetDeviceStatusNoteRequestMessage } from '@computerclubsystem/types/messages/operators/operator-set-device-status-note.messages.mjs';
+import { BusSetDeviceStatusNoteReplyMessageBody, createBusSetDeviceStatusNoteRequestMessage } from '@computerclubsystem/types/messages/bus/bus-set-device-status-note.messages.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -282,6 +284,9 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorRequestMessageType.setDeviceStatusNoteRequest:
+                this.processOperatorSetDeviceStatusNoteRequestMessage(clientData, message as OperatorSetDeviceStatusNoteRequestMessage);
+                break;
             case OperatorRequestMessageType.getAllAllowedDeviceObjectsRequest:
                 this.processOperatorGetAllAllowedDeviceObjectsRequestMessage(clientData, message as OperatorGetAllAllowedDeviceObjectsRequestMessage);
                 break;
@@ -416,6 +421,18 @@ export class OperatorConnector {
                 this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    processOperatorSetDeviceStatusNoteRequestMessage(clientData: ConnectedClientData, message: OperatorSetDeviceStatusNoteRequestMessage): void {
+        const busReqMsg = createBusSetDeviceStatusNoteRequestMessage();
+        busReqMsg.body.deviceId = message.body.deviceId;
+        busReqMsg.body.note = message.body.note;
+        this.publishToOperatorsChannelAndWaitForReply<BusSetDeviceStatusNoteReplyMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorSetDeviceStatusNoteReplyMessage();
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
     }
 
     processOperatorGetAllAllowedDeviceObjectsRequestMessage(clientData: ConnectedClientData, message: OperatorGetAllAllowedDeviceObjectsRequestMessage): void {
@@ -1585,6 +1602,7 @@ export class OperatorConnector {
             totalSum: deviceStatus.totalSum,
             totalTime: deviceStatus.totalTime,
             continuationTariffId: deviceStatus.continuationTariffId,
+            note: deviceStatus.note,
         };
         this.removeNullAndUndefinedKeys(opDeviceStatus);
         return opDeviceStatus;

@@ -4,6 +4,23 @@ import { IDeviceSession } from 'src/storage/entities/device-session.mjs';
 import { TariffType } from '@computerclubsystem/types/entities/tariff.mjs';
 
 export class DeviceStatusQueryHelper {
+    setDeviceStatusNoteQueryData(deviceId: number, note: string | null): IQueryTextWithParamsResult {
+        const params = [
+            note,
+            deviceId,
+        ];
+        return {
+            text: this.setDeviceStatusNoteQueryText,
+            params: params,
+        };
+    }
+
+    private readonly setDeviceStatusNoteQueryText = `
+        UPDATE device_status
+        SET note = $1
+        WHERE device_id = $2
+    `;
+
     getDeviceStatusesSummaryForStartedDevicesQueryData(tariffTypes: TariffType[]): IQueryTextWithParamsResult {
         const params = [
             tariffTypes,
@@ -42,7 +59,8 @@ export class DeviceStatusQueryHelper {
             total,
             enabled,
             started_by_user_id,
-            stopped_by_user_id
+            stopped_by_user_id,
+            note
         FROM device_status
         WHERE start_reason = $1
     `;
@@ -126,6 +144,7 @@ export class DeviceStatusQueryHelper {
             deviceStatus.enabled,
             deviceStatus.started_by_user_id,
             deviceStatus.stopped_by_user_id,
+            deviceStatus.note,
             deviceStatus.device_id,
         ];
         return {
@@ -145,6 +164,7 @@ export class DeviceStatusQueryHelper {
             deviceStatus.enabled,
             deviceStatus.started_by_user_id,
             deviceStatus.stopped_by_user_id,
+            deviceStatus.note,
         ];
         return {
             text: this.addDeviceStatusQueryText,
@@ -193,8 +213,9 @@ export class DeviceStatusQueryHelper {
             total = $5,
             enabled = $6,
             started_by_user_id = $7,
-            stopped_by_user_id = $8
-        WHERE device_id = $9
+            stopped_by_user_id = $8,
+            note = $9
+        WHERE device_id = $10
         RETURNING
             device_id,
             started,
@@ -204,7 +225,8 @@ export class DeviceStatusQueryHelper {
             total,
             enabled,
             started_by_user_id,
-            stopped_by_user_id
+            stopped_by_user_id,
+            note
     `;
 
     private readonly addDeviceStatusQueryText = `
@@ -218,7 +240,8 @@ export class DeviceStatusQueryHelper {
             total,
             enabled,
             started_by_user_id,
-            stopped_by_user_id
+            stopped_by_user_id,
+            note
         )
         VALUES
         (
@@ -230,7 +253,8 @@ export class DeviceStatusQueryHelper {
             $6,
             $7,
             $8,
-            $9
+            $9,
+            $10
         )
         ON CONFLICT (device_id) DO
             UPDATE SET enabled = $7
@@ -247,6 +271,7 @@ export class DeviceStatusQueryHelper {
             d.enabled,
             d.started_by_user_id,
             d.stopped_by_user_id,
+            d.note,
             dc.tariff_id AS continuation_tariff_id,
             dc.user_id AS continuation_user_id
         FROM device_status AS d
@@ -264,7 +289,8 @@ export class DeviceStatusQueryHelper {
             total,
             enabled,
             started_by_user_id,
-            stopped_by_user_id
+            stopped_by_user_id,
+            note
         FROM device_status
     `;
 
@@ -278,7 +304,8 @@ export class DeviceStatusQueryHelper {
             total,
             enabled,
             started_by_user_id,
-            stopped_by_user_id
+            stopped_by_user_id,
+            note
         FROM device_status
         WHERE device_id = $1
     `;

@@ -584,6 +584,11 @@ export class PostgreStorageProvider implements StorageProvider {
         }
     }
 
+    async setDeviceStatusNote(deviceId: number, note: string | null): Promise<void> {
+        const queryData = this.queryUtils.setDeviceStatusNoteQueryData(deviceId, note);
+        await this.execQuery(queryData.text, queryData.params);
+    }
+
     async deleteDeviceContinuation(deviceId: number): Promise<void> {
         const queryData = this.queryUtils.deleteDeviceContinuationQueryData(deviceId);
         await this.execQuery(queryData.text, queryData.params);

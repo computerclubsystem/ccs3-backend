@@ -1,0 +1,6 @@
+ALTER TABLE device_status
+    ADD COLUMN note text;
+
+UPDATE db_metadata
+SET value = '31'
+WHERE name = 'database-version';

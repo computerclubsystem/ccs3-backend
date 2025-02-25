@@ -10,4 +10,5 @@ export interface OperatorDeviceStatus {
     remainingSeconds?: number | null;
     enabled: boolean;
     continuationTariffId?: number | null;
+    note?: string | null,
 }

@@ -26,6 +26,9 @@ export const enum MessageType {
     busDeviceStatuses = 'bus-device-statuses',
     busDeviceConnectionEvent = 'bus-device-connection-event',
 
+    busSetDeviceStatusNoteRequest = 'bus-set-device-status-note-request',
+    busSetDeviceStatusNoteReply = 'bus-set-device-status-note-reply',
+
     busDeviceUnknownDeviceConnectedRequest = 'bus-device-unknown-device-connected-request',
     busDeviceUnknownDeviceConnectedReply = 'bus-device-unknown-device-connected-reply',
 
