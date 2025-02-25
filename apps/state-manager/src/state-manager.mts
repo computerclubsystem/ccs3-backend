@@ -1778,6 +1778,8 @@ export class StateManager {
                 totalAmount = this.getTotalSumCalculatingStartFreeTime(tariff, deviceStatus.totalTime);
             }
             deviceStatus.totalSum = totalAmount;
+            // Set device status total to the calculated total - it could be 0 because of the free time
+            storageDeviceStatus.total = totalAmount;
             const storageDeviceSession: IDeviceSession = {
                 device_id: storageDeviceStatus.device_id,
                 started_at: storageDeviceStatus.started_at,
