@@ -86,6 +86,7 @@ export class AuthorizationHelper {
             case OperatorRequestMessageType.getAllPermissionsRequest:
             case OperatorRequestMessageType.getProfileSettingsRequest:
             case OperatorRequestMessageType.updateProfileSettingsRequest:
+            case OperatorRequestMessageType.changePasswordRequest:
                 // The user only needs to be successfully authenticated
                 if (isUserAuthenticated) {
                     result.authorized = true;
