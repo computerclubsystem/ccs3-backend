@@ -138,6 +138,7 @@ import { AllowedDeviceObjects } from '@computerclubsystem/types/entities/allowed
 import { IDeviceGroup } from './storage/entities/device-group.mjs';
 import { ITariffInDeviceGroup } from './storage/entities/tariff-in-device-group.mjs';
 import { BusSetDeviceStatusNoteRequestMessage, createBusSetDeviceStatusNoteReplyMessage } from '@computerclubsystem/types/messages/bus/bus-set-device-status-note.messages.mjs';
+import { BusGetLastCompletedShiftRequestMessage, createBusGetLastCompletedShiftReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-last-completed-shift.messages.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -183,12 +184,27 @@ export class StateManager {
         const type: string = message.header?.type;
         // const notificationMessage = message as unknown as SharedNotificationMessage<TBody>;
         switch (type) {
+            case MessageType.busGetLastCompletedShiftRequest:
+                this.processBusGetLastCompletedShiftRequestMessage(message as BusGetLastCompletedShiftRequestMessage);
+                break;
             case MessageType.busUpdateSystemSettingsValuesRequest:
                 this.processSharedMessageBusUpdateSystemSettingsValues(message as BusUpdateSystemSettingsValuesRequestMessage);
                 break;
             case MessageType.busGetAllSystemSettingsRequest:
                 this.processSharedMessageBusGetAllSystemSettings(message as BusGetAllSystemSettingsRequestMessage);
                 break;
+        }
+    }
+
+    async processBusGetLastCompletedShiftRequestMessage(message: BusGetLastCompletedShiftRequestMessage): Promise<void> {
+        const replyMsg = createBusGetLastCompletedShiftReplyMessage();
+        try {
+            const storageShift = await this.storageProvider.getLastShift();
+            replyMsg.body.shift = storageShift ? this.entityConverter.toShift(storageShift) : null;
+            this.publishToSharedChannel(replyMsg, message);
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToSharedChannel(replyMsg, message);
         }
     }
 

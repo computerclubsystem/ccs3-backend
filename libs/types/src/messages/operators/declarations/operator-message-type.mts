@@ -96,6 +96,7 @@ export enum OperatorReplyMessageType {
 }
 
 export enum OperatorNotificationMessageType {
+    signInInformationNotification = 'sign-in-information-notification',
     configuration = 'configuration',
     deviceStatusesNotification = 'device-statuses-notification',
     deviceConnectivitiesNotification = 'device-connectivities-notification',

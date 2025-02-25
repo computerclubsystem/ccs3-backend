@@ -48,6 +48,8 @@ export const enum MessageType {
     busGetProfileSettingsReply = 'bus-get-profile-settings-reply',
 
     // Shifts
+    busGetLastCompletedShiftRequest = 'bus-get-last-completed-shift-request',
+    busGetLastCompletedShiftReply = 'bus-get-last-completed-shift-reply',
     busGetCurrentShiftStatusRequest = 'bus-get-current-shift-status-request',
     busGetCurrentShiftStatusReply = 'bus-get-current-shift-status-reply',
     busCompleteShiftRequest = 'bus-complete-shift-request',

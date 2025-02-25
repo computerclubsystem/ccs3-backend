@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { readFileSync, existsSync } from 'node:fs';
-import { catchError, filter, finalize, first, Observable, of, timeout } from 'rxjs';
+import { catchError, filter, finalize, first, forkJoin, Observable, ObservableInput, of, timeout } from 'rxjs';
 
 import {
     CreateConnectedRedisClientOptions, RedisCacheClient, RedisClientMessageCallback, RedisPubClient, RedisSubClient,
@@ -212,6 +212,9 @@ import { BusGetAllAllowedDeviceObjectsReplyMessageBody } from '@computerclubsyst
 import { createOperatorGetAllAllowedDeviceObjectsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-allowed-device-objects-reply.message.mjs';
 import { createOperatorSetDeviceStatusNoteReplyMessage, OperatorSetDeviceStatusNoteRequestMessage } from '@computerclubsystem/types/messages/operators/operator-set-device-status-note.messages.mjs';
 import { BusSetDeviceStatusNoteReplyMessageBody, createBusSetDeviceStatusNoteRequestMessage } from '@computerclubsystem/types/messages/bus/bus-set-device-status-note.messages.mjs';
+import { BusGetLastCompletedShiftReplyMessage, createBusGetLastCompletedShiftRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-last-completed-shift.messages.mjs';
+import { createOperatorSignInInformationNotificationMessage } from '@computerclubsystem/types/messages/operators/operator-sign-in-information-notification.message.mjs';
+import { Shift } from '@computerclubsystem/types/entities/shift.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -1247,6 +1250,9 @@ export class OperatorConnector {
 
         if (!this.isWhiteSpace(message.body.token)) {
             const isTokenProcessed = await this.processOperatorAuthRequestWithToken(clientData, message);
+            if (isTokenProcessed) {
+                this.sendSignInInformationNotificationMessage(clientData);
+            }
             return;
         }
 
@@ -1440,7 +1446,24 @@ export class OperatorConnector {
                 clientData: clientData,
             });
             this.publishOperatorConnectionEventMessage(clientData.userId!, clientData.ipAddress, OperatorConnectionEventType.passwordAuthSuccess, note);
+            this.sendSignInInformationNotificationMessage(clientData);
         }
+    }
+
+    private sendSignInInformationNotificationMessage(clientData: ConnectedClientData): void {
+        const busGetLastShiftReqMsg = createBusGetLastCompletedShiftRequestMessage();
+        interface SignInInformationObservables extends Record<string, ObservableInput<any>> {
+            lastCompletedShift: Observable<BusGetLastCompletedShiftReplyMessage>,
+        }
+        const observables: SignInInformationObservables = {
+            lastCompletedShift: this.publishToSharedChannelAndWaitForReply(busGetLastShiftReqMsg, clientData),
+        };
+        forkJoin(observables).subscribe(observablesResult => {
+            const signInInformationNotificationMsg = createOperatorSignInInformationNotificationMessage();
+            const lastShift: Shift | undefined | null = observablesResult.lastCompletedShift.body.shift;
+            signInInformationNotificationMsg.body.lastShiftCompletedAt = lastShift?.completedAt;
+            this.sendNotificationMessageToOperator(signInInformationNotificationMsg, clientData);
+        });
     }
 
     async canProcessOperatorMessage<TBody>(clientData: ConnectedClientData, message: OperatorRequestMessage<TBody>): Promise<CanProcessOperatorMessageResult> {
