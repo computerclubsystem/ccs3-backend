@@ -400,7 +400,7 @@ export class PcConnector {
                     const buffer = this.hexStringToBuffer(packetToSend);
                     try {
                         // TODO: This must be configuration
-                        await this.delay(250);
+                        await this.delay(500);
                         this.udpHelper.send(buffer, port!, noCertDevice.ipAddress);
                     } catch (err) {
                         this.logger.warn(`Can't send UDP packet ${packetToSend} to ${noCertDevice.ipAddress}:${port!}. Error: ${err}`);
