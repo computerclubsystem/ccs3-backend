@@ -21,4 +21,6 @@ export interface ITariff {
     restrict_start_to_time?: number | null;
     remaining_seconds?: number | null;
     can_be_started_by_customer?: boolean | null;
+    created_by_user_id?: number | null;
+    updated_by_user_id?: number | null;
 }

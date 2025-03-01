@@ -254,9 +254,15 @@ export class PostgreStorageProvider implements StorageProvider {
     }
 
     async getCompletedSessionsSummary(fromDate: string | null | undefined, toDate: string): Promise<ICompletedSessionsSummary> {
+        // This will get only total and count
         const queryData = this.queryUtils.getCompletedSessionsSummaryQueryData(fromDate, toDate);
         const res = await this.execQuery(queryData.text, queryData.params);
-        return res.rows[0] as ICompletedSessionsSummary;
+        const result = res.rows[0] as ICompletedSessionsSummary;
+        // This will get the sessions too
+        const completedSessionsQueryData = this.queryUtils.getCompletedSessionsQueryData(fromDate, toDate);
+        const sessionsRes = await this.execQuery(completedSessionsQueryData.text, completedSessionsQueryData.params);
+        result.completedSessions = sessionsRes.rows as IDeviceSession[];
+        return result;
     }
 
     async getLastShift(): Promise<IShift | undefined> {
@@ -659,7 +665,7 @@ export class PostgreStorageProvider implements StorageProvider {
             }
 
             // Increase the remaining seconds
-            const increaseTariffRemainingSecondsQuery = this.queryUtils.increaseTariffRemainingSeconds(tariffId, secondsToAdd, increasedAt);
+            const increaseTariffRemainingSecondsQuery = this.queryUtils.increaseTariffRemainingSeconds(tariffId, secondsToAdd, increasedAt, userId);
             const increaseTariffRemainingSecondsResult = await transactionClient.query(increaseTariffRemainingSecondsQuery.text, increaseTariffRemainingSecondsQuery.params);
             const updatedTariff = increaseTariffRemainingSecondsResult.rows[0] as ITariff | undefined;
             if (!updatedTariff) {

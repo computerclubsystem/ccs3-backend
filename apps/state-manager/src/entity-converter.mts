@@ -135,7 +135,7 @@ export class EntityConverter {
         return storageUser;
     }
 
-    toUSer(storageUser: IUser): User {
+    toUser(storageUser: IUser): User {
         const user: User = {
             createdAt: storageUser.created_at,
             enabled: storageUser.enabled,
@@ -214,6 +214,8 @@ export class EntityConverter {
             restrictStartToTime: storageTariff.restrict_start_to_time,
             canBeStartedByCustomer: storageTariff.can_be_started_by_customer,
             remainingSeconds: storageTariff.remaining_seconds,
+            createdByUserId: storageTariff.created_by_user_id,
+            updatedByUserId: storageTariff.updated_by_user_id,
         };
         return tariff;
     }
@@ -236,6 +238,8 @@ export class EntityConverter {
             restrict_start_to_time: tariff.restrictStartToTime,
             can_be_started_by_customer: tariff.canBeStartedByCustomer,
             remaining_seconds: tariff.remainingSeconds,
+            created_by_user_id: tariff.createdByUserId,
+            updated_by_user_id: tariff.updatedByUserId,
         };
         return storageTariff;
     }

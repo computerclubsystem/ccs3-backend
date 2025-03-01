@@ -139,6 +139,9 @@ import { IDeviceGroup } from './storage/entities/device-group.mjs';
 import { ITariffInDeviceGroup } from './storage/entities/tariff-in-device-group.mjs';
 import { BusSetDeviceStatusNoteRequestMessage, createBusSetDeviceStatusNoteReplyMessage } from '@computerclubsystem/types/messages/bus/bus-set-device-status-note.messages.mjs';
 import { BusGetLastCompletedShiftRequestMessage, createBusGetLastCompletedShiftReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-last-completed-shift.messages.mjs';
+import { IUser } from './storage/entities/user.mjs';
+import { NameWithNumber } from '@computerclubsystem/types/entities/name-with-number.mjs';
+import { UserWithTotalAndCount } from '@computerclubsystem/types/entities/user-total-and-count.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -402,11 +405,15 @@ export class StateManager {
             return false;
         }
         const getObjectValue = (obj: unknown, key: string) => (obj as any)[key];
+        const keysToExclude = new Set<string>(['completedSummaryByUser', 'runningSummaryByUser']);
         for (const key of leftKeys) {
-            const leftValue = getObjectValue(left, key);
-            const rightValue = getObjectValue(right, key);
-            if (leftValue !== rightValue) {
-                return false;
+            // We must exclude objects like arrays
+            if (!keysToExclude.has(key)) {
+                const leftValue = getObjectValue(left, key);
+                const rightValue = getObjectValue(right, key);
+                if (leftValue !== rightValue) {
+                    return false;
+                }
             }
         }
 
@@ -993,27 +1000,78 @@ export class StateManager {
     }
 
     async getShiftStatus(): Promise<ShiftStatus> {
+        const allStorageUsers = await this.storageProvider.getAllUsers();
+        const allUsers = allStorageUsers.map(x => this.entityConverter.toUser(x));
+        const allUsersMap = new Map<number, User>(allUsers.map(x => ([x.id, x])));
+        const userWithTotalAndCountCompletedMap = new Map<number | undefined | null, UserWithTotalAndCount>();
+        const userWithTotalAndCountRunningMap = new Map<number | undefined | null, UserWithTotalAndCount>();
         const allTariffs = await this.getOrCacheAllTariffs();
         const nowISOString = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
 
         // Get last shift to know from which date-time to calculate current shift
         const storageLastShift = await this.storageProvider.getLastShift();
         const fromDate = storageLastShift?.completed_at;
-        // Completed device sessions since when the last shift was cmpleted
+        // Completed device sessions since when the last shift was completed
         const storageCompletedSessionsSummary = await this.storageProvider.getCompletedSessionsSummary(fromDate, nowISOString);
         // If there are no completed sessions, the count will be 0 but total is null - change it to 0 in this case
         storageCompletedSessionsSummary.total ||= 0;
+        // Get totals by stopped/started user
+        for (const completedSessionItem of storageCompletedSessionsSummary.completedSessions) {
+            const userId = completedSessionItem.stopped_by_user_id || completedSessionItem.started_by_user_id;
+            const mapItem = userWithTotalAndCountCompletedMap.get(userId);
+            if (mapItem === undefined) {
+                const userWithTotalAndCount: UserWithTotalAndCount = {
+                    count: 1,
+                    total: completedSessionItem.total_amount,
+                    username: allUsersMap.get(userId!)?.username || '',
+                };
+                userWithTotalAndCountCompletedMap.set(userId, userWithTotalAndCount);
+            } else {
+                mapItem.count++;
+                mapItem.total = this.roundAmount(mapItem.total + completedSessionItem.total_amount);
+            }
+        }
 
         // Created prepaid tariffs
         const storageCreatedTariffs = await this.storageProvider.getCreatedTariffsForDateTimeInterval(fromDate, nowISOString);
         const storageCreatedPrepaidTariffs = storageCreatedTariffs.filter(x => this.isPrepaidType(x.type as number as TariffType));
         let createdPrepaidTariffsCount = storageCreatedPrepaidTariffs.length;
-        let createdPrepaidTariffsTotal = storageCreatedPrepaidTariffs.reduce((prevValue, tariff) => prevValue + tariff.price, 0);
+        let createdPrepaidTariffsTotal = storageCreatedPrepaidTariffs.reduce((prevValue, tariff) => this.roundAmount(prevValue + tariff.price), 0);
+        for (const storageCreatedPrepaidTariff of storageCreatedPrepaidTariffs) {
+            const userId = storageCreatedPrepaidTariff.created_by_user_id!;
+            const mapItem = userWithTotalAndCountCompletedMap.get(userId);
+            if (mapItem === undefined) {
+                const userWithTotalAndCount: UserWithTotalAndCount = {
+                    count: 1,
+                    total: storageCreatedPrepaidTariff.price,
+                    username: allUsersMap.get(userId!)?.username || '',
+                };
+                userWithTotalAndCountCompletedMap.set(userId, userWithTotalAndCount);
+            } else {
+                mapItem.count++;
+                mapItem.total = this.roundAmount(mapItem.total + storageCreatedPrepaidTariff.price);
+            }
+        }
 
         // Recharged tariffs
         const storageRechargedTariffs = await this.storageProvider.getRechargedTariffsForDateTimeInterval(fromDate, nowISOString);
         let rechargedPrepaidTariffsCount = storageRechargedTariffs.length;
-        let rechargedPrepaidTariffsTotal = storageRechargedTariffs.reduce((prevValue, tariff) => prevValue + tariff.recharge_price, 0);
+        let rechargedPrepaidTariffsTotal = storageRechargedTariffs.reduce((prevValue, tariff) => this.roundAmount(prevValue + tariff.recharge_price), 0);
+        for (const storageRechargedTariff of storageRechargedTariffs) {
+            const userId = storageRechargedTariff.user_id;
+            const mapItem = userWithTotalAndCountCompletedMap.get(userId);
+            if (mapItem === undefined) {
+                const userWithTotalAndCount: UserWithTotalAndCount = {
+                    count: 1,
+                    total: storageRechargedTariff.recharge_price,
+                    username: allUsersMap.get(userId!)?.username || '',
+                };
+                userWithTotalAndCountCompletedMap.set(userId, userWithTotalAndCount);
+            } else {
+                mapItem.count++;
+                mapItem.total = this.roundAmount(mapItem.total + storageRechargedTariff.recharge_price);
+            }
+        }
 
         // Current started device statuses with continuations started for non-prepaid tariff
         const storageAllDeviceStatusesWithContinuation = await this.storageProvider.getAllDeviceStatusesWithContinuationData();
@@ -1027,20 +1085,37 @@ export class StateManager {
         let continuationsCount = 0;
         let continuationsTotal = 0;
         for (const startedDevice of storageStartedDeviceStatusesForNonPrepaidTariffs) {
-            const tariff = allTariffs.find(x => x.id === startedDevice.start_reason)!;
-            runningSessionsTotal += tariff.price;
+            const startedDeviceTotal = startedDevice.total || 0;
+            runningSessionsTotal = this.roundAmount(runningSessionsTotal + startedDeviceTotal);
+            const userId = startedDevice.started_by_user_id;
+            let mapItem = userWithTotalAndCountRunningMap.get(userId)
+            if (mapItem === undefined) {
+                mapItem = {
+                    count: 1,
+                    total: startedDeviceTotal,
+                    username: allUsersMap.get(userId!)?.username || '',
+                };
+                userWithTotalAndCountRunningMap.set(userId, mapItem);
+            } else {
+                mapItem.count++;
+                mapItem.total = this.roundAmount(mapItem.total + startedDeviceTotal);
+            }
             if (startedDevice.continuation_tariff_id) {
                 const continuationTariff = allTariffs.find(x => x.id === startedDevice.continuation_tariff_id)!;
-                continuationsTotal += continuationTariff.price;
+                continuationsTotal = this.roundAmount(continuationsTotal + continuationTariff.price);
                 continuationsCount++;
+                mapItem.count++;
+                mapItem.total = this.roundAmount(mapItem.total + continuationTariff.price);
             }
         }
 
-        const totalAmount = storageCompletedSessionsSummary.total
+        const totalAmount = this.roundAmount(
+            storageCompletedSessionsSummary.total
             + continuationsTotal
             + runningSessionsTotal
             + createdPrepaidTariffsTotal
-            + rechargedPrepaidTariffsTotal;
+            + rechargedPrepaidTariffsTotal
+        );
         const totalCount = storageCompletedSessionsSummary.count
             + continuationsCount
             + runningSessionsCount
@@ -1059,6 +1134,10 @@ export class StateManager {
             rechargedPrepaidTariffsTotal: rechargedPrepaidTariffsTotal,
             totalAmount: totalAmount,
             totalCount: totalCount,
+            completedTotal: this.roundAmount(storageCompletedSessionsSummary.total + createdPrepaidTariffsTotal + rechargedPrepaidTariffsTotal),
+            runningTotal: this.roundAmount(runningSessionsTotal + continuationsTotal),
+            completedSummaryByUser: Array.from(userWithTotalAndCountCompletedMap.values()),
+            runningSummaryByUser: Array.from(userWithTotalAndCountRunningMap.values()),
         };
         return shiftStatus;
     }
@@ -1849,7 +1928,7 @@ export class StateManager {
             storageUser.updated_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
             const createdStorageUser = await this.storageProvider.updateUserWithRoles(storageUser, message.body.roleIds || [], message.body.passwordHash);
             if (createdStorageUser) {
-                replyMsg.body.user = this.entityConverter.toUSer(createdStorageUser);
+                replyMsg.body.user = this.entityConverter.toUser(createdStorageUser);
                 replyMsg.body.roleIds = message.body.roleIds;
             } else {
                 this.logger.warn(`Can't process BusUpdateUserWithRolesRequestMessage message. User was not updated`, message);
@@ -1895,7 +1974,7 @@ export class StateManager {
                 return;
             }
             const userRoleIds = await this.storageProvider.getUserRoleIds(userId);
-            replyMsg.body.user = this.entityConverter.toUSer(storageUser);
+            replyMsg.body.user = this.entityConverter.toUser(storageUser);
             replyMsg.body.roleIds = userRoleIds;
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
@@ -1933,7 +2012,7 @@ export class StateManager {
             storageUser.created_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
             const createdStorageUser = await this.storageProvider.createUserWithRoles(storageUser, message.body.passwordHash, message.body.roleIds || []);
             if (createdStorageUser) {
-                replyMsg.body.user = this.entityConverter.toUSer(createdStorageUser);
+                replyMsg.body.user = this.entityConverter.toUser(createdStorageUser);
                 replyMsg.body.roleIds = message.body.roleIds;
             } else {
                 this.logger.warn(`Can't process BusCreateUserWithRolesRequestMessage message. User was not created`, message);
@@ -1959,7 +2038,7 @@ export class StateManager {
         const replyMsg = createBusGetAllUsersReplyMessage();
         try {
             const allStorageUsers = await this.storageProvider.getAllUsers();
-            const allUsers = allStorageUsers.map(x => this.entityConverter.toUSer(x))
+            const allUsers = allStorageUsers.map(x => this.entityConverter.toUser(x))
             replyMsg.body.users = allUsers;
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
@@ -2426,6 +2505,15 @@ export class StateManager {
     async processBusUpdateTariffRequestMessage(message: BusUpdateTariffRequestMessage): Promise<void> {
         try {
             const replyMsg = createBusUpdateTariffReplyMessage();
+            if (!(message.body.userId > 0)) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userIdIsRequired,
+                    description: `User Id is required`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
             const tariff: Tariff = message.body.tariff;
             // TODO: Validate the tariff
             if (!tariff?.id) {
@@ -2438,6 +2526,7 @@ export class StateManager {
                 return;
             }
             const storageTariff = this.entityConverter.toStorageTariff(tariff);
+            storageTariff.updated_by_user_id = message.body.userId;
             storageTariff.updated_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
             const updatedTariff = await this.storageProvider.updateTariff(storageTariff, message.body.passwordHash);
             if (!updatedTariff) {
@@ -2500,6 +2589,15 @@ export class StateManager {
     async processBusCreatePrepaidTariffRequestMessage(message: BusCreatePrepaidTariffRequestMessage): Promise<void> {
         const replyMsg = createBusCreatePrepaidTariffReplyMessage();
         try {
+            if (!(message.body.userId > 0)) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userIdIsRequired,
+                    description: `User Id is required`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
             const requestedTariffToCreate: Tariff = message.body.tariff;
             const validateTariffResult = this.tariffValidator.validateTariff(requestedTariffToCreate);
             if (!validateTariffResult.success) {
@@ -2521,6 +2619,7 @@ export class StateManager {
                 return;
             }
             const tariffToCreate = this.tariffHelper.createTariffFromRequested(requestedTariffToCreate);
+            tariffToCreate.createdByUserId = message.body.userId;
             const storageTariffToCreate = this.entityConverter.toStorageTariff(tariffToCreate);
             storageTariffToCreate.created_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
             const createdStorageTariff = await this.storageProvider.createTariff(storageTariffToCreate, message.body.passwordHash);
@@ -2542,6 +2641,15 @@ export class StateManager {
     async processBusCreateTariffRequestMessage(message: BusCreateTariffRequestMessage): Promise<void> {
         const replyMsg = createBusCreateTariffReplyMessage();
         try {
+            if (!(message.body.userId > 0)) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userIdIsRequired,
+                    description: `User Id is required`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
             const requestedTariffToCreate: Tariff = message.body.tariff;
             if (this.isPrepaidType(requestedTariffToCreate.type)) {
                 replyMsg.header.failure = true;
@@ -2563,6 +2671,7 @@ export class StateManager {
                 return;
             }
             const tariffToCreate = this.tariffHelper.createTariffFromRequested(requestedTariffToCreate);
+            tariffToCreate.createdByUserId = message.body.userId;
             const storageTariffToCreate = this.entityConverter.toStorageTariff(tariffToCreate);
             storageTariffToCreate.created_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
             const createdStorageTariff = await this.storageProvider.createTariff(storageTariffToCreate, undefined);
@@ -3470,6 +3579,28 @@ export class StateManager {
         }];
     }
 
+    groupBy<TItem, TKey>(items: TItem[], keySelector: (item: TItem) => TKey): ItemsGroup<TKey, TItem>[] {
+        const map = new Map<TKey, TItem[]>();
+        for (const item of items) {
+            const key = keySelector(item);
+            let mapItem = map.get(key);
+            if (!mapItem) {
+                map.set(key, [item]);
+            } else {
+                mapItem.push((item));
+            }
+        }
+        const result: ItemsGroup<TKey, TItem>[] = [];
+        for (const mapItem of map) {
+            result.push({ key: mapItem[0], items: mapItem[1] });
+        }
+        return result;
+    }
+
+    roundAmount(amount: number): number {
+        return Math.round(amount * 100) / 100;
+    }
+
     async terminate(): Promise<void> {
         this.logger.warn('Terminating');
         clearInterval(this.state.mainTimerHandle);
@@ -3478,6 +3609,11 @@ export class StateManager {
         await this.cacheClient.disconnect();
         await this.storageProvider.stop();
     }
+}
+
+interface ItemsGroup<TKey, TItem> {
+    key: TKey;
+    items: TItem[];
 }
 
 interface StateManagerState {

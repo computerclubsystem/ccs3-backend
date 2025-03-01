@@ -21,6 +21,7 @@ export interface IncreaseTariffRemainingSecondsResult {
 export interface ICompletedSessionsSummary {
     total: number;
     count: number;
+    completedSessions: IDeviceSession[];
 }
 
 export interface ICurrentSessionsSummary {

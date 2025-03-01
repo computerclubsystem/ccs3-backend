@@ -20,7 +20,9 @@ export class TariffQueryHelper {
             restrict_start_from_time,
             restrict_start_to_time,
             remaining_seconds,
-            can_be_started_by_customer
+            can_be_started_by_customer,
+            created_by_user_id,
+            updated_by_user_id
     `;
 
     getCreatedTariffsForDateTimeInterval(fromDate: string | undefined | null, toDate: string): IQueryTextWithParamsResult {
@@ -42,8 +44,6 @@ export class TariffQueryHelper {
             params: params
         };
     }
-
-    // getRechargedTariffsFordateTimeInterval(fromDate: string, toDate: string): Promise<ITariff[]>;
 
     checkTariffPasswordHashQueryData(tariffId: number, passwordHash: string): IQueryTextWithParamsResult {
         const params = [
@@ -87,11 +87,17 @@ export class TariffQueryHelper {
         };
     }
 
-    increaseTariffRemainingSecondsQueryData(tariffId: number, secondsToAdd: number, increasedAt: string): IQueryTextWithParamsResult {
+    increaseTariffRemainingSecondsQueryData(
+        tariffId: number,
+        secondsToAdd: number,
+        increasedAt: string,
+        userId: number
+    ): IQueryTextWithParamsResult {
         const params = [
             tariffId,
             secondsToAdd,
             increasedAt,
+            userId,
         ];
         return {
             text: this.increaseTariffRemainingSecondsQueryText,
@@ -103,7 +109,8 @@ export class TariffQueryHelper {
         UPDATE tariff
         SET
             remaining_seconds = remaining_seconds + $2,
-            updated_at = $3
+            updated_at = $3,
+            updated_by_user_id = $4
         WHERE id = $1
         ${this.returningQueryText}
     `;
@@ -149,6 +156,7 @@ export class TariffQueryHelper {
         builder.addUpdateColumnNameWithValue(ColumnName.restrict_start_from_time, tariff.restrict_start_from_time);
         builder.addUpdateColumnNameWithValue(ColumnName.restrict_start_to_time, tariff.restrict_start_to_time);
         builder.addUpdateColumnNameWithValue(ColumnName.can_be_started_by_customer, tariff.can_be_started_by_customer);
+        builder.addUpdateColumnNameWithValue(ColumnName.updated_by_user_id, tariff.updated_by_user_id);
         // remaining_seconds are updated only as result of calculations
         // builder.addUpdateColumnNameWithValue(ColumnName.remaining_seconds, tariff.remaining_seconds);
         if (passwordHash) {
@@ -183,6 +191,8 @@ export class TariffQueryHelper {
             ColumnName.restrict_start_to_time,
             ColumnName.can_be_started_by_customer,
             ColumnName.remaining_seconds,
+            ColumnName.created_by_user_id,
+            ColumnName.updated_by_user_id,
         ];
         const params = [
             tariff.name,
@@ -199,6 +209,8 @@ export class TariffQueryHelper {
             tariff.restrict_start_to_time,
             tariff.can_be_started_by_customer,
             tariff.remaining_seconds,
+            tariff.created_by_user_id,
+            tariff.updated_by_user_id,
         ];
         const returningColumnNames = [ColumnName.id, ...insertColumnNames];
         if (passwordHash) {
@@ -232,6 +244,8 @@ export class TariffQueryHelper {
             ColumnName.to_time,
             ColumnName.type,
             ColumnName.updated_at,
+            ColumnName.created_by_user_id,
+            ColumnName.updated_by_user_id,
         ];
         return returningColumnNames;
     }
@@ -272,7 +286,9 @@ export class TariffQueryHelper {
             restrict_start_from_time,
             restrict_start_to_time,
             remaining_seconds,
-            can_be_started_by_customer
+            can_be_started_by_customer,
+            created_by_user_id,
+            updated_by_user_id
         FROM tariff
     `;
 
@@ -293,7 +309,9 @@ export class TariffQueryHelper {
             restrict_start_from_time,
             restrict_start_to_time,
             remaining_seconds,
-            can_be_started_by_customer
+            can_be_started_by_customer,
+            created_by_user_id,
+            updated_by_user_id
         FROM tariff
         WHERE id = $1
     `;
@@ -329,6 +347,8 @@ enum ColumnName {
     remaining_seconds = 'remaining_seconds',
     can_be_started_by_customer = 'can_be_started_by_customer',
     password_hash = 'password_hash',
+    created_by_user_id = 'created_by_user_id',
+    updated_by_user_id = 'updated_by_user_id',
 }
 
 enum TableName {

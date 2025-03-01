@@ -885,6 +885,7 @@ export class OperatorConnector {
         const busRequestMsg = createBusUpdateTariffRequestMessage();
         busRequestMsg.body.tariff = message.body.tariff;
         busRequestMsg.body.passwordHash = message.body.passwordHash;
+        busRequestMsg.body.userId = clientData.userId!;;
         this.publishToOperatorsChannelAndWaitForReply<BusGetTariffByIdReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorUpdateTariffReplyMessage();
@@ -978,6 +979,7 @@ export class OperatorConnector {
         const busRequestMsg = createBusCreatePrepaidTariffRequestMessage();
         busRequestMsg.body.tariff = requestedTariff;
         busRequestMsg.body.passwordHash = message.body.passwordHash;
+        busRequestMsg.body.userId = clientData.userId!;
         this.publishToOperatorsChannelAndWaitForReply<BusCreatePrepaidTariffReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorCreatePrepaidTariffReplyMessage();
@@ -1012,6 +1014,7 @@ export class OperatorConnector {
 
         const busRequestMsg = createBusCreateTariffRequestMessage();
         busRequestMsg.body.tariff = requestedTariff;
+        busRequestMsg.body.userId = clientData.userId!;
         this.publishToOperatorsChannelAndWaitForReply<BusCreateTariffReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorCreateTariffReplyMessage();
@@ -1400,12 +1403,12 @@ export class OperatorConnector {
         // }
     }
 
-    processBusOperatorAuthReplyMessage(
+    async processBusOperatorAuthReplyMessage(
         clientData: ConnectedClientData,
         message: BusOperatorAuthReplyMessage,
         operatorMessage: OperatorRequestMessage<any>,
         username: string
-    ): void {
+    ): Promise<void> {
         const replyMsg = createOperatorAuthReplyMessage();
         if (!clientData) {
             replyMsg.body.success = false;
@@ -1425,7 +1428,7 @@ export class OperatorConnector {
         if (replyMsg.body.success) {
             replyMsg.body.token = this.createUUIDString();
             replyMsg.body.tokenExpiresAt = this.getNowAsNumber() + this.getTokenExpirationMilliseconds();
-            this.maintainUserAuthDataTokenCacheItem(clientData.userId!, clientData.connectedAt, replyMsg.body.permissions!, replyMsg.body.token, rtData, username);
+            await this.maintainUserAuthDataTokenCacheItem(clientData.userId!, clientData.connectedAt, replyMsg.body.permissions!, replyMsg.body.token, rtData, username);
         }
         if (!message.body.success) {
             replyMsg.body.success = false;

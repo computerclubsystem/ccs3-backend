@@ -5,6 +5,7 @@ import { Tariff } from 'src/entities/tariff.mjs';
 export interface BusCreatePrepaidTariffRequestMessageBody {
     tariff: Tariff;
     passwordHash?: string;
+    userId: number;
 }
 
 export interface BusCreatePrepaidTariffRequestMessage extends Message<BusCreatePrepaidTariffRequestMessageBody> {

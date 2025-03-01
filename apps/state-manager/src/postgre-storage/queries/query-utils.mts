@@ -142,6 +142,10 @@ export class QueryUtils {
         return this.helpers.shift.getShiftsSummaryQueryData(fromDate, toDate, userId);
     }
 
+    getCompletedSessionsQueryData(fromDate: string | null | undefined, toDate: string): IQueryTextWithParamsResult {
+        return this.helpers.deviceSession.getCompletedSessionsQueryData(fromDate, toDate);
+    }
+
     getCompletedSessionsSummaryQueryData(fromDate: string | null | undefined, toDate: string): IQueryTextWithParamsResult {
         return this.helpers.deviceSession.getCompletedSessionsSummaryQueryData(fromDate, toDate);
     }
@@ -254,8 +258,8 @@ export class QueryUtils {
         return this.helpers.tariff.updateTariffPasswordHashQueryData(tariffId, passwordHash);
     }
 
-    increaseTariffRemainingSeconds(tariffId: number, secondsToAdd: number, increasedAt: string): IQueryTextWithParamsResult {
-        return this.helpers.tariff.increaseTariffRemainingSecondsQueryData(tariffId, secondsToAdd, increasedAt);
+    increaseTariffRemainingSeconds(tariffId: number, secondsToAdd: number, increasedAt: string, userId: number): IQueryTextWithParamsResult {
+        return this.helpers.tariff.increaseTariffRemainingSecondsQueryData(tariffId, secondsToAdd, increasedAt, userId);
     }
 
     addTariffRechargeQueryData(tariffRecharge: ITariffRecharge): IQueryTextWithParamsResult {

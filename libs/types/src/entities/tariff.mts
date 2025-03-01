@@ -21,4 +21,6 @@ export interface Tariff {
     restrictStartToTime?: number | null;
     remainingSeconds?: number | null;
     canBeStartedByCustomer?: boolean | null;
+    createdByUserId?: number | null;
+    updatedByUserId?: number | null;
 }

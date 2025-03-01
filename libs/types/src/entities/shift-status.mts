@@ -1,3 +1,5 @@
+import { UserWithTotalAndCount } from "./user-total-and-count.mjs";
+
 export interface ShiftStatus {
     completedSessionsTotal: number;
     completedSessionsCount: number;
@@ -11,4 +13,8 @@ export interface ShiftStatus {
     rechargedPrepaidTariffsTotal: number;
     totalAmount: number;
     totalCount: number;
+    runningTotal: number;
+    completedTotal: number;
+    completedSummaryByUser: UserWithTotalAndCount[];
+    runningSummaryByUser: UserWithTotalAndCount[];
 }

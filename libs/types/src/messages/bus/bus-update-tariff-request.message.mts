@@ -5,6 +5,7 @@ import { Tariff } from 'src/entities/tariff.mjs';
 export interface BusUpdateTariffRequestMessageBody {
     tariff: Tariff;
     passwordHash?: string;
+    userId: number;
 }
 
 export interface BusUpdateTariffRequestMessage extends Message<BusUpdateTariffRequestMessageBody> {

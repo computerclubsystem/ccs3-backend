@@ -1,0 +1,14 @@
+ALTER TABLE tariff
+    ADD COLUMN created_by_user_id integer;
+ALTER TABLE tariff
+    ADD FOREIGN KEY (created_by_user_id)
+    REFERENCES "user" (id);
+ALTER TABLE tariff
+    ADD COLUMN updated_by_user_id integer;
+ALTER TABLE tariff
+    ADD FOREIGN KEY (updated_by_user_id)
+    REFERENCES "user" (id);
+
+UPDATE db_metadata
+SET value = '32'
+WHERE name = 'database-version';

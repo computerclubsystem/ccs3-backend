@@ -1,8 +1,41 @@
+import { TariffType } from '@computerclubsystem/types/entities/tariff.mjs';
 import { IDeviceSession } from 'src/storage/entities/device-session.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
-import { TariffType } from '@computerclubsystem/types/entities/tariff.mjs';
+import { SelectQueryBuilder, WhereClauseOperation } from './query-builder.mjs';
 
 export class DeviceSessionQueryHelper {
+    getCompletedSessionsQueryData(fromDate: string | null | undefined, toDate: string): IQueryTextWithParamsResult {
+        const params: unknown[] = [];
+        const builder = new SelectQueryBuilder();
+        builder.setTableName(TableName.device_session);
+        builder.addSelectColumnNames(this.getAllColumnNames());
+        if (fromDate) {
+            params.push(fromDate);
+            params.push(toDate);
+            builder.addWhereClause({
+                columnName: ColumnName.stopped_at,
+                operation: WhereClauseOperation.greaterThan,
+                parameterName: '$1'
+            });
+            builder.addWhereClause({
+                columnName: ColumnName.stopped_at,
+                operation: WhereClauseOperation.lessThan,
+                parameterName: '$2'
+            });
+        } else {
+            params.push(toDate);
+            builder.addWhereClause({
+                columnName: ColumnName.stopped_at,
+                operation: WhereClauseOperation.lessThan,
+                parameterName: '$1'
+            });
+        }
+        return {
+            text: builder.getQueryString(),
+            params: params,
+        };
+    }
+
     getCompletedSessionsSummaryQueryData(fromDate: string | null | undefined, toDate: string): IQueryTextWithParamsResult {
         const params: unknown[] = [];
         let getCompletedSessionsSummaryQueryText = `
@@ -112,4 +145,38 @@ export class DeviceSessionQueryHelper {
         )
         ${this.returningQueryText}
     `;
+
+    private getAllColumnNames(): ColumnName[] {
+        return [
+            ColumnName.id,
+            ColumnName.device_id,
+            ColumnName.tariff_id,
+            ColumnName.total_amount,
+            ColumnName.started_at,
+            ColumnName.stopped_at,
+            ColumnName.started_by_user_id,
+            ColumnName.stopped_by_user_id,
+            ColumnName.started_by_customer,
+            ColumnName.stopped_by_customer,
+            ColumnName.note,
+        ];
+    }
+}
+
+const enum TableName {
+    device_session = 'device_session',
+}
+
+const enum ColumnName {
+    id = 'id',
+    device_id = 'device_id',
+    tariff_id = 'tariff_id',
+    total_amount = 'total_amount',
+    started_at = 'started_at',
+    stopped_at = 'stopped_at',
+    started_by_user_id = 'started_by_user_id',
+    stopped_by_user_id = 'stopped_by_user_id',
+    started_by_customer = 'started_by_customer',
+    stopped_by_customer = 'stopped_by_customer',
+    note = 'note',
 }
