@@ -3087,6 +3087,8 @@ export class StateManager {
                         // After the calculation, if device was started but no longer, it must be stopped
                         storageDeviceStatus.started = calculatedDeviceStatus.started;
                         storageDeviceStatus.stopped_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
+                        // Automatic stops are saved with user id null (the system)
+                        storageDeviceStatus.stopped_by_user_id = null;
                         storageDeviceStatus.total = calculatedDeviceStatus.totalSum;
                         const shouldStartForContinuationTariffResult = this.shouldStartForContinuationTariff(storageDeviceStatus, allTariffs);
                         const continuationTariff = shouldStartForContinuationTariffResult.continuationTariff;
