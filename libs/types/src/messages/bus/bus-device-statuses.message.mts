@@ -1,4 +1,4 @@
-// import { DeviceState } from 'src/entities/device-state.mjs';
+import { TariffShortInfo } from 'src/entities/tariff.mjs';
 import { MessageType } from '../declarations/message-type.mjs';
 import { Message } from '../declarations/message.mjs';
 
@@ -21,6 +21,7 @@ export interface DeviceStatus {
 
 export interface BusDeviceStatusesMessageBody {
     deviceStatuses: DeviceStatus[];
+    continuationTariffShortInfos?: TariffShortInfo[];
 }
 
 export interface BusDeviceStatusesMessage extends Message<BusDeviceStatusesMessageBody> {

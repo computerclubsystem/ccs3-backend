@@ -42,7 +42,7 @@ import { BusGetAllTariffsRequestMessage } from '@computerclubsystem/types/messag
 import { createBusGetAllTariffsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-tariffs-reply.message.mjs';
 import { BusCreateTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-tariff-request.message.mjs';
 import { createBusCreateTariffReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-tariff-reply.message.mjs';
-import { Tariff, TariffType } from '@computerclubsystem/types/entities/tariff.mjs';
+import { Tariff, TariffShortInfo, TariffType } from '@computerclubsystem/types/entities/tariff.mjs';
 import { BusStartDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-request.message.mjs';
 import { createBusStartDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-reply.message.mjs';
 import { TariffHelper } from './tariff-helper.mjs';
@@ -3072,7 +3072,9 @@ export class StateManager {
             //            const storageDeviceStatuses = await this.storageProvider.getAllDeviceStatuses();
             const storageDeviceStatusesWithContinuationData = await this.storageProvider.getAllDeviceStatusesWithContinuationData();
             const allTariffs = await this.getOrCacheAllTariffs();
-            let allDevices = await this.getOrCacheAllDevices();
+            const allTariffsMap = new Map<number, Tariff>(allTariffs.map(x => ([x.id, x])));
+            const allDevices = await this.getOrCacheAllDevices();
+            const allDevicesMap = new Map<number, Device>(allDevices.map(x => ([x.id, x])));
             // TODO: We will process only enabled devices
             //       If the user disables device while it is started (the system should prevent this),
             //       it will not be processed here and will remain started until enabled again
@@ -3081,7 +3083,8 @@ export class StateManager {
             for (const enabledDevice of enabledDevices) {
                 const storageDeviceStatus = storageDeviceStatusesWithContinuationData.find(x => x.device_id === enabledDevice.id);
                 if (storageDeviceStatus) {
-                    const tariff = allTariffs.find(x => x.id === storageDeviceStatus.start_reason)!;
+                    // const tariff = allTariffs.find(x => x.id === storageDeviceStatus.start_reason)!;
+                    const tariff = allTariffsMap.get(storageDeviceStatus.start_reason!)!;
                     let calculatedDeviceStatus = this.createAndCalculateDeviceStatusFromStorageDeviceStatus(storageDeviceStatus, tariff);
                     const originalCalculatedDeviceStatus = calculatedDeviceStatus;
                     if (storageDeviceStatus.started && !calculatedDeviceStatus.started) {
@@ -3177,6 +3180,20 @@ export class StateManager {
             // Send device statuses to the channel
             const deviceStatusesMsg = createBusDeviceStatusesMessage();
             deviceStatusesMsg.body.deviceStatuses = deviceStatuses;
+            const continuationTariffIds = deviceStatuses.filter(x => x.continuationTariffId).map(x => x.continuationTariffId);
+            if (continuationTariffIds.length > 0) {
+                const continuationTariffShortInfos: TariffShortInfo[] = [];
+                for (const tariffId of continuationTariffIds) {
+                    const tariff = allTariffsMap.get(tariffId!)!;
+                    const tariffShortInfo: TariffShortInfo = {
+                        id: tariff.id, 
+                        name: tariff.name, 
+                        duration: tariff.duration,
+                    };
+                    continuationTariffShortInfos.push(tariffShortInfo);
+                }
+                deviceStatusesMsg.body.continuationTariffShortInfos = continuationTariffShortInfos;
+            }
             this.publishToDevicesChannel(deviceStatusesMsg);
         } catch (err) {
             // TODO: Count database errors and eventually send system notification

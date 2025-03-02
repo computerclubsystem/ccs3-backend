@@ -58,6 +58,7 @@ import { BusAllSystemSettingsNotificationMessage } from '@computerclubsystem/typ
 import { CacheHelper } from './cache-helper.mjs';
 import { UdpHelper } from './udp-helper.mjs';
 import { SystemSettingsName } from '@computerclubsystem/types/entities/system-setting-name.mjs';
+import { TariffShortInfo } from '@computerclubsystem/types/entities/tariff.mjs';
 
 export class PcConnector {
     wssServer!: WssServer;
@@ -324,10 +325,10 @@ export class PcConnector {
     }
 
     processDeviceStatusesMessage(message: BusDeviceStatusesMessage): void {
-        this.sendStatusToDevices(message.body.deviceStatuses);
+        this.sendStatusToDevices(message.body.deviceStatuses, message.body.continuationTariffShortInfos);
     }
 
-    sendStatusToDevices(deviceStatuses: DeviceStatus[]): void {
+    sendStatusToDevices(deviceStatuses: DeviceStatus[], continuationTariffsShortInfo: TariffShortInfo[] | undefined): void {
         for (const status of deviceStatuses) {
             const connections = this.getConnectedClientsDataByDeviceId(status.deviceId);
             if (connections.length > 0) {
@@ -346,6 +347,12 @@ export class PcConnector {
                         totalSum: status.totalSum,
                         totalTime: status.totalTime,
                     };
+                    if (continuationTariffsShortInfo && status.continuationTariffId) {
+                        const tariffShortInfo = continuationTariffsShortInfo.find(x => x.id === status.continuationTariffId);
+                        if (tariffShortInfo) {
+                            msg.body.continuationTariffShortInfo = tariffShortInfo;
+                        }
+                    }
                     try {
                         this.sendNotificationMessageToDevice(msg, connectionId);
                     } catch (err) {

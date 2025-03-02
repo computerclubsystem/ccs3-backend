@@ -1,4 +1,5 @@
 // import { DeviceState } from 'src/entities/device-state.mjs';
+import { TariffShortInfo } from 'src/entities/tariff.mjs';
 import { MessageType } from '../declarations/message-type.mjs';
 import { Message } from '../declarations/message.mjs';
 import { ServerToDeviceNotificationMessageType } from './declarations/server-to-device-notification-message-type.mjs';
@@ -18,6 +19,7 @@ export interface ServerToDeviceCurrentStatusNotificationMessageBody {
     tariffId?: number | null;
     canBeStoppedByCustomer?: boolean | null;
     amounts: DeviceStatusAmounts;
+    continuationTariffShortInfo?: TariffShortInfo | null;
 }
 
 export interface ServerToDeviceCurrentStatusNotificationMessageMessage extends ServerToDeviceNotificationMessage<ServerToDeviceCurrentStatusNotificationMessageBody> {

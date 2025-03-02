@@ -24,3 +24,9 @@ export interface Tariff {
     createdByUserId?: number | null;
     updatedByUserId?: number | null;
 }
+
+export interface TariffShortInfo {
+    id: number;
+    name: string;
+    duration?: number | null;
+}

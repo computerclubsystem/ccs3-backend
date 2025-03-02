@@ -1574,8 +1574,8 @@ export class OperatorConnector {
         if (clientDataToSendTo.length > 0) {
             const deviceStatuses = message.body.deviceStatuses;
             const deviceStatusesNotificationMsg = createOperatorDeviceStatusesNotificationMessage();
-            deviceStatusesNotificationMsg.body.deviceStatuses = deviceStatuses.map(x => this.convertDeviceStatusToOperatorDeviceStatus(x));
             for (const clientData of clientDataToSendTo) {
+                deviceStatusesNotificationMsg.body.deviceStatuses = deviceStatuses.map(x => this.convertDeviceStatusToOperatorDeviceStatus(x));
                 try {
                     this.sendNotificationMessageToOperator(deviceStatusesNotificationMsg, clientData);
                 } catch (err) {
