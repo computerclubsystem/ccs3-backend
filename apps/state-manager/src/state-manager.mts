@@ -437,7 +437,7 @@ export class StateManager {
             }
             const fromDate = this.dateTimeHelper.convertToUTC(message.body.fromDate);
             const toDate = this.dateTimeHelper.convertToUTC(message.body.toDate);
-            
+
             const storageDeviceSessions = await this.storageProvider.getDeviceSessions(
                 fromDate!,
                 toDate!,
@@ -1123,6 +1123,16 @@ export class StateManager {
         for (const startedDevice of storageStartedDeviceStatusesForNonPrepaidTariffs) {
             const startedDeviceTotal = startedDevice.total || 0;
             runningSessionsTotal = this.roundAmount(runningSessionsTotal + startedDeviceTotal);
+            if (startedDevice.continuation_tariff_id) {
+                const continuationTariff = allTariffs.find(x => x.id === startedDevice.continuation_tariff_id)!;
+                continuationsTotal = this.roundAmount(continuationsTotal + continuationTariff.price);
+                continuationsCount++;
+            }
+        }
+
+        for (const startedDevice of storageStartedDeviceStatuses) {
+            const isPrepaidTariff = !nonPrepaidTariffsIdsSet.has(startedDevice.start_reason!);
+            const startedDeviceTotal = isPrepaidTariff ? 0 : (startedDevice.total || 0);
             const userId = startedDevice.started_by_user_id;
             let mapItem = userWithTotalAndCountRunningMap.get(userId)
             if (mapItem === undefined) {
@@ -1138,8 +1148,6 @@ export class StateManager {
             }
             if (startedDevice.continuation_tariff_id) {
                 const continuationTariff = allTariffs.find(x => x.id === startedDevice.continuation_tariff_id)!;
-                continuationsTotal = this.roundAmount(continuationsTotal + continuationTariff.price);
-                continuationsCount++;
                 mapItem.count++;
                 mapItem.total = this.roundAmount(mapItem.total + continuationTariff.price);
             }
