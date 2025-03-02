@@ -1765,7 +1765,8 @@ export class StateManager {
                 // Prepaid tariffs set total amount to 0, because they are already paid
                 total_amount: 0,
                 started_by_user_id: storageDeviceStatus.started_by_user_id,
-                stopped_by_user_id: storageDeviceStatus.stopped_by_user_id,
+                // Devices stopped by customers must have null for stopped_by_user_id
+                stopped_by_user_id: null,
                 started_by_customer: !storageDeviceStatus.started_by_user_id,
                 stopped_by_customer: true,
             } as IDeviceSession;
@@ -3105,7 +3106,8 @@ export class StateManager {
                             tariff_id: storageDeviceStatus.start_reason,
                             total_amount: calculatedDeviceStatus.totalSum,
                             started_by_user_id: storageDeviceStatus.started_by_user_id,
-                            stopped_by_user_id: storageDeviceStatus.stopped_by_user_id,
+                            // The computer is stopped automatically - the record must have user id null for stopped_by_user_id
+                            stopped_by_user_id: null,
                             started_by_customer: !storageDeviceStatus.started_by_user_id,
                             // This will always be false, because the system is stopping the computer
                             stopped_by_customer: false,
