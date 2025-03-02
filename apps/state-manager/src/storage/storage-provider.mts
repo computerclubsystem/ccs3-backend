@@ -52,6 +52,7 @@ export interface StorageProvider {
     getDeviceStatus(deviceId: number): Promise<IDeviceStatus | undefined>;
     addDeviceConnectionEvent(deviceConnectionEvent: IDeviceConnectionEvent): Promise<IDeviceConnectionEvent | undefined>;
     addDeviceSession(deviceSession: IDeviceSession): Promise<IDeviceSession>
+    getDeviceSessions(fromDate: string, toDate: string, userId: number | null | undefined, deviceId: number | null | undefined, tariffId: number | null | undefined): Promise<IDeviceSession[]>
     getAllDeviceStatuses(): Promise<IDeviceStatus[]>;
     getDeviceStatusesByTariffId(tariffId: number): Promise<IDeviceStatus[]>;
     getAllDeviceStatusesWithContinuationData(): Promise<IDeviceStatusWithContinuationData[]>;

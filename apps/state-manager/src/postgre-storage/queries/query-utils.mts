@@ -142,6 +142,16 @@ export class QueryUtils {
         return this.helpers.shift.getShiftsSummaryQueryData(fromDate, toDate, userId);
     }
 
+    getDeviceSessionsQueryData(
+        fromDate: string,
+        toDate: string,
+        userId: number | null | undefined,
+        deviceId: number | null | undefined,
+        tariffId: number | null | undefined,
+    ): IQueryTextWithParamsResult {
+        return this.helpers.deviceSession.getDeviceCompletedSessionsQueryData(fromDate, toDate, userId, deviceId, tariffId);
+    }
+
     getCompletedSessionsQueryData(fromDate: string | null | undefined, toDate: string): IQueryTextWithParamsResult {
         return this.helpers.deviceSession.getCompletedSessionsQueryData(fromDate, toDate);
     }

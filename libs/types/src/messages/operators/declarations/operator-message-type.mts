@@ -1,4 +1,5 @@
 export enum OperatorRequestMessageType {
+    getDeviceCompletedSessionsRequest = 'get-device-completed-sessions-request',
     setDeviceStatusNoteRequest = 'set-device-status-note-request',
     getAllAllowedDeviceObjectsRequest = 'get-all-allowed-device-objects-request',
     updateDeviceGroupRequest = 'update-device-group-request',
@@ -47,6 +48,7 @@ export enum OperatorRequestMessageType {
 }
 
 export enum OperatorReplyMessageType {
+    getDeviceCompletedSessionsReply = 'get-device-completed-sessions-reply',
     setDeviceStatusNoteReply = 'set-device-status-note-reply',
     getAllAllowedDeviceObjectsReply = 'get-all-allowed-device-objects-reply',
     updateDeviceGroupReply = 'update-device-group-reply',

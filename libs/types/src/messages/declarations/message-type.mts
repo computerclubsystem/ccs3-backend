@@ -1,4 +1,8 @@
 export const enum MessageType {
+    // Device sessions
+    busGetDeviceCompletedSessionsRequest = 'bus-get-device-completed-sessions-request',
+    busGetDeviceCompletedSessionsReply = 'bus-get-device-completed-sessions-reply',
+
     // Allowed device objects
     busGetAllAllowedDeviceObjectsRequest = 'bus-get-all-allowed-device-objects-request',
     busGetAllAllowedDeviceObjectsReply = 'bus-get-all-allowed-device-objects-reply',

@@ -1,9 +1,72 @@
 import { TariffType } from '@computerclubsystem/types/entities/tariff.mjs';
 import { IDeviceSession } from 'src/storage/entities/device-session.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
-import { SelectQueryBuilder, WhereClauseOperation } from './query-builder.mjs';
+import { SelectQueryBuilder, SortOrder, WhereClauseOperation } from './query-builder.mjs';
 
 export class DeviceSessionQueryHelper {
+    getDeviceCompletedSessionsQueryData(
+        fromDate: string,
+        toDate: string,
+        userId: number | null | undefined,
+        deviceId: number | null | undefined,
+        tariffId: number | null | undefined,
+    ): IQueryTextWithParamsResult {
+        const params: unknown[] = [];
+        let paramIndex = 0;
+        const builder = new SelectQueryBuilder();
+        builder.setTableName(TableName.device_session);
+        builder.addSelectColumnNames(this.getAllColumnNames());
+        params.push(fromDate);
+        paramIndex++;
+        builder.addWhereClause({
+            columnName: ColumnName.stopped_at,
+            operation: WhereClauseOperation.greaterThan,
+            parameterName: `$${paramIndex}`,
+        });
+        params.push(toDate);
+        paramIndex++;
+        builder.addWhereClause({
+            columnName: ColumnName.stopped_at,
+            operation: WhereClauseOperation.lessThan,
+            parameterName: `$${paramIndex}`,
+        });
+        if (userId && userId > 0) {
+            params.push(userId);
+            paramIndex++;
+            builder.addWhereClause({
+                columnName: ColumnName.started_by_user_id,
+                operation: WhereClauseOperation.equals,
+                parameterName: `$${paramIndex}`,
+            });
+        }
+        if (deviceId && deviceId > 0) {
+            params.push(deviceId);
+            paramIndex++;
+            builder.addWhereClause({
+                columnName: ColumnName.device_id,
+                operation: WhereClauseOperation.equals,
+                parameterName: `$${paramIndex}`,
+            });
+        }
+        if (tariffId && tariffId > 0) {
+            params.push(tariffId);
+            paramIndex++;
+            builder.addWhereClause({
+                columnName: ColumnName.tariff_id,
+                operation: WhereClauseOperation.equals,
+                parameterName: `$${paramIndex}`,
+            });
+        }
+        builder.addOrderClause({
+            columnName: ColumnName.stopped_at,
+            sortOrder: SortOrder.descending,
+        });
+        return {
+            text: builder.getQueryString(),
+            params: params,
+        };
+    }
+
     getCompletedSessionsQueryData(fromDate: string | null | undefined, toDate: string): IQueryTextWithParamsResult {
         const params: unknown[] = [];
         const builder = new SelectQueryBuilder();

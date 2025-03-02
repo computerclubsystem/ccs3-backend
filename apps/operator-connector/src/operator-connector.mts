@@ -215,6 +215,8 @@ import { BusSetDeviceStatusNoteReplyMessageBody, createBusSetDeviceStatusNoteReq
 import { BusGetLastCompletedShiftReplyMessage, createBusGetLastCompletedShiftRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-last-completed-shift.messages.mjs';
 import { createOperatorSignInInformationNotificationMessage } from '@computerclubsystem/types/messages/operators/operator-sign-in-information-notification.message.mjs';
 import { Shift } from '@computerclubsystem/types/entities/shift.mjs';
+import { createOperatorGetDeviceCompletedSessionsReplyMessage, OperatorGetDeviceCompletedSessionsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-device-completed-sessions.messages.mjs';
+import { BusGetDeviceCompletedSessionsReplyMessageBody, createBusGetDeviceCompletedSessionsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-completed-sessions.messages.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -287,6 +289,9 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorRequestMessageType.getDeviceCompletedSessionsRequest:
+                this.processOperatorGetDeviceCompletedSessionsRequestMessage(clientData, message as OperatorGetDeviceCompletedSessionsRequestMessage);
+                break;
             case OperatorRequestMessageType.setDeviceStatusNoteRequest:
                 this.processOperatorSetDeviceStatusNoteRequestMessage(clientData, message as OperatorSetDeviceStatusNoteRequestMessage);
                 break;
@@ -424,6 +429,23 @@ export class OperatorConnector {
                 this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    processOperatorGetDeviceCompletedSessionsRequestMessage(clientData: ConnectedClientData, message: OperatorGetDeviceCompletedSessionsRequestMessage): void {
+        const busReqMsg = createBusGetDeviceCompletedSessionsRequestMessage();
+        busReqMsg.body.deviceId = message.body.deviceId;
+        busReqMsg.body.fromDate = message.body.fromDate;
+        busReqMsg.body.toDate = message.body.toDate;
+        busReqMsg.body.userId = message.body.userId;
+        busReqMsg.body.tariffId = message.body.tariffId;
+        this.publishToOperatorsChannelAndWaitForReply<BusGetDeviceCompletedSessionsReplyMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorGetDeviceCompletedSessionsReplyMessage();
+                operatorReplyMsg.body.deviceSessions = busReplyMsg.body.deviceSessions;
+                operatorReplyMsg.body.totalSum = busReplyMsg.body.totalSum;
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
     }
 
     processOperatorSetDeviceStatusNoteRequestMessage(clientData: ConnectedClientData, message: OperatorSetDeviceStatusNoteRequestMessage): void {

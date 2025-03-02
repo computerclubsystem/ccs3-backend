@@ -1,0 +1,14 @@
+INSERT INTO permission
+(
+    name,
+    description
+)
+VALUES
+(
+    'reports:device-sessions',
+    'Allows reading device sessions report.'
+);
+
+UPDATE db_metadata
+SET value = '33'
+WHERE name = 'database-version';

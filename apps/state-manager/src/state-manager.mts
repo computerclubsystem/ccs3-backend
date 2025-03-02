@@ -139,9 +139,9 @@ import { IDeviceGroup } from './storage/entities/device-group.mjs';
 import { ITariffInDeviceGroup } from './storage/entities/tariff-in-device-group.mjs';
 import { BusSetDeviceStatusNoteRequestMessage, createBusSetDeviceStatusNoteReplyMessage } from '@computerclubsystem/types/messages/bus/bus-set-device-status-note.messages.mjs';
 import { BusGetLastCompletedShiftRequestMessage, createBusGetLastCompletedShiftReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-last-completed-shift.messages.mjs';
-import { IUser } from './storage/entities/user.mjs';
-import { NameWithNumber } from '@computerclubsystem/types/entities/name-with-number.mjs';
 import { UserWithTotalAndCount } from '@computerclubsystem/types/entities/user-total-and-count.mjs';
+import { BusGetDeviceCompletedSessionsRequestMessage, createBusGetDeviceCompletedSessionsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-completed-sessions.messages.mjs';
+import { DeviceToServerRequestMessageType } from '@computerclubsystem/types/messages/devices/declarations/device-to-server-request-message-type.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -254,6 +254,9 @@ export class StateManager {
     processOperatorsChannelMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busGetDeviceCompletedSessionsRequest:
+                this.processBusGetDeviceCompletedSessionsRequestMessage(message as BusGetDeviceCompletedSessionsRequestMessage);
+                break;
             case MessageType.busSetDeviceStatusNoteRequest:
                 this.processBusSetDeviceStatusNoteRequestMessage(message as BusSetDeviceStatusNoteRequestMessage);
                 break;
@@ -418,6 +421,36 @@ export class StateManager {
         }
 
         return true;
+    }
+
+    async processBusGetDeviceCompletedSessionsRequestMessage(message: BusGetDeviceCompletedSessionsRequestMessage): Promise<void> {
+        const replyMsg = createBusGetDeviceCompletedSessionsReplyMessage();
+        try {
+            if (!message.body.fromDate || !message.body.toDate) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.fromAndToDatesAreRequired,
+                    description: 'From and To dates are required',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            const storageDeviceSessions = await this.storageProvider.getDeviceSessions(
+                message.body.fromDate,
+                message.body.toDate,
+                message.body.userId,
+                message.body.deviceId,
+                message.body.tariffId,
+            );
+            const deviceSessions = storageDeviceSessions.map(x => this.entityConverter.toDeviceSession(x));
+            const totalSum = deviceSessions.reduce((acc, curr) => this.roundAmount(acc + curr.totalAmount), 0);
+            replyMsg.body.deviceSessions = deviceSessions;
+            replyMsg.body.totalSum = totalSum;
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
     }
 
     async processBusSetDeviceStatusNoteRequestMessage(message: BusSetDeviceStatusNoteRequestMessage): Promise<void> {
@@ -1036,7 +1069,7 @@ export class StateManager {
         const storageCreatedTariffs = await this.storageProvider.getCreatedTariffsForDateTimeInterval(fromDate, nowISOString);
         const storageCreatedPrepaidTariffs = storageCreatedTariffs.filter(x => this.isPrepaidType(x.type as number as TariffType));
         let createdPrepaidTariffsCount = storageCreatedPrepaidTariffs.length;
-        let createdPrepaidTariffsTotal = storageCreatedPrepaidTariffs.reduce((prevValue, tariff) => this.roundAmount(prevValue + tariff.price), 0);
+        let createdPrepaidTariffsTotal = storageCreatedPrepaidTariffs.reduce((acc, tariff) => this.roundAmount(acc + tariff.price), 0);
         for (const storageCreatedPrepaidTariff of storageCreatedPrepaidTariffs) {
             const userId = storageCreatedPrepaidTariff.created_by_user_id!;
             const mapItem = userWithTotalAndCountCompletedMap.get(userId);
@@ -1056,7 +1089,7 @@ export class StateManager {
         // Recharged tariffs
         const storageRechargedTariffs = await this.storageProvider.getRechargedTariffsForDateTimeInterval(fromDate, nowISOString);
         let rechargedPrepaidTariffsCount = storageRechargedTariffs.length;
-        let rechargedPrepaidTariffsTotal = storageRechargedTariffs.reduce((prevValue, tariff) => this.roundAmount(prevValue + tariff.recharge_price), 0);
+        let rechargedPrepaidTariffsTotal = storageRechargedTariffs.reduce((acc, tariff) => this.roundAmount(acc + tariff.recharge_price), 0);
         for (const storageRechargedTariff of storageRechargedTariffs) {
             const userId = storageRechargedTariff.user_id;
             const mapItem = userWithTotalAndCountCompletedMap.get(userId);
@@ -3186,8 +3219,8 @@ export class StateManager {
                 for (const tariffId of continuationTariffIds) {
                     const tariff = allTariffsMap.get(tariffId!)!;
                     const tariffShortInfo: TariffShortInfo = {
-                        id: tariff.id, 
-                        name: tariff.name, 
+                        id: tariff.id,
+                        name: tariff.name,
                         duration: tariff.duration,
                     };
                     continuationTariffShortInfos.push(tariffShortInfo);

@@ -24,8 +24,27 @@ import { ISystemSetting } from './storage/entities/system-setting.mjs';
 import { SystemSetting } from '@computerclubsystem/types/entities/system-setting.mjs';
 import { IDeviceGroup } from './storage/entities/device-group.mjs';
 import { DeviceGroup } from '@computerclubsystem/types/entities/device-group.mjs';
+import { IDeviceSession } from './storage/entities/device-session.mjs';
+import { DeviceSession } from '@computerclubsystem/types/entities/device-session.mjs';
 
 export class EntityConverter {
+    toDeviceSession(storageDeviceSession: IDeviceSession): DeviceSession {
+        const deviceSession: DeviceSession = {
+            deviceId: storageDeviceSession.device_id,
+            id: storageDeviceSession.id,
+            startedAt: storageDeviceSession.started_at,
+            stoppedAt: storageDeviceSession.stopped_at,
+            tariffId: storageDeviceSession.tariff_id,
+            totalAmount: storageDeviceSession.total_amount,
+            note: storageDeviceSession.note,
+            startedByCustomer: storageDeviceSession.started_by_customer,
+            startedByUserId: storageDeviceSession.started_by_user_id,
+            stoppedByCustomer: storageDeviceSession.stopped_by_customer,
+            stoppedByUserId: storageDeviceSession.stopped_by_user_id,
+        };
+        return deviceSession;
+    }
+
     toStorageDeviceGroup(deviceGroup: DeviceGroup): IDeviceGroup {
         const storageDeviceGroup: IDeviceGroup = {
             id: deviceGroup.id,

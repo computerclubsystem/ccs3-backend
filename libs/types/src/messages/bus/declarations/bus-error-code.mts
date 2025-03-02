@@ -1,4 +1,5 @@
 export enum BusErrorCode {
+    fromAndToDatesAreRequired = 'from-and-to-dates-are-required',
     cantCreateDeviceGroup = 'cant-create-device-group',
     deviceGroupIsRequired = 'device-group-is-required',
     deviceGroupNotFound = 'device-group-not-found',
