@@ -245,6 +245,8 @@ export class PcConnector {
                 replyMsg.body.notAllowed = busReplyMsg.body.notAllowed;
                 replyMsg.body.passwordDoesNotMatch = busReplyMsg.body.passwordDoesNotMatch;
                 replyMsg.body.remainingSeconds = busReplyMsg.body.remainingSeconds;
+                replyMsg.body.noRemainingTime = busReplyMsg.body.noRemainingTime;
+                replyMsg.body.notAvailableForThisDeviceGroup = busReplyMsg.body.notAvailableForThisDeviceGroup;
                 replyMsg.body.success = busReplyMsg.body.success;
                 replyMsg.header.failure = busReplyMsg.header.failure;
                 this.sendReplyMessageToDevice(replyMsg, message, clientData.connectionId);

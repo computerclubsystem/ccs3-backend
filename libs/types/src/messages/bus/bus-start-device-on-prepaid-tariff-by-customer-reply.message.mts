@@ -5,6 +5,8 @@ export interface BusStartDeviceOnPrepaidTariffByCustomerReplyMessageBody {
     alreadyInUse?: boolean | null;
     notAllowed?: boolean | null;
     passwordDoesNotMatch?: boolean | null;
+    noRemainingTime?: boolean | null;
+    notAvailableForThisDeviceGroup?: boolean | null;
     remainingSeconds?: number | null;
     success: boolean;
 }

@@ -2268,7 +2268,7 @@ export class StateManager {
                 replyMsg.header.errors = [
                     { code: BusErrorCode.noRemainingTimeLeft, description: `The tariff '${tariff.name}' has no time remaining` },
                 ]
-                replyMsg.body.notAllowed = true;
+                replyMsg.body.noRemainingTime = true;
                 replyMsg.body.remainingSeconds = 0;
                 this.publishToDevicesChannel(replyMsg, message);
                 return;
@@ -2291,8 +2291,8 @@ export class StateManager {
                 this.publishToDevicesChannel(replyMsg, message);
                 return;
             }
-
             const isTariffAvailable = await this.isTariffAvailableForDevice(
+
                 message.body.deviceId,
                 message.body.tariffId,
                 allTariffs,
@@ -2303,6 +2303,7 @@ export class StateManager {
                     code: BusErrorCode.tariffIsNotAvailable,
                     description: `The tariff Id ${tariff.id} ('${tariff.name}') is not available for the device`,
                 }];
+                replyMsg.body.notAvailableForThisDeviceGroup = true;
                 this.publishToDevicesChannel(replyMsg, message);
                 return;
             }
