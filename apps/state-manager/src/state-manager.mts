@@ -435,9 +435,12 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
+            const fromDate = this.dateTimeHelper.convertToUTC(message.body.fromDate);
+            const toDate = this.dateTimeHelper.convertToUTC(message.body.toDate);
+            
             const storageDeviceSessions = await this.storageProvider.getDeviceSessions(
-                message.body.fromDate,
-                message.body.toDate,
+                fromDate!,
+                toDate!,
                 message.body.userId,
                 message.body.deviceId,
                 message.body.tariffId,
