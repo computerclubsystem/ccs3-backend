@@ -1113,33 +1113,25 @@ export class StateManager {
         const storageAllDeviceStatusesWithContinuation = await this.storageProvider.getAllDeviceStatusesWithContinuationData();
         const storageStartedDeviceStatuses = storageAllDeviceStatusesWithContinuation.filter(x => x.started);
         const nonPrepaidTariffsIdsSet = new Set<number>(allTariffs.filter(x => !this.isPrepaidType(x.type)).map(x => x.id));
-        const storageStartedDeviceStatusesForNonPrepaidTariffs = storageStartedDeviceStatuses.filter(x => nonPrepaidTariffsIdsSet.has(x.start_reason!));
+        // const storageStartedDeviceStatusesForNonPrepaidTariffs = storageStartedDeviceStatuses.filter(x => nonPrepaidTariffsIdsSet.has(x.start_reason!));
         // Running sessions count will include started device on all tariffs
         // while the running sessions total will include only devices started for non-prepaid tariffs
         let runningSessionsCount = storageStartedDeviceStatuses.length;
         let runningSessionsTotal = 0;
         let continuationsCount = 0;
         let continuationsTotal = 0;
-        for (const startedDevice of storageStartedDeviceStatusesForNonPrepaidTariffs) {
-            const startedDeviceTotal = startedDevice.total || 0;
-            runningSessionsTotal = this.roundAmount(runningSessionsTotal + startedDeviceTotal);
-            if (startedDevice.continuation_tariff_id) {
-                const continuationTariff = allTariffs.find(x => x.id === startedDevice.continuation_tariff_id)!;
-                continuationsTotal = this.roundAmount(continuationsTotal + continuationTariff.price);
-                continuationsCount++;
-            }
-        }
-
         for (const startedDevice of storageStartedDeviceStatuses) {
-            const isPrepaidTariff = !nonPrepaidTariffsIdsSet.has(startedDevice.start_reason!);
-            const startedDeviceTotal = isPrepaidTariff ? 0 : (startedDevice.total || 0);
             const userId = startedDevice.started_by_user_id;
+            const isPrepaidTariff = !nonPrepaidTariffsIdsSet.has(startedDevice.start_reason!);
+            const username = isPrepaidTariff ? '' : (allUsersMap.get(userId!)?.username || '');
+            const startedDeviceTotal = isPrepaidTariff ? 0 : (startedDevice.total || 0);
+            runningSessionsTotal = this.roundAmount(runningSessionsTotal + startedDeviceTotal);
             let mapItem = userWithTotalAndCountRunningMap.get(userId)
             if (mapItem === undefined) {
                 mapItem = {
                     count: 1,
                     total: startedDeviceTotal,
-                    username: allUsersMap.get(userId!)?.username || '',
+                    username: username,
                 };
                 userWithTotalAndCountRunningMap.set(userId, mapItem);
             } else {
@@ -1148,8 +1140,22 @@ export class StateManager {
             }
             if (startedDevice.continuation_tariff_id) {
                 const continuationTariff = allTariffs.find(x => x.id === startedDevice.continuation_tariff_id)!;
-                mapItem.count++;
-                mapItem.total = this.roundAmount(mapItem.total + continuationTariff.price);
+                continuationsTotal = this.roundAmount(continuationsTotal + continuationTariff.price);
+                continuationsCount++;
+                const continuationUserId = startedDevice.continuation_user_id!;
+                const continuationUsername = allUsersMap.get(continuationUserId)?.username!;
+                let continuationMapItem = userWithTotalAndCountRunningMap.get(continuationUserId);
+                if (continuationMapItem == undefined) {
+                    mapItem = {
+                        count: 1,
+                        total: continuationTariff.price,
+                        username: continuationUsername,
+                    };
+                    userWithTotalAndCountRunningMap.set(continuationUserId, mapItem);
+                } else {
+                    mapItem.count++;
+                    mapItem.total = this.roundAmount(mapItem.total + continuationTariff.price);
+                }
             }
         }
 
