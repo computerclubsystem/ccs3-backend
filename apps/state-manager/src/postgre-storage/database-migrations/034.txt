@@ -1,0 +1,14 @@
+INSERT INTO user_profile_setting
+(
+    name,
+    description
+)
+VALUES
+(
+    'computer_statuses_layout_rows_count',
+    'Number of rows to show in computer statuses page'
+);
+
+UPDATE db_metadata
+SET value = '34'
+WHERE name = 'database-version';
