@@ -59,6 +59,8 @@ import { CacheHelper } from './cache-helper.mjs';
 import { UdpHelper } from './udp-helper.mjs';
 import { SystemSettingsName } from '@computerclubsystem/types/entities/system-setting-name.mjs';
 import { TariffShortInfo } from '@computerclubsystem/types/entities/tariff.mjs';
+import { BusFilterServerLogsNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-filter-server-logs-notification.message.mjs';
+import { FilterServerLogsItem } from '@computerclubsystem/types/messages/shared-declarations/filter-server-logs-item.mjs';
 
 export class PcConnector {
     wssServer!: WssServer;
@@ -302,9 +304,23 @@ export class PcConnector {
         this.subjectsService.setSharedChannelBusMessageReceived(message);
         const type = message.header.type;
         switch (type) {
+            case MessageType.busFilterServerLogsNotification:
+                this.processBusFilterServerLogsNotificationMessage(message as BusFilterServerLogsNotificationMessage);
+                break;
             case MessageType.busAllSystemSettingsNotification:
                 this.processBusAllSystemSettingsNotificationMessage(message as BusAllSystemSettingsNotificationMessage);
                 break;
+        }
+    }
+
+    processBusFilterServerLogsNotificationMessage(message: BusFilterServerLogsNotificationMessage): void {
+        const pcConnectorItem = message.body.filterServerLogsItems.find(x => x.serviceName === this.messageBusIdentifier);
+        if (pcConnectorItem) {
+            if (pcConnectorItem) {
+                this.state.filterLogsItem = pcConnectorItem;
+                this.state.filterLogsRequestedAt = this.getNowAsNumber();
+                this.logger.setMessageFilter(pcConnectorItem.messageFilter);
+            }
         }
     }
 
@@ -356,7 +372,7 @@ export class PcConnector {
                     try {
                         this.sendNotificationMessageToDevice(msg, connectionId);
                     } catch (err) {
-                        this.logger.warn(`Can't send to device`, connectionId, msg, err);
+                        this.logger.warn(`Can't send to device connection id ${connectionId}`, msg, err);
                     }
                 }
             }
@@ -370,12 +386,14 @@ export class PcConnector {
 
     async processBusDeviceStatusesMessageForNoCertificateDevices(deviceStatuses: DeviceStatus[]): Promise<void> {
         // TODO: Try to not load devices every time - load them on start-up and also add notification from state-manager when devices are changed
+        this.logger.log('processBusDeviceStatusesMessageForNoCertificateDevices: Loading all devices');
         const allDevices = await this.cacheHelper.getAllDevices();
         if (!allDevices) {
             return;
         }
 
         const devicesWithoutCertificateThumbprints = allDevices.filter(x => x.enabled && x.approved && !x.certificateThumbprint && x.description);
+        this.logger.log(`processBusDeviceStatusesMessageForNoCertificateDevices: Devices without certificate thumprints count: ${devicesWithoutCertificateThumbprints.length}`);
         for (const noCertDevice of devicesWithoutCertificateThumbprints) {
             const deviceStatus = deviceStatuses.find(x => x.deviceId === noCertDevice.id);
             if (deviceStatus) {
@@ -409,6 +427,7 @@ export class PcConnector {
                     const buffer = this.hexStringToBuffer(packetToSend);
                     try {
                         // TODO: This must be configuration
+                        this.logger.log(`processBusDeviceStatusesMessageForNoCertificateDevices: Sending to ${noCertDevice.ipAddress}:${port!} packet ${packetToSend}`);
                         await this.delay(500);
                         this.udpHelper.send(buffer, port!, noCertDevice.ipAddress);
                     } catch (err) {
@@ -449,7 +468,7 @@ export class PcConnector {
         }
 
         if (!device?.approved || !device?.enabled) {
-            this.logger.warn('The device is not active. Closing connection. Device', device?.id, clientData);
+            this.logger.warn(`The device is not active. Closing connection. Device ${device?.id}`, clientData);
             this.removeClient(connectionId);
             this.wssServer.closeConnection(connectionId);
             return;
@@ -568,12 +587,12 @@ export class PcConnector {
     // }
 
     private sendNotificationMessageToDevice<TBody>(message: ServerToDeviceNotificationMessage<TBody>, connectionId: number): void {
-        this.logger.log('Sending notification message to device connection', connectionId, message);
+        this.logger.log(`Sending notification message ${message.header.type} to device connection ${connectionId}`, message);
         this.wssServer.sendJSON(message, connectionId);
     }
 
     private sendReplyMessageToDevice<TBody>(message: ServerToDeviceReplyMessage<TBody>, requestMessage: DeviceToServerRequestMessage<any>, connectionId: number): void {
-        this.logger.log('Sending reply message to device connection', connectionId, message);
+        this.logger.log(`Sending reply message ${message.header.type} to device connection ${connectionId}`, message);
         message.header.correlationId = requestMessage.header.correlationId;
         if (message.header.failure) {
             // Not sure what the requestType is
@@ -657,14 +676,14 @@ export class PcConnector {
 
     private async publishToChannel<TBody>(message: Message<TBody>, channelName: ChannelName): Promise<void> {
         message.header.source = this.messageBusIdentifier;
-        this.logger.log('Publishing message', channelName, message.header.type, message);
+        this.logger.log(`Publishing message ${message.header.type} to channel ${channelName}`, message);
         try {
             const publishResult = await this.pubClient.publish(channelName, JSON.stringify(message));
             this.state.pubClientPublishErrorsCount = 0;
         } catch (err) {
             this.state.pubClientPublishErrorsCount++;
-            this.logger.warn('Cannot publish message to channel', channelName, 'Message', message);
-            this.logger.warn('PubClient publish errors count', this.state.pubClientPublishErrorsCount, '. Maximum allowed', this.state.maxAllowedPubClientPublishErrorsCount);
+            this.logger.warn(`Cannot publish message to channel ${channelName}`, message);
+            this.logger.warn(`PubClient publish errors count ${this.state.pubClientPublishErrorsCount}. Maximum allowed ${this.state.maxAllowedPubClientPublishErrorsCount}`);
             if (this.state.pubClientPublishErrorsCount > this.state.maxAllowedPubClientPublishErrorsCount) {
                 this.exitProcessManager.exitProcess(ProcessExitCode.maxPubClientPublishErrorsReached);
             }
@@ -682,7 +701,7 @@ export class PcConnector {
     private async joinMessageBus(): Promise<void> {
         const redisHost = this.envVars.CCS3_REDIS_HOST.value;
         const redisPort = this.envVars.CCS3_REDIS_PORT.value;
-        this.logger.log('Using redis host', redisHost, 'and port', redisPort);
+        this.logger.log(`Using redis host ${redisHost} and port ${redisPort}`);
 
         let receivedMessagesCount = 0;
         const subClientOptions: CreateConnectedRedisClientOptions = {
@@ -698,10 +717,10 @@ export class PcConnector {
                 if (messageJson) {
                     this.processBusMessageReceived(channelName, messageJson);
                 } else {
-                    this.logger.warn('The message', message, 'deserialized to null');
+                    this.logger.warn('The message deserialized to null', message);
                 }
             } catch (err) {
-                this.logger.warn('Cannot deserialize channel', channelName, 'message', message, err);
+                this.logger.warn(`Cannot deserialize channel ${channelName} message`, message, err);
             }
         };
         this.logger.log('SubClient connecting to Redis');
@@ -716,7 +735,7 @@ export class PcConnector {
             port: redisPort,
             errorCallback: err => this.logger.error('PubClient error', err),
             reconnectStrategyCallback: (retries: number, err: Error) => {
-                this.logger.error('PubClient reconnect strategy error', retries, err);
+                this.logger.error(`PubClient reconnect strategy error. Retries ${retries}`, err);
                 return 5000;
             },
         };
@@ -733,7 +752,7 @@ export class PcConnector {
             port: redisPort,
             errorCallback: err => this.logger.error('CacheClient error', err),
             reconnectStrategyCallback: (retries: number, err: Error) => {
-                this.logger.error('CacheClient reconnect strategy error', retries, err);
+                this.logger.error(`CacheClient reconnect strategy error ${retries}`, err);
                 return 5000;
             },
         };
@@ -745,7 +764,7 @@ export class PcConnector {
     private processSubClientError(error: any): void {
         this.logger.error('SubClient error', error);
         this.state.subClientErrorsCount++;
-        this.logger.warn('SubClient errors count:', this.state.subClientErrorsCount, 'Maximum allowed:', this.state.maxAllowedSubClientErrorsCount);
+        this.logger.warn(`SubClient errors count: ${this.state.subClientErrorsCount}. Maximum allowed: ${this.state.maxAllowedSubClientErrorsCount}`);
         if (this.state.subClientErrorsCount > this.state.maxAllowedSubClientErrorsCount) {
             this.exitProcessManager.exitProcess(ProcessExitCode.maxSubClentErrorsReached);
         }
@@ -759,9 +778,9 @@ export class PcConnector {
      */
     private processSubClientReconnectStrategyError(retries: number, err: Error): number {
         // TODO: Count failures and exit the process if specific amount is reached
-        this.logger.error('SubClient reconnect strategy error', retries, err);
+        this.logger.error(`SubClient reconnect strategy error ${retries}`, err);
         this.state.subClientReconnectionErrorsCount++;
-        this.logger.warn('SubClient reconnection errors count:', this.state.subClientReconnectionErrorsCount, 'Maximum allowed:', this.state.maxAllowedSubClientReconnectionErrorsCount);
+        this.logger.warn(`SubClient reconnection errors count: ${this.state.subClientReconnectionErrorsCount}. Maximum allowed: ${this.state.maxAllowedSubClientReconnectionErrorsCount}`);
         if (this.state.subClientReconnectionErrorsCount > this.state.maxAllowedSubClientReconnectionErrorsCount) {
             this.exitProcessManager.exitProcess(ProcessExitCode.maxSubClientReconnectErrorsReached);
         }
@@ -792,11 +811,26 @@ export class PcConnector {
     }
 
     private startMainTimer(): void {
-        setInterval(() => this.processMainTimerTick(), 1000);
+        this.state.mainTimerHandle = setInterval(() => this.processMainTimerTick(), 1000);
     }
 
     processMainTimerTick(): void {
         this.processConnectivityData();
+        this.manageLogFiltering();
+    }
+
+    manageLogFiltering(): void {
+        const now = this.getNowAsNumber();
+        if (this.state.filterLogsItem) {
+            const diff = now - this.state.filterLogsRequestedAt!;
+            // 10 minutes
+            const filterLogsDuration = 10 * 60 * 1000;
+            if (diff > filterLogsDuration) {
+                this.logger.setMessageFilter(null);
+                this.state.filterLogsItem = null;
+                this.state.filterLogsRequestedAt = null;
+            }
+        }
     }
 
     private processConnectivityData(): void {
@@ -863,7 +897,7 @@ export class PcConnector {
         for (const entry of connectionIdsWithCleanUpReason.entries()) {
             const connectionId = entry[0];
             const data = this.getConnectedClientData(connectionId);
-            this.logger.warn('Disconnecting client', connectionId, entry[1], data);
+            this.logger.warn(`Disconnecting client ${connectionId}`, entry[1], data);
             if (data) {
                 this.connectivityHelper.setDeviceDisconnected(data.certificateThumbprint);
                 if (data.deviceId) {
@@ -973,4 +1007,7 @@ interface PcConnectorState {
     messageBusReplyTimeout: number;
 
     systemSettings: SystemSetting[];
+
+    filterLogsItem?: FilterServerLogsItem | null;
+    filterLogsRequestedAt?: number | null;
 }

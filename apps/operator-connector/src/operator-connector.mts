@@ -217,6 +217,8 @@ import { createOperatorSignInInformationNotificationMessage } from '@computerclu
 import { Shift } from '@computerclubsystem/types/entities/shift.mjs';
 import { createOperatorGetDeviceCompletedSessionsReplyMessage, OperatorGetDeviceCompletedSessionsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-device-completed-sessions.messages.mjs';
 import { BusGetDeviceCompletedSessionsReplyMessageBody, createBusGetDeviceCompletedSessionsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-completed-sessions.messages.mjs';
+import { createOperatorFilterServerLogsReplyMessage, OperatorFilterServerLogsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-filter-server-logs.messages.mjs';
+import { createBusFilterServerLogsNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-filter-server-logs-notification.message.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -289,6 +291,9 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorRequestMessageType.filterServerLogsRequest:
+                this.processOperatorFilterServerLogsRequestMessage(clientData, message as OperatorFilterServerLogsRequestMessage);
+                break;
             case OperatorRequestMessageType.getDeviceCompletedSessionsRequest:
                 this.processOperatorGetDeviceCompletedSessionsRequestMessage(clientData, message as OperatorGetDeviceCompletedSessionsRequestMessage);
                 break;
@@ -429,6 +434,20 @@ export class OperatorConnector {
                 this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    processOperatorFilterServerLogsRequestMessage(clientData: ConnectedClientData, message: OperatorFilterServerLogsRequestMessage): void {
+        const busReqMsg = createBusFilterServerLogsNotificationMessage();
+        busReqMsg.body.filterServerLogsItems = message.body.filterServerLogsItems;
+        this.publishToSharedChannel(busReqMsg);
+        const operatorConnectorFilterLogsItem = message.body.filterServerLogsItems.find(x => x.serviceName === this.messageBusIdentifier);
+        if (operatorConnectorFilterLogsItem) {
+            this.state.filterLogsItem = operatorConnectorFilterLogsItem;
+            this.state.filterLogsRequestedAt = this.getNowAsNumber();
+            this.logger.setMessageFilter(operatorConnectorFilterLogsItem.messageFilter);
+        }
+        const operatorReplyMsg = createOperatorFilterServerLogsReplyMessage();
+        this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
     }
 
     processOperatorGetDeviceCompletedSessionsRequestMessage(clientData: ConnectedClientData, message: OperatorGetDeviceCompletedSessionsRequestMessage): void {
@@ -1794,14 +1813,14 @@ export class OperatorConnector {
         this.wssServer.sendJSON(message, clientData.connectionId);
     }
 
-    sendMessageToOperator<TBody>(message: OperatorRequestMessage<TBody>, clientData: ConnectedClientData, requestMessage: OperatorRequestMessage<any> | null): void {
-        if (requestMessage) {
-            message.header.correlationId = requestMessage.header.correlationId;
-        }
-        clientData.sentMessagesCount++;
-        this.logger.log('Sending message to operator connection', clientData.connectionId, message.header.type, message);
-        this.wssServer.sendJSON(message, clientData.connectionId);
-    }
+    // sendMessageToOperator<TBody>(message: OperatorRequestMessage<TBody>, clientData: ConnectedClientData, requestMessage: OperatorRequestMessage<any> | null): void {
+    //     if (requestMessage) {
+    //         message.header.correlationId = requestMessage.header.correlationId;
+    //     }
+    //     clientData.sentMessagesCount++;
+    //     this.logger.log('Sending message to operator connection', clientData.connectionId, message.header.type, message);
+    //     this.wssServer.sendJSON(message, clientData.connectionId);
+    // }
 
     sendNotificationMessageToOperator<TBody>(message: OperatorNotificationMessage<TBody>, clientData: ConnectedClientData): void {
         clientData.sentMessagesCount++;
@@ -1819,8 +1838,30 @@ export class OperatorConnector {
         }
     }
 
+    startMainTimer(): void {
+        this.state.mainTimerHandle = setInterval(() => this.mainTimerCallback(), 5000);
+    }
+
     startClientConnectionsMonitor(): void {
         this.state.clientConnectionsMonitorTimerHandle = setInterval(() => this.cleanUpClientConnections(), this.state.cleanUpClientConnectionsInterval);
+    }
+
+    mainTimerCallback(): void {
+        this.manageLogFiltering();
+    }
+
+    manageLogFiltering(): void {
+        const now = this.getNowAsNumber();
+        if (this.state.filterLogsItem) {
+            const diff = now - this.state.filterLogsRequestedAt!;
+            // 10 minutes
+            const filterLogsDuration = 10 * 60 * 1000;
+            if (diff > filterLogsDuration) {
+                this.logger.setMessageFilter(null);
+                this.state.filterLogsItem = null;
+                this.state.filterLogsRequestedAt = null;
+            }
+        }
     }
 
     async maintainUserAuthDataTokenCacheItem(
@@ -1894,6 +1935,7 @@ export class OperatorConnector {
             // Message statistics for operator channel
             operatorChannelMessageStatItems: [],
             clientConnectionsMonitorTimerHandle: undefined,
+            mainTimerHandle: undefined,
             systemSettings: [],
         };
         return state;
@@ -1932,6 +1974,7 @@ export class OperatorConnector {
         await this.joinMessageBus();
         this.requestAllSystemSettings();
         this.startWebSocketServer();
+        this.startMainTimer();
         this.startClientConnectionsMonitor();
         this.serveStaticFiles();
     }
@@ -1973,18 +2016,18 @@ export class OperatorConnector {
         try {
             msg = this.deserializeWebSocketBufferToMessage(args.buffer);
             type = msg?.header?.type;
-            this.logger.log('Received message from operator, connection id', args.connectionId, type, msg);
+            this.logger.log(`Received message '${type}' from operator, connection id ${args.connectionId}`, msg);
             if (!type) {
                 return;
             }
             try {
                 this.processOperatorMessage(args.connectionId, msg!);
             } catch (err) {
-                this.logger.warn(`Can't process operator message`, msg, args, err);
+                this.logger.warn(`Can't process operator message '${type}'`, msg, args, err);
                 return;
             }
         } catch (err) {
-            this.logger.warn(`Can't deserialize operator message`, args, err);
+            this.logger.warn(`Can't deserialize operator message '${type}'`, args, err);
             return;
         }
     }
@@ -1992,7 +2035,7 @@ export class OperatorConnector {
     async joinMessageBus(): Promise<void> {
         const redisHost = this.envVars.CCS3_REDIS_HOST.value;
         const redisPort = this.envVars.CCS3_REDIS_PORT.value;
-        this.logger.log('Using redis host', redisHost, 'and port', redisPort);
+        this.logger.log(`Using redis host ${redisHost} and port ${redisPort}`);
 
         await this.connectSubClient(redisHost, redisPort);
         await this.connectPubClient(redisHost, redisPort);
@@ -2042,7 +2085,7 @@ export class OperatorConnector {
         this.wssEmitter.on(WssServerEventName.sendError, args => this.processOperatorSendError(args));
         this.wssEmitter.on(WssServerEventName.serverError, args => this.processOperatorServerError(args));
         this.wssEmitter.on(WssServerEventName.serverListening, () => this.processOperatorServerListening());
-        this.logger.log('WebSocket server listening at port', this.envVars.CCS3_OPERATOR_CONNECTOR_PORT.value);
+        this.logger.log(`WebSocket server listening at port ${this.envVars.CCS3_OPERATOR_CONNECTOR_PORT.value}`);
     }
 
     cleanUpClientConnections(): void {
@@ -2071,7 +2114,7 @@ export class OperatorConnector {
         for (const entry of connectionIdsWithCleanUpReason.entries()) {
             const connectionId = entry[0];
             const clientData = this.getConnectedClientData(connectionId);
-            this.logger.warn('Disconnecting client', connectionId, entry[1], clientData);
+            this.logger.warn(`Disconnecting client ${connectionId}`, entry[1], clientData);
             if (clientData?.userId) {
                 const note = JSON.stringify({
                     connectionId: entry[0],
@@ -2100,9 +2143,9 @@ export class OperatorConnector {
             const resolvedStaticFilesPath = this.staticFilesServer.getResolvedPath();
             const staticFilesPathExists = existsSync(resolvedStaticFilesPath);
             if (staticFilesPathExists) {
-                this.logger.log('Serving static files from', resolvedStaticFilesPath);
+                this.logger.log(`Serving static files from ${resolvedStaticFilesPath}`);
             } else {
-                this.logger.warn('Static files path', resolvedStaticFilesPath, 'does not exist');
+                this.logger.warn(`Static files path ${resolvedStaticFilesPath} does not exist`);
             }
         }
     }
@@ -2113,7 +2156,7 @@ export class OperatorConnector {
             port: redisPort,
             errorCallback: err => this.logger.error('SubClient error', err),
             reconnectStrategyCallback: (retries: number, err: Error) => {
-                this.logger.error('SubClient reconnect strategy error', retries, err);
+                this.logger.error(`SubClient reconnect strategy error. Retries ${retries}`, err);
                 return 5000;
             },
         };
@@ -2123,10 +2166,10 @@ export class OperatorConnector {
                 if (messageJson) {
                     this.processBusMessageReceived(channelName, messageJson);
                 } else {
-                    this.logger.warn('The message', message, 'deserialized to null');
+                    this.logger.warn('The message deserialized to null', message);
                 }
             } catch (err) {
-                this.logger.warn('Cannot deserialize channel', channelName, 'message', message, err);
+                this.logger.warn(`Cannot deserialize channel ${channelName} message`, message, err);
             }
         };
         this.logger.log('SubClient connecting to Redis');
@@ -2144,7 +2187,7 @@ export class OperatorConnector {
             port: redisPort,
             errorCallback: err => this.logger.error('PubClient error', err),
             reconnectStrategyCallback: (retries: number, err: Error) => {
-                this.logger.error('PubClient reconnect strategy error', retries, err);
+                this.logger.error(`PubClient reconnect strategy error. Retries ${retries}`, err);
                 return 5000;
             },
         };
@@ -2159,7 +2202,7 @@ export class OperatorConnector {
             port: redisPort,
             errorCallback: err => this.logger.error('CacheClient error', err),
             reconnectStrategyCallback: (retries: number, err: Error) => {
-                this.logger.error('CacheClient reconnect strategy error', retries, err);
+                this.logger.error(`CacheClient reconnect strategy error. Retries ${retries}`, err);
                 return 5000;
             },
         };
@@ -2171,6 +2214,7 @@ export class OperatorConnector {
     async terminate(): Promise<void> {
         this.logger.warn('Terminating');
         clearInterval(this.state.clientConnectionsMonitorTimerHandle);
+        clearInterval(this.state.mainTimerHandle);
         this.staticFilesServer?.stop();
         this.wssServer.stop();
         await this.subClient.disconnect();

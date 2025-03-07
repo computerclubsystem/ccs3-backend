@@ -141,7 +141,8 @@ import { BusSetDeviceStatusNoteRequestMessage, createBusSetDeviceStatusNoteReply
 import { BusGetLastCompletedShiftRequestMessage, createBusGetLastCompletedShiftReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-last-completed-shift.messages.mjs';
 import { UserWithTotalAndCount } from '@computerclubsystem/types/entities/user-total-and-count.mjs';
 import { BusGetDeviceCompletedSessionsRequestMessage, createBusGetDeviceCompletedSessionsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-completed-sessions.messages.mjs';
-import { DeviceToServerRequestMessageType } from '@computerclubsystem/types/messages/devices/declarations/device-to-server-request-message-type.mjs';
+import { FilterServerLogsItem } from '@computerclubsystem/types/messages/shared-declarations/filter-server-logs-item.mjs';
+import { BusFilterServerLogsNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-filter-server-logs-notification.message.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -164,7 +165,7 @@ export class StateManager {
         if (this.isOwnMessage(message)) {
             return;
         }
-        this.logger.log('Received channel', channelName, 'message', message.header.type, message);
+        this.logger.log(`Received channel ${channelName} message ${message.header.type}`, message);
         const type = message.header?.type;
         if (!type) {
             return;
@@ -187,6 +188,9 @@ export class StateManager {
         const type: string = message.header?.type;
         // const notificationMessage = message as unknown as SharedNotificationMessage<TBody>;
         switch (type) {
+            case MessageType.busFilterServerLogsNotification:
+                this.processBusFilterServerLogsNotificationMessage(message as BusFilterServerLogsNotificationMessage);
+                break;
             case MessageType.busGetLastCompletedShiftRequest:
                 this.processBusGetLastCompletedShiftRequestMessage(message as BusGetLastCompletedShiftRequestMessage);
                 break;
@@ -196,6 +200,17 @@ export class StateManager {
             case MessageType.busGetAllSystemSettingsRequest:
                 this.processSharedMessageBusGetAllSystemSettings(message as BusGetAllSystemSettingsRequestMessage);
                 break;
+        }
+    }
+
+    processBusFilterServerLogsNotificationMessage(message: BusFilterServerLogsNotificationMessage): void {
+        const pcConnectorItem = message.body.filterServerLogsItems.find(x => x.serviceName === this.messageBusIdentifier);
+        if (pcConnectorItem) {
+            if (pcConnectorItem) {
+                this.state.filterLogsItem = pcConnectorItem;
+                this.state.filterLogsRequestedAt = this.dateTimeHelper.getCurrentDateTimeAsNumber();
+                this.logger.setMessageFilter(pcConnectorItem.messageFilter);
+            }
         }
     }
 
@@ -925,7 +940,7 @@ export class StateManager {
             }
             // Create record in device statuses database table
             await this.storageProvider.addOrUpdateDeviceStatusEnabled(storageDeviceStatus);
-            this.logger.log('New device created. Device Id', createdStorageDevice.id);
+            this.logger.log(`New device created. Device Id ${createdStorageDevice.id}`);
             await this.cacheAllDevices();
             const createdDevice = this.entityConverter.toDevice(createdStorageDevice);
             replyMsg.body.device = createdDevice;
@@ -2457,7 +2472,6 @@ export class StateManager {
             // }
             if (tariff.type === TariffType.fromTo) {
                 const isCurrentMinuteInPeriodResult = this.dateTimeHelper.isCurrentMinuteInMinutePeriod(tariff.fromTime!, tariff.toTime!);
-                this.logger.log('isCurrentMinuteInMinutePeriod: Tariff id', tariff.id, 'fromTime', tariff.fromTime, 'toTime', tariff.toTime, 'result', isCurrentMinuteInPeriodResult);
                 if (!isCurrentMinuteInPeriodResult.isInPeriod) {
                     const replyMsg = createBusStartDeviceReplyMessage();
                     replyMsg.header.failure = true;
@@ -2962,7 +2976,7 @@ export class StateManager {
             }
             // Create record in device statuses database table
             await this.storageProvider.addOrUpdateDeviceStatusEnabled(storageDeviceStatus);
-            this.logger.log('New device created. Device Id', createdDevice.id);
+            this.logger.log(`New device created. Device Id ${createdDevice.id}`);
             await this.cacheAllDevices();
         } catch (err) {
             this.logger.warn(`Can't process BusDeviceUnknownDeviceConnectedRequestMessage message`, message, err);
@@ -3054,11 +3068,11 @@ export class StateManager {
 
     async publishMessage<TBody>(channelName: ChannelName, message: Message<TBody>): Promise<number> {
         try {
-            this.logger.log('Publishing message', channelName, message.header.type, message);
+            this.logger.log(`Publishing message ${channelName} ${message.header.type}`, message);
             message.header.source = this.messageBusIdentifier;
             return await this.pubClient.publish(channelName, this.serializeMessage(message));
         } catch (err) {
-            this.logger.error('Cannot sent message to channel', channelName, message, err);
+            this.logger.error(`Cannot sent message to channel ${channelName} ${message.header.type}`, message, err);
             return -1;
         }
     };
@@ -3066,6 +3080,20 @@ export class StateManager {
     private mainTimerCallback(): void {
         const now = this.dateTimeHelper.getCurrentDateTimeAsNumber();
         this.checkForRefreshDeviceStatuses(now);
+        this.manageLogFiltering(now);
+    }
+
+    manageLogFiltering(now: number): void {
+        if (this.state.filterLogsItem) {
+            const diff = now - this.state.filterLogsRequestedAt!;
+            // 10 minutes
+            const filterLogsDuration = 10 * 60 * 1000;
+            if (diff > filterLogsDuration) {
+                this.logger.setMessageFilter(null);
+                this.state.filterLogsItem = null;
+                this.state.filterLogsRequestedAt = null;
+            }
+        }
     }
 
     private checkForRefreshDeviceStatuses(now: number): void {
@@ -3292,7 +3320,6 @@ export class StateManager {
     canUseTariff(tariff: Tariff): { canUse: boolean } {
         if (tariff.type === TariffType.fromTo) {
             const isCurrentMinuteInPeriodResult = this.dateTimeHelper.isCurrentMinuteInMinutePeriod(tariff.fromTime!, tariff.toTime!);
-            this.logger.log('isCurrentMinuteInMinutePeriod: Tariff id', tariff.id, 'fromTime', tariff.fromTime, 'toTime', tariff.toTime, 'result', isCurrentMinuteInPeriodResult);
             if (!isCurrentMinuteInPeriodResult.isInPeriod) {
                 return { canUse: false };
                 // const replyMsg = createBusStartDeviceReplyMessage();
@@ -3487,7 +3514,7 @@ export class StateManager {
     private async initializeDatabase(): Promise<boolean> {
         const storageProviderConnectionString = this.envVars.CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING.value;
         if (!storageProviderConnectionString?.trim()) {
-            this.logger.error('The environment variable', this.envVars.CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING.name, 'value is empty');
+            this.logger.error(`The environment variable ${this.envVars.CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING.name} value is empty`);
             return false;
         }
         this.storageProvider = this.createStorageProvider();
@@ -3573,14 +3600,14 @@ export class StateManager {
 
         const redisHost = this.envVars.CCS3_REDIS_HOST.value;
         const redisPort = this.envVars.CCS3_REDIS_PORT.value;
-        this.logger.log('Using Redis host', redisHost, 'and port', redisPort);
+        this.logger.log(`Using Redis host ${redisHost} and port ${redisPort}`);
 
         const subClientOptions: CreateConnectedRedisClientOptions = {
             host: redisHost,
             port: redisPort,
             errorCallback: err => this.logger.error('SubClient error', err),
             reconnectStrategyCallback: (retries: number, err: Error) => {
-                this.logger.error('SubClient reconnect strategy error', retries, err);
+                this.logger.error(`SubClient reconnect strategy error. Retries ${retries}`, err);
                 return 5000;
             },
         };
@@ -3590,10 +3617,10 @@ export class StateManager {
                 if (messageJson) {
                     this.processReceivedBusMessage(channelName, messageJson);
                 } else {
-                    this.logger.warn('The message', message, 'deserialized to null');
+                    this.logger.warn('The message deserialized to null', message);
                 }
             } catch (err) {
-                this.logger.warn('Cannot deserialize channel', channelName, 'message', message);
+                this.logger.warn(`Cannot deserialize channel ${channelName} message`, message);
             }
         };
         await this.subClient.connect(subClientOptions, subClientMessageCallback);
@@ -3607,7 +3634,7 @@ export class StateManager {
             port: redisPort,
             errorCallback: err => this.logger.error('PubClient error', err),
             reconnectStrategyCallback: (retries: number, err: Error) => {
-                this.logger.error('PubClient reconnect strategy error', retries, err);
+                this.logger.error(`PubClient reconnect strategy error. Retries ${retries}`, err);
                 return 5000;
             },
         };
@@ -3620,7 +3647,7 @@ export class StateManager {
             port: redisPort,
             errorCallback: err => console.error('CacheClient error', err),
             reconnectStrategyCallback: (retries: number, err: Error) => {
-                console.error('CacheClient reconnect strategy error', retries, err);
+                console.error(`CacheClient reconnect strategy error ${retries}`, err);
                 return 5000;
             },
         };
@@ -3693,6 +3720,8 @@ interface StateManagerState {
     lastDeviceStatusRefreshAt: number;
     deviceStatusRefreshInProgress: boolean;
     mainTimerHandle?: NodeJS.Timeout;
+    filterLogsItem?: FilterServerLogsItem | null;
+    filterLogsRequestedAt?: number | null;
 }
 
 interface StateManagerStateSystemSettings {

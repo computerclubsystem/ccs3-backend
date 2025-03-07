@@ -1,0 +1,14 @@
+INSERT INTO permission
+(
+    name,
+    description
+)
+VALUES
+(
+    'diagnostics:filter-server-logs',
+    'Allows managing server logs filtering.'
+);
+
+UPDATE db_metadata
+SET value = '35'
+WHERE name = 'database-version';

@@ -1,4 +1,5 @@
 export enum OperatorRequestMessageType {
+    filterServerLogsRequest = 'filter-server-logs-request',
     getDeviceCompletedSessionsRequest = 'get-device-completed-sessions-request',
     setDeviceStatusNoteRequest = 'set-device-status-note-request',
     getAllAllowedDeviceObjectsRequest = 'get-all-allowed-device-objects-request',
@@ -48,6 +49,7 @@ export enum OperatorRequestMessageType {
 }
 
 export enum OperatorReplyMessageType {
+    filterServerLogsReply = 'filter-server-logs-reply',
     getDeviceCompletedSessionsReply = 'get-device-completed-sessions-reply',
     setDeviceStatusNoteReply = 'set-device-status-note-reply',
     getAllAllowedDeviceObjectsReply = 'get-all-allowed-device-objects-reply',

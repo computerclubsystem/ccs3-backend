@@ -1,4 +1,7 @@
 export const enum MessageType {
+    // Log filtering
+    busFilterServerLogsNotification = 'bus-filter-server-logs-notification',
+
     // Device sessions
     busGetDeviceCompletedSessionsRequest = 'bus-get-device-completed-sessions-request',
     busGetDeviceCompletedSessionsReply = 'bus-get-device-completed-sessions-reply',

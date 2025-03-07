@@ -51,6 +51,7 @@ export class AuthorizationHelper {
         map.set(OperatorRequestMessageType.getAllAllowedDeviceObjectsRequest, [PermissionName.devicesReadStatus]);
         map.set(OperatorRequestMessageType.setDeviceStatusNoteRequest, [PermissionName.devicesStart]);
         map.set(OperatorRequestMessageType.getDeviceCompletedSessionsRequest, [PermissionName.reportsDeviceSessions]);
+        map.set(OperatorRequestMessageType.filterServerLogsRequest, [PermissionName.diagnosticsFilterServerLogs]);
         this.messageTypeToPermissionMap = map;
     }
 

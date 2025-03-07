@@ -6,6 +6,7 @@ import { TariffValidator } from './tariff-validator.mjs';
 import { BusDeviceStatusesMessage } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
 import { ChannelName } from '@computerclubsystem/types/channels/channel-name.mjs';
 import { SystemSetting } from '@computerclubsystem/types/entities/system-setting.mjs';
+import { FilterServerLogsItem } from '@computerclubsystem/types/messages/shared-declarations/filter-server-logs-item.mjs';
 
 export interface ConnectedClientData {
     connectionId: number;
@@ -68,8 +69,11 @@ export interface OperatorConnectorState {
     messageBusReplyTimeout: number;
     operatorChannelMessageStatItems: MessageStatItem[];
     clientConnectionsMonitorTimerHandle?: NodeJS.Timeout;
+    mainTimerHandle?: NodeJS.Timeout;
     lastBusDeviceStatusesMessage?: BusDeviceStatusesMessage;
     systemSettings: SystemSetting[];
+    filterLogsItem?: FilterServerLogsItem | null;
+    filterLogsRequestedAt?: number | null;
 }
 
 export interface OperatorConnectorValidators {
