@@ -392,6 +392,17 @@ export class PcConnector {
             return;
         }
 
+        interface NoCertificateDataItem {
+            ip: string;
+            port: number;
+            packet: string;
+            httpToUdpProxyUrl?: string | null;
+            customHttpToUdpProxyRequestHeaders?: string | null;
+        }
+
+        let delayMs: number | undefined | null;
+        const noCertDataItems: NoCertificateDataItem[] = [];
+
         const devicesWithoutCertificateThumbprints = allDevices.filter(x => x.enabled && x.approved && !x.certificateThumbprint && x.description);
         this.logger.log(`processBusDeviceStatusesMessageForNoCertificateDevices: Devices without certificate thumprints count: ${devicesWithoutCertificateThumbprints.length}`);
         for (const noCertDevice of devicesWithoutCertificateThumbprints) {
@@ -403,6 +414,8 @@ export class PcConnector {
                 const trimmedLines = descLines.map(x => x.trim());
                 let packetToSend: string | undefined;
                 let port: number;
+                let httpToUdpProxyUrl: string | undefined | null;
+                let customHttpToUdpProxyRequestHeaders: string | undefined | null;
                 if (deviceStatus.started) {
                     // Must be started - find StartPacket
                     const startPacketLine = trimmedLines.find(x => x.startsWith('StartPacket='));
@@ -423,22 +436,122 @@ export class PcConnector {
                     const portParts = portLine.split('=');
                     port = +(portParts[1].trim());
                 }
-                if (packetToSend && (packetToSend.length % 2) === 0) {
-                    const buffer = this.hexStringToBuffer(packetToSend);
-                    try {
-                        // TODO: This must be configuration
-                        this.logger.log(`processBusDeviceStatusesMessageForNoCertificateDevices: Sending to ${noCertDevice.ipAddress}:${port!} packet ${packetToSend}`);
-                        await this.delay(500);
-                        this.udpHelper.send(buffer, port!, noCertDevice.ipAddress);
-                    } catch (err) {
-                        this.logger.warn(`Can't send UDP packet ${packetToSend} to ${noCertDevice.ipAddress}:${port!}. Error: ${err}`);
+                const httpToUdpProxyUrlLine = trimmedLines.find(x => x.startsWith('HttpToUdpProxyUrl='));
+                if (httpToUdpProxyUrlLine) {
+                    const httpToUdpProxyUrlParts = httpToUdpProxyUrlLine.split('=');
+                    httpToUdpProxyUrl = httpToUdpProxyUrlParts[1]?.trim();
+                }
+                if (!delayMs) {
+                    const delayBetweenPacketsMillisecondsLine = trimmedLines.find(x => x.startsWith('DelayBetweenPacketsMilliseconds='));
+                    if (delayBetweenPacketsMillisecondsLine) {
+                        const delayParts = delayBetweenPacketsMillisecondsLine.split('=');
+                        delayMs = +delayParts[1];
                     }
+                }
+                if (!customHttpToUdpProxyRequestHeaders) {
+                    const customHttpToUdpProxyRequestHeaderLine = trimmedLines.find(x => x.startsWith('CustomHttpToUdpProxyRequestHeaders='))
+                    if (customHttpToUdpProxyRequestHeaderLine) {
+                        const customHeaderParts = customHttpToUdpProxyRequestHeaderLine.split('=', 2);
+                        customHttpToUdpProxyRequestHeaders = customHeaderParts[1];
+                    }
+                }
+                if (packetToSend && (packetToSend.length % 2) === 0) {
+                    noCertDataItems.push({
+                        ip: noCertDevice.ipAddress,
+                        port: port!,
+                        packet: packetToSend,
+                        httpToUdpProxyUrl: httpToUdpProxyUrl,
+                        customHttpToUdpProxyRequestHeaders: customHttpToUdpProxyRequestHeaders,
+                    });
                 } else {
                     // Packet to send is not valid   
                     this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: packet to send is not valid`);
                 }
             }
         }
+
+        const dataItemsToSendToProxy = noCertDataItems.filter(x => !!x.httpToUdpProxyUrl);
+        if (dataItemsToSendToProxy.length > 0) {
+            interface PacketData {
+                destinationIpAddress: string;
+                destinationPort: number;
+                packetHexString: string;
+            }
+            interface SendPacketsRequest {
+                packetsData: PacketData[];
+                delayBetweenPacketsMilliseconds: number;
+            }
+            // TODO: Currently we require to use same Http-to-Udp proxy for all the items
+            //       Later we could support different proxies
+            const proxyUrl = dataItemsToSendToProxy[0].httpToUdpProxyUrl!;
+            const req: SendPacketsRequest = {
+                delayBetweenPacketsMilliseconds: delayMs || 0,
+                packetsData: dataItemsToSendToProxy.map(x => ({
+                    destinationIpAddress: x.ip,
+                    destinationPort: x.port,
+                    packetHexString: x.packet,
+                })),
+            };
+            try {
+                const url = new URL(proxyUrl);
+                url.pathname = 'send-packets';
+                this.logger.log(`processBusDeviceStatusesMessageForNoCertificateDevices: Sending ${dataItemsToSendToProxy.length} items to Http-to-Udp proxy url '${url.href}'`);
+                // TODO: This will turn off certificate validation for the entire process
+                //       We must use per-request certificate validation
+                this.disableCertificateValidation();
+                const headers: HeadersInit = {
+                    'Content-type': 'application/json; charset=UTF-8'
+                };
+                const customHeaders: { name: string, value: string }[] = [];
+                const customHeadersText = dataItemsToSendToProxy[0].customHttpToUdpProxyRequestHeaders?.trim();
+                if (customHeadersText) {
+                    const headersItems = customHeadersText.split(';');
+                    for (const headerItem of headersItems) {
+                        const headerParts = headerItem.split(':');
+                        customHeaders.push({ name: headerParts[0], value: headerParts[1] });
+                    }
+                }
+                if (customHeaders.length > 0) {
+                    for (const customHeader of customHeaders) {
+                        headers[customHeader.name] = customHeader.value;
+                    }
+                }
+                const res = await fetch(url.href, {
+                    method: 'POST',
+                    body: JSON.stringify(req),
+                    headers: headers,
+                });
+                this.enableCertificateValidation();
+                if (res.status != 200) {
+                    this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: Http-to-Udp proxy response status 200 expected but '${res.status}' received`);
+                }
+            } catch (err) {
+                this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: Can't send request to Http-To-Udp proxy 'proxyUrl'.  Error: ${err}, ${(err as any).cause}`);
+            }
+        }
+
+        const dataItemsToSendDirectly = noCertDataItems.filter(x => !x.httpToUdpProxyUrl);
+        const lastDataItemToSendDirectly = dataItemsToSendDirectly[dataItemsToSendDirectly.length - 1];
+        for (const dataItemToSendDirectly of dataItemsToSendDirectly) {
+            try {
+                this.logger.log(`processBusDeviceStatusesMessageForNoCertificateDevices: Sending to ${dataItemToSendDirectly.ip}:${dataItemToSendDirectly.port} packet ${dataItemToSendDirectly.packet} with delay between packets '${delayMs || 0}'`);
+                const buffer = this.hexStringToBuffer(dataItemToSendDirectly.packet);
+                this.udpHelper.send(buffer, dataItemToSendDirectly.port, dataItemToSendDirectly.ip);
+                if (delayMs && dataItemToSendDirectly !== lastDataItemToSendDirectly) {
+                    await this.delay(delayMs);
+                }
+            } catch (err) {
+                this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: Can't send UDP packet ${dataItemToSendDirectly.packet} to ${dataItemToSendDirectly.ip}:${dataItemToSendDirectly.port}. Error: ${err}`);
+            }
+        }
+    }
+
+    private disableCertificateValidation(): void {
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    }
+
+    private enableCertificateValidation(): void {
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = '1';
     }
 
     async delay(ms: number): Promise<void> {
