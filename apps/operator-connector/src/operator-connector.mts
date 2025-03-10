@@ -157,7 +157,7 @@ import { BusCompleteShiftReplyMessageBody } from '@computerclubsystem/types/mess
 import { createOperatorCompleteShiftReplyMessage } from '@computerclubsystem/types/messages/operators/operator-complete-shift-reply.message.mjs';
 import { OperatorGetShiftsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-shifts-request.message.mjs';
 import { createBusGetShiftsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-shifts-request.message.mjs';
-import { BusGetShiftsReplyMessageBody, createBusGetShiftsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-shifts-reply.message.mjs';
+import { BusGetShiftsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-shifts-reply.message.mjs';
 import { createOperatorGetShiftsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-shifts-reply.message.mjs';
 import { OperatorGetAllSystemSettingsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-system-settings-request.message.mjs';
 import { BusGetAllSystemSettingsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings-reply.message.mjs';
@@ -203,7 +203,7 @@ import { createBusCreateDeviceGroupRequestMessage } from '@computerclubsystem/ty
 import { BusCreateDeviceGroupReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-create-device-group-reply.message.mjs';
 import { createOperatorCreateDeviceGroupReplyMessage } from '@computerclubsystem/types/messages/operators/operator-create-device-group-reply.message.mjs';
 import { OperatorUpdateDeviceGroupRequestMessage } from '@computerclubsystem/types/messages/operators/operator-update-device-group-request.message.mjs';
-import { BusUpdateDeviceGroupReplyMessageBody, createBusUpdateDeviceGroupReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-device-group-reply.message.mjs';
+import { BusUpdateDeviceGroupReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-update-device-group-reply.message.mjs';
 import { createOperatorUpdateDeviceGroupReplyMessage } from '@computerclubsystem/types/messages/operators/operator-update-device-group-reply.message.mjs';
 import { createBusUpdateDeviceGroupRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-device-group-request.message.mjs';
 import { OperatorGetAllAllowedDeviceObjectsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-allowed-device-objects-request.message.mjs';
@@ -212,7 +212,7 @@ import { BusGetAllAllowedDeviceObjectsReplyMessageBody } from '@computerclubsyst
 import { createOperatorGetAllAllowedDeviceObjectsReplyMessage } from '@computerclubsystem/types/messages/operators/operator-get-all-allowed-device-objects-reply.message.mjs';
 import { createOperatorSetDeviceStatusNoteReplyMessage, OperatorSetDeviceStatusNoteRequestMessage } from '@computerclubsystem/types/messages/operators/operator-set-device-status-note.messages.mjs';
 import { BusSetDeviceStatusNoteReplyMessageBody, createBusSetDeviceStatusNoteRequestMessage } from '@computerclubsystem/types/messages/bus/bus-set-device-status-note.messages.mjs';
-import { BusGetLastCompletedShiftReplyMessage, createBusGetLastCompletedShiftRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-last-completed-shift.messages.mjs';
+import { BusGetLastCompletedShiftReplyMessageBody, createBusGetLastCompletedShiftRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-last-completed-shift.messages.mjs';
 import { createOperatorSignInInformationNotificationMessage } from '@computerclubsystem/types/messages/operators/operator-sign-in-information-notification.message.mjs';
 import { Shift } from '@computerclubsystem/types/entities/shift.mjs';
 import { createOperatorGetDeviceCompletedSessionsReplyMessage, OperatorGetDeviceCompletedSessionsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-device-completed-sessions.messages.mjs';
@@ -642,6 +642,8 @@ export class OperatorConnector {
                 operatorReplyMsg.body.shift = busReplyMsg.body.shift;
                 this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
                 this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+                // TODO: Only send completed shift information
+                this.sendSignInInformationNotificationMessage(clientData);
             });
     }
 
@@ -1496,18 +1498,13 @@ export class OperatorConnector {
 
     private sendSignInInformationNotificationMessage(clientData: ConnectedClientData): void {
         const busGetLastShiftReqMsg = createBusGetLastCompletedShiftRequestMessage();
-        interface SignInInformationObservables extends Record<string, ObservableInput<any>> {
-            lastCompletedShift: Observable<BusGetLastCompletedShiftReplyMessage>,
-        }
-        const observables: SignInInformationObservables = {
-            lastCompletedShift: this.publishToSharedChannelAndWaitForReply(busGetLastShiftReqMsg, clientData),
-        };
-        forkJoin(observables).subscribe(observablesResult => {
-            const signInInformationNotificationMsg = createOperatorSignInInformationNotificationMessage();
-            const lastShift: Shift | undefined | null = observablesResult.lastCompletedShift.body.shift;
-            signInInformationNotificationMsg.body.lastShiftCompletedAt = lastShift?.completedAt;
-            this.sendNotificationMessageToOperator(signInInformationNotificationMsg, clientData);
-        });
+        this.publishToSharedChannelAndWaitForReply<BusGetLastCompletedShiftReplyMessageBody>(busGetLastShiftReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const signInInformationNotificationMsg = createOperatorSignInInformationNotificationMessage();
+                signInInformationNotificationMsg.body.lastShiftCompletedAt = busReplyMsg.body.shift?.completedAt;
+                signInInformationNotificationMsg.body.lastShiftCompletedByUsername = busReplyMsg.body.completedByUsername;
+                this.sendNotificationMessageToOperator(signInInformationNotificationMsg, clientData);
+            });
     }
 
     async canProcessOperatorMessage<TBody>(clientData: ConnectedClientData, message: OperatorRequestMessage<TBody>): Promise<CanProcessOperatorMessageResult> {

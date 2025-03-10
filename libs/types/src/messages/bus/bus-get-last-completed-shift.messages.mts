@@ -16,6 +16,7 @@ export function createBusGetLastCompletedShiftRequestMessage(): BusGetLastComple
 
 export interface BusGetLastCompletedShiftReplyMessageBody {
     shift?: Shift | null;
+    completedByUsername?: string | null;
 };
 
 export type BusGetLastCompletedShiftReplyMessage = Message<BusGetLastCompletedShiftReplyMessageBody>;

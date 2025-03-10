@@ -219,6 +219,10 @@ export class StateManager {
         try {
             const storageShift = await this.storageProvider.getLastShift();
             replyMsg.body.shift = storageShift ? this.entityConverter.toShift(storageShift) : null;
+            if (storageShift) {
+                const sotrageUser = await this.storageProvider.getUserById(storageShift.user_id);
+                replyMsg.body.completedByUsername = sotrageUser?.username;
+            }
             this.publishToSharedChannel(replyMsg, message);
         } catch (err) {
             this.setErrorToReplyMessage(err, message, replyMsg);

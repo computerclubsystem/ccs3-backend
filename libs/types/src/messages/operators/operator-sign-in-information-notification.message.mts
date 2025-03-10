@@ -3,6 +3,7 @@ import { OperatorNotificationMessage } from './declarations/operator.message.mjs
 
 export interface OperatorSignInInformationNotificationMessageBody {
     lastShiftCompletedAt?: string | null;
+    lastShiftCompletedByUsername?: string | null;
 }
 
 export type OperatorSignInInformationNotificationMessage = OperatorNotificationMessage<OperatorSignInInformationNotificationMessageBody>;
