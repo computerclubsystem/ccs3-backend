@@ -4,10 +4,10 @@ import { IDeviceSession } from 'src/storage/entities/device-session.mjs';
 import { TariffType } from '@computerclubsystem/types/entities/tariff.mjs';
 
 export class DeviceStatusQueryHelper {
-    setDeviceStatusNoteQueryData(deviceId: number, note: string | null): IQueryTextWithParamsResult {
+    setDeviceStatusNoteQueryData(deviceIds: number[], note: string | null): IQueryTextWithParamsResult {
         const params = [
             note,
-            deviceId,
+            deviceIds,
         ];
         return {
             text: this.setDeviceStatusNoteQueryText,
@@ -18,7 +18,7 @@ export class DeviceStatusQueryHelper {
     private readonly setDeviceStatusNoteQueryText = `
         UPDATE device_status
         SET note = $1
-        WHERE device_id = $2
+        WHERE device_id = ANY($2)
     `;
 
     getDeviceStatusesSummaryForStartedDevicesQueryData(tariffTypes: TariffType[]): IQueryTextWithParamsResult {

@@ -475,19 +475,29 @@ export class StateManager {
         }
     }
 
-    async processBusSetDeviceStatusNoteRequestMessage(message: BusSetDeviceStatusNoteRequestMessage): Promise<void> {
-        const replyMsg = createBusSetDeviceStatusNoteReplyMessage();
-        try {
-            if (!(message.body.deviceId > 0)) {
-                replyMsg.header.failure = true;
-                replyMsg.header.errors = [{
+    validateBusSetDeviceStatusNoteRequestMessage(message: BusSetDeviceStatusNoteRequestMessage): MessageError[] | null {
+        for (const deviceId of message.body.deviceIds) {
+            if (!(deviceId > 0)) {
+                return [{
                     code: BusErrorCode.deviceIdIsRequired,
                     description: 'Device Id is required',
                 }];
+            }
+        }
+        return null;
+    }
+
+    async processBusSetDeviceStatusNoteRequestMessage(message: BusSetDeviceStatusNoteRequestMessage): Promise<void> {
+        const replyMsg = createBusSetDeviceStatusNoteReplyMessage();
+        try {
+            const validateResult = this.validateBusSetDeviceStatusNoteRequestMessage(message);
+            if (validateResult) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = validateResult;
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
-            await this.storageProvider.setDeviceStatusNote(message.body.deviceId, message.body.note);
+            await this.storageProvider.setDeviceStatusNote(message.body.deviceIds, message.body.note);
             this.refreshDeviceStatuses();
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {

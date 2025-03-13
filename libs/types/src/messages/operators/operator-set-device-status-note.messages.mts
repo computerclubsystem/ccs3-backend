@@ -2,7 +2,7 @@ import { OperatorReplyMessageType } from './declarations/operator-message-type.m
 import { OperatorReplyMessage, OperatorRequestMessage } from './declarations/operator.message.mjs';
 
 export interface OperatorSetDeviceStatusNoteRequestMessageBody {
-    deviceId: number;
+    deviceIds: number[];
     note: string | null;
 }
 

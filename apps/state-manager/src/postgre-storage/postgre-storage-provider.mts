@@ -603,8 +603,8 @@ export class PostgreStorageProvider implements StorageProvider {
         }
     }
 
-    async setDeviceStatusNote(deviceId: number, note: string | null): Promise<void> {
-        const queryData = this.queryUtils.setDeviceStatusNoteQueryData(deviceId, note);
+    async setDeviceStatusNote(deviceIds: number[], note: string | null): Promise<void> {
+        const queryData = this.queryUtils.setDeviceStatusNoteQueryData(deviceIds, note);
         await this.execQuery(queryData.text, queryData.params);
     }
 

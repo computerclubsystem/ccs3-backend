@@ -469,7 +469,7 @@ export class OperatorConnector {
 
     processOperatorSetDeviceStatusNoteRequestMessage(clientData: ConnectedClientData, message: OperatorSetDeviceStatusNoteRequestMessage): void {
         const busReqMsg = createBusSetDeviceStatusNoteRequestMessage();
-        busReqMsg.body.deviceId = message.body.deviceId;
+        busReqMsg.body.deviceIds = message.body.deviceIds;
         busReqMsg.body.note = message.body.note;
         this.publishToOperatorsChannelAndWaitForReply<BusSetDeviceStatusNoteReplyMessageBody>(busReqMsg, clientData)
             .subscribe(busReplyMsg => {
