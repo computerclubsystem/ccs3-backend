@@ -1,4 +1,5 @@
 export enum OperatorRequestMessageType {
+    shutdownStoppedRequest = 'shutdown-stopped-request',
     filterServerLogsRequest = 'filter-server-logs-request',
     getDeviceCompletedSessionsRequest = 'get-device-completed-sessions-request',
     setDeviceStatusNoteRequest = 'set-device-status-note-request',
@@ -49,6 +50,7 @@ export enum OperatorRequestMessageType {
 }
 
 export enum OperatorReplyMessageType {
+    shutdownStoppedReply = 'shutdown-stopped-reply',
     filterServerLogsReply = 'filter-server-logs-reply',
     getDeviceCompletedSessionsReply = 'get-device-completed-sessions-reply',
     setDeviceStatusNoteReply = 'set-device-status-note-reply',

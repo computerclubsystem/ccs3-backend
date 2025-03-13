@@ -1,4 +1,10 @@
 export const enum MessageType {
+    busShutdownStoppedRequest = 'bus-shutdown-stopped-request',
+    busShutdownStoppedReply = 'bus-shutdown-stopped-reply',
+
+    busGetDeviceStatusesRequest = 'bus-get-device-statuses-request',
+    busGetDeviceStatusesReply = 'bus-get-device-statuses-reply',
+
     // Log filtering
     busFilterServerLogsNotification = 'bus-filter-server-logs-notification',
 

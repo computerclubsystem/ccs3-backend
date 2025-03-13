@@ -219,6 +219,9 @@ import { createOperatorGetDeviceCompletedSessionsReplyMessage, OperatorGetDevice
 import { BusGetDeviceCompletedSessionsReplyMessageBody, createBusGetDeviceCompletedSessionsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-completed-sessions.messages.mjs';
 import { createOperatorFilterServerLogsReplyMessage, OperatorFilterServerLogsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-filter-server-logs.messages.mjs';
 import { createBusFilterServerLogsNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-filter-server-logs-notification.message.mjs';
+import { createOperatorShutdownStoppedReplyMessage, OperatorShutdownStoppedRequestMessage } from '@computerclubsystem/types/messages/operators/operator-shutdown-stopped.messages.mjs';
+import { BusGetDeviceStatusesReplyMessageBody, createBusGetDeviceStatusesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-statuses.messages.mjs';
+import { BusShutdownStoppedReplyMessageBody, BusShutdownStoppedRequestMessageBody, createBusShutdownStoppedRequestMessage } from '@computerclubsystem/types/messages/bus/bus-shutdown-stopped.messages.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -291,6 +294,9 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorRequestMessageType.shutdownStoppedRequest:
+                this.processOperatorShutdownStoppedRequestMessage(clientData, message as OperatorShutdownStoppedRequestMessage);
+                break;
             case OperatorRequestMessageType.filterServerLogsRequest:
                 this.processOperatorFilterServerLogsRequestMessage(clientData, message as OperatorFilterServerLogsRequestMessage);
                 break;
@@ -434,6 +440,17 @@ export class OperatorConnector {
                 this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    processOperatorShutdownStoppedRequestMessage(clientData: ConnectedClientData, message: OperatorShutdownStoppedRequestMessage): void {
+        const busReqMsg = createBusShutdownStoppedRequestMessage();
+        this.publishToDevicesChannelAndWaitForReply<BusShutdownStoppedReplyMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorShutdownStoppedReplyMessage();
+                operatorReplyMsg.body.targetsCount = busReplyMsg.body.targetsCount;
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
     }
 
     processOperatorFilterServerLogsRequestMessage(clientData: ConnectedClientData, message: OperatorFilterServerLogsRequestMessage): void {
@@ -1166,6 +1183,35 @@ export class OperatorConnector {
         );
     }
 
+     publishToDevicesChannelAndWaitForReply<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData): Observable<Message<TReplyBody>> {
+        const messageStatItem: MessageStatItem = {
+            sentAt: this.getNowAsNumber(),
+            channel: ChannelName.devices,
+            correlationId: busMessage.header.correlationId,
+            type: busMessage.header.type,
+            completedAt: 0,
+            operatorId: clientData.userId,
+        };
+        if (!busMessage.header.correlationId) {
+            busMessage.header.correlationId = this.createUUIDString();
+        }
+        messageStatItem.correlationId = busMessage.header.correlationId;
+        return this.publishToDevicesChannel(busMessage).pipe(
+            filter(msg => !!msg.header.correlationId && msg.header.correlationId === busMessage.header.correlationId),
+            first(),
+            timeout(this.state.messageBusReplyTimeout),
+            catchError(err => {
+                messageStatItem.error = err;
+                // TODO: This will complete the observable. The subscriber will not know about the error/timeout
+                return of();
+            }),
+            finalize(() => {
+                messageStatItem.completedAt = this.getNowAsNumber();
+                this.subjectsService.setMessageStat(messageStatItem);
+            }),
+        );
+    }
+
     publishToOperatorsChannelAndWaitForReply<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData): Observable<Message<TReplyBody>> {
         const messageStatItem: MessageStatItem = {
             sentAt: this.getNowAsNumber(),
@@ -1563,6 +1609,7 @@ export class OperatorConnector {
     }
 
     processDevicesBusMessage<TBody>(message: Message<TBody>): void {
+        this.subjectsService.setDevicesChannelBusMessageReceived(message);
         const type = message.header.type;
         switch (type) {
             case MessageType.busDeviceConnectivitiesNotification:
@@ -1723,6 +1770,13 @@ export class OperatorConnector {
         this.logger.log('Publishing message', ChannelName.shared, message.header.type, message);
         this.pubClient.publish(ChannelName.shared, JSON.stringify(message));
         return this.subjectsService.getSharedChannelBusMessageReceived();
+    }
+
+    publishToDevicesChannel<TBody>(message: Message<TBody>): Observable<Message<any>> {
+        message.header.source = this.messageBusIdentifier;
+        this.logger.log('Publishing message', ChannelName.devices, message.header.type, message);
+        this.pubClient.publish(ChannelName.devices, JSON.stringify(message));
+        return this.subjectsService.getDevicesChannelBusMessageReceived();
     }
 
     publishToOperatorsChannel<TBody>(message: Message<TBody>): Observable<Message<any>> {

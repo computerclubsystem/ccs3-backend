@@ -11,7 +11,7 @@ import { BusDeviceGetByCertificateRequestMessage } from '@computerclubsystem/typ
 import { createBusDeviceGetByCertificateReplyMessage } from '@computerclubsystem/types/messages/bus/bus-device-get-by-certificate-reply.message.mjs';
 import { MessageType } from '@computerclubsystem/types/messages/declarations/message-type.mjs';
 import { Device } from '@computerclubsystem/types/entities/device.mjs';
-import { DeviceStatus, createBusDeviceStatusesMessage } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
+import { BusDeviceStatusesMessage, DeviceStatus, createBusDeviceStatusesMessage } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
 // import { DeviceState } from '@computerclubsystem/types/entities/device-state.mjs';
 import { StorageProviderConfig } from './storage/storage-provider-config.mjs';
 import { StorageProvider } from './storage/storage-provider.mjs';
@@ -143,6 +143,7 @@ import { UserWithTotalAndCount } from '@computerclubsystem/types/entities/user-t
 import { BusGetDeviceCompletedSessionsRequestMessage, createBusGetDeviceCompletedSessionsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-completed-sessions.messages.mjs';
 import { FilterServerLogsItem } from '@computerclubsystem/types/messages/shared-declarations/filter-server-logs-item.mjs';
 import { BusFilterServerLogsNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-filter-server-logs-notification.message.mjs';
+import { BusGetDeviceStatusesRequestMessage, createBusGetDeviceStatusesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-statuses.messages.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -396,6 +397,9 @@ export class StateManager {
     processDevicesChannelMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busGetDeviceStatusesRequest:
+                this.processBusGetDeviceStatusesRequestMessage(message as BusGetDeviceStatusesRequestMessage);
+                break;
             case MessageType.busChangePrepaidTariffPasswordByCustomerRequest:
                 this.processBusChangePrepaidTariffPasswordByCustomerRequestMessage(message as BusChangePrepaidTariffPasswordByCustomerRequestMessage);
                 break;
@@ -440,6 +444,21 @@ export class StateManager {
         }
 
         return true;
+    }
+
+    async processBusGetDeviceStatusesRequestMessage(message: BusGetDeviceStatusesRequestMessage): Promise<void> {
+        const replyMsg = createBusGetDeviceStatusesReplyMessage();
+        try {
+            // TODO: This is the simplified version which does not return continuationTariffShortInfos
+            //       And will not recalculate status before returning the result
+            //       For recalculating device statuses this.refreshDeviceStatuses must be used
+            const allStorageDeviceStatuses = await this.storageProvider.getAllDeviceStatuses();
+            replyMsg.body.deviceStatuses = allStorageDeviceStatuses.map(x => this.entityConverter.toDeviceStatus(x));
+            this.publishToDevicesChannel(replyMsg, message);
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToDevicesChannel(replyMsg, message);
+        }
     }
 
     async processBusGetDeviceCompletedSessionsRequestMessage(message: BusGetDeviceCompletedSessionsRequestMessage): Promise<void> {

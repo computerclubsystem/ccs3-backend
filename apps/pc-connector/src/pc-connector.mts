@@ -61,11 +61,14 @@ import { SystemSettingsName } from '@computerclubsystem/types/entities/system-se
 import { TariffShortInfo } from '@computerclubsystem/types/entities/tariff.mjs';
 import { BusFilterServerLogsNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-filter-server-logs-notification.message.mjs';
 import { FilterServerLogsItem } from '@computerclubsystem/types/messages/shared-declarations/filter-server-logs-item.mjs';
+import { BusShutdownStoppedRequestMessage, createBusShutdownStoppedReplyMessage } from '@computerclubsystem/types/messages/bus/bus-shutdown-stopped.messages.mjs';
+import { BusGetDeviceStatusesReplyMessage, BusGetDeviceStatusesReplyMessageBody, createBusGetDeviceStatusesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-statuses.messages.mjs';
+import { createServerToDeviceShutdownNoitificationMessage } from '@computerclubsystem/types/messages/devices/server-to-device-shutdown-notification.message.mjs';
+import { transferSharedMessageData } from '@computerclubsystem/types/messages/utils.mjs';
 
 export class PcConnector {
     wssServer!: WssServer;
     wssEmitter!: EventEmitter;
-    desktopSwitchCounter = 0;
     connectedClients = new Map<number, ConnectedClientData>();
 
     private readonly envVars = new EnvironmentVariablesHelper().createEnvironmentVars();
@@ -284,7 +287,7 @@ export class PcConnector {
         if (this.isOwnMessage(message)) {
             return;
         }
-        this.logger.log('Received bus message', message.header.type, 'on channel', channelName, 'message', message);
+        this.logger.log(`Received bus message '${message.header.type}' on channel ${channelName}`, message);
         const type = message.header.type;
         if (!type) {
             return;
@@ -334,14 +337,51 @@ export class PcConnector {
         const type = message.header.type;
         // Process only notification messages. Reply message should be processed by the caller
         switch (type) {
+            case MessageType.busShutdownStoppedRequest:
+                this.processBusShutdownStoppedRequestMessage(message as BusShutdownStoppedRequestMessage);
+                break;
             case MessageType.busDeviceStatuses:
                 this.processDeviceStatusesMessage(message as BusDeviceStatusesMessage);
                 break;
         }
     }
 
+    processBusShutdownStoppedRequestMessage(message: BusShutdownStoppedRequestMessage): void {
+        const busReqMsg = createBusGetDeviceStatusesRequestMessage();
+        this.publishToDevicesChannelAndWaitForReply<BusGetDeviceStatusesReplyMessageBody>(busReqMsg, null)
+            .subscribe(busReplyMsg => {
+                const replyMsg = createBusShutdownStoppedReplyMessage();
+                if (!busReplyMsg.header.failure) {
+                    const stoppedDeviceIdsSet = new Set<number>(busReplyMsg.body.deviceStatuses.filter(x => !x.started).map(x => x.deviceId));
+                    const clientsToSendTo: ConnectedClientData[] = [];
+                    for (const connectedClient of this.connectedClients.values()) {
+                        if (connectedClient.deviceId && stoppedDeviceIdsSet.has(connectedClient.deviceId)) {
+                            clientsToSendTo.push(connectedClient);
+                        }
+                    }
+                    replyMsg.body.targetsCount = (new Set<number>(clientsToSendTo.map(x => x.deviceId!))).size;
+                    const shutdownNotificationMsg = createServerToDeviceShutdownNoitificationMessage();
+                    for (const client of clientsToSendTo) {
+                        try {
+                            this.sendNotificationMessageToDevice(shutdownNotificationMsg, client.connectionId);
+                        } catch (err) {
+                            this.logger.warn(`Can't send to device connection id ${client.connectionId}`, shutdownNotificationMsg, err);
+                        }
+                    }
+                } else {
+                    replyMsg.body.targetsCount = 0;
+                    this.errorHelper.setBusMessageFailure(busReplyMsg, message, replyMsg);
+                }
+                this.publishToDevicesChannel(replyMsg, message);
+            });
+    }
+
     processDeviceStatusesMessage(message: BusDeviceStatusesMessage): void {
         this.sendStatusToDevices(message.body.deviceStatuses, message.body.continuationTariffShortInfos);
+    }
+
+    sendMessageToConnectedDevice(connectedClientData: ConnectedClientData, message: any): void {
+
     }
 
     sendStatusToDevices(deviceStatuses: DeviceStatus[], continuationTariffsShortInfo: TariffShortInfo[] | undefined): void {
@@ -715,14 +755,14 @@ export class PcConnector {
         this.wssServer.sendJSON(message, connectionId);
     }
 
-    publishToDevicesChannelAndWaitForReply<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData): Observable<Message<TReplyBody>> {
+    publishToDevicesChannelAndWaitForReply<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData | null): Observable<Message<TReplyBody>> {
         const messageStatItem: MessageStatItem = {
             sentAt: this.getNowAsNumber(),
             correlationId: busMessage.header.correlationId,
             type: busMessage.header.type,
             channel: ChannelName.devices,
             completedAt: 0,
-            deviceId: clientData.deviceId,
+            deviceId: clientData?.deviceId,
         };
         if (!busMessage.header.correlationId) {
             busMessage.header.correlationId = this.createUUIDString();
@@ -777,12 +817,21 @@ export class PcConnector {
     //     this.publishToChannel(message, ChannelName.devices);
     // }
 
-    private publishToDevicesChannel<TBody>(message: Message<TBody>): Observable<Message<any>> {
+
+    private publishToDevicesChannel<TBody>(message: Message<TBody>, sourceMessage?: Message<any>): Observable<Message<any>> {
+        if (sourceMessage) {
+            // Transfer source message common data (like round trip data) to destination message
+            transferSharedMessageData(message, sourceMessage);
+        }
         this.publishToChannel(message, ChannelName.devices);
         return this.subjectsService.getDevicesChannelBusMessageReceived();
     }
 
-    private publishToSharedChannel<TBody>(message: Message<TBody>): Observable<Message<any>> {
+    private publishToSharedChannel<TBody>(message: Message<TBody>, sourceMessage?: Message<any>): Observable<Message<any>> {
+        if (sourceMessage) {
+            // Transfer source message common data (like round trip data) to destination message
+            transferSharedMessageData(message, sourceMessage);
+        }
         this.publishToChannel(message, ChannelName.shared);
         return this.subjectsService.getSharedChannelBusMessageReceived();
     }
