@@ -1782,6 +1782,7 @@ export class StateManager {
                 targetDeviceStoreStatus.device_id,
                 userId,
                 message.body.transferNote,
+                this.dateTimeHelper.getCurrentUTCDateTimeAsISOString(),
             );
             if (!transferDeviceResult) {
                 replyMsg.header.failure = true;

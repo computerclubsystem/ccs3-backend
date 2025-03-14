@@ -31,6 +31,7 @@ import { IUserProfileSetting } from 'src/storage/entities/user-profile-setting.m
 import { IUserProfileSettingWithValue } from 'src/storage/entities/user-profile-setting-with-value.mjs';
 import { IDeviceGroup } from 'src/storage/entities/device-group.mjs';
 import { ITariffInDeviceGroup } from 'src/storage/entities/tariff-in-device-group.mjs';
+import { IDeviceTransfer } from 'src/storage/entities/device-transfer.mjs';
 
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
@@ -284,7 +285,7 @@ export class PostgreStorageProvider implements StorageProvider {
         return res.rows[0] as IShift | undefined;
     }
 
-    async transferDevice(sourceDeviceId: number, targetDeviceId: number, userId: number, transferNote?: boolean | undefined | null): Promise<TransferDeviceResult | undefined> {
+    async transferDevice(sourceDeviceId: number, targetDeviceId: number, userId: number, transferNote: boolean | undefined | null, transferredAt: string): Promise<TransferDeviceResult | undefined> {
         let transactionClient: pg.PoolClient | undefined;
         let result: TransferDeviceResult | undefined;
         try {
@@ -304,6 +305,15 @@ export class PostgreStorageProvider implements StorageProvider {
                 await transactionClient.query('ROLLBACK');
                 return undefined;
             }
+
+            const addDeviceTransferQueryData = this.queryUtils.addDeviceTransfer(sourceDeviceStatus, targetDeviceStatus, userId, transferredAt);
+            const addDeviceTransferResult = await transactionClient.query(addDeviceTransferQueryData.text, addDeviceTransferQueryData.params);
+            const addedDeviceTransfer = addDeviceTransferResult.rows[0] as IDeviceTransfer;
+            if (!addedDeviceTransfer) {
+                await transactionClient.query('ROLLBACK');
+                return undefined;
+            }
+
             // Just switch device ids
             const tempSourceDeviceId = sourceDeviceStatus.device_id;
             sourceDeviceStatus.device_id = targetDeviceStatus.device_id;

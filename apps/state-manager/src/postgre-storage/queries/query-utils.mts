@@ -34,6 +34,7 @@ import { IUserProfileSettingWithValue } from 'src/storage/entities/user-profile-
 import { DeviceGroupQueryHelper } from './device-group-query-helper.mjs';
 import { TariffInDeviceGroupQueryHelper } from './tariff-in-device-group-query-helper.mjs';
 import { IDeviceGroup } from 'src/storage/entities/device-group.mjs';
+import { DeviceTransferQueryHelper } from './device-transfer-query-helper.mjs';
 
 export class QueryUtils {
     private readonly helpers = {
@@ -57,7 +58,22 @@ export class QueryUtils {
         userProfile: new UserProfileQueryHelper(),
         deviceGroup: new DeviceGroupQueryHelper(),
         tariffInDeviceGroup: new TariffInDeviceGroupQueryHelper(),
+        deviceTransfer: new DeviceTransferQueryHelper(),
     };
+
+    addDeviceTransfer(
+        sourceDeviceStatus: IDeviceStatus,
+        targetDeviceStatus: IDeviceStatus,
+        transferredByUserId: number | null,
+        transferredAt: string
+    ): IQueryTextWithParamsResult {
+        return this.helpers.deviceTransfer.addDeviceTransferQueryData(
+            sourceDeviceStatus,
+            targetDeviceStatus,
+            transferredByUserId,
+            transferredAt
+        );
+    }
 
     setDeviceStatusNoteQueryData(deviceIds: number[], note: string | null): IQueryTextWithParamsResult {
         return this.helpers.deviceStatus.setDeviceStatusNoteQueryData(deviceIds, note);

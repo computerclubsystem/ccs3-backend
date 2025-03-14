@@ -1,0 +1,29 @@
+CREATE TABLE device_transfer
+(
+    id serial NOT NULL,
+    source_device_id integer NOT NULL,
+    target_device_id integer NOT NULL,
+    start_reason integer NOT NULL,
+    started_at timestamp without time zone NOT NULL,
+    total numeric(10, 2) NOT NULL,
+    started_by_user_id integer,
+    transferred_by_user_id integer,
+    source_note text,
+    target_note text,
+    transferred_at timestamp without time zone NOT NULL,
+    PRIMARY KEY (id),
+    FOREIGN KEY (source_device_id)
+        REFERENCES device (id),
+    FOREIGN KEY (target_device_id)
+        REFERENCES device (id),
+    FOREIGN KEY (start_reason)
+        REFERENCES tariff (id),
+    FOREIGN KEY (started_by_user_id)
+        REFERENCES "user" (id),
+    FOREIGN KEY (transferred_by_user_id)
+        REFERENCES "user" (id)
+);
+
+UPDATE db_metadata
+SET value = '36'
+WHERE name = 'database-version';
