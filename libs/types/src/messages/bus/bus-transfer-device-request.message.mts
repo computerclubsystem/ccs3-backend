@@ -5,6 +5,7 @@ export interface BusTransferDeviceRequestMessageBody {
     sourceDeviceId: number;
     targetDeviceId: number;
     userId: number;
+    transferNote?: boolean | null;
 }
 
 export interface BusTransferDeviceRequestMessage extends Message<BusTransferDeviceRequestMessageBody> {

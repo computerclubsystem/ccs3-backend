@@ -58,7 +58,7 @@ export interface StorageProvider {
     getAllDeviceStatusesWithContinuationData(): Promise<IDeviceStatusWithContinuationData[]>;
     addOrUpdateDeviceStatusEnabled(deviceStatus: IDeviceStatus): Promise<IDeviceStatus | undefined>;
     updateDeviceStatus(deviceStatus: IDeviceStatus): Promise<void>;
-    transferDevice(sourceDeviceId: number, targetDeviceId: number, userId: number): Promise<TransferDeviceResult | undefined>;
+    transferDevice(sourceDeviceId: number, targetDeviceId: number, userId: number, transferNote: boolean | undefined | null): Promise<TransferDeviceResult | undefined>;
     setDeviceStatusNote(deviceIds: number[], note: string | null): Promise<void>;
     // Updates device status, adds device session and clears device continuation if any
     completeDeviceStatusUpdate(storageDeviceStatus: IDeviceStatusWithContinuationData, storageDeviceSession: IDeviceSession): Promise<CompleteDeviceStatusUpdateResult | undefined>;

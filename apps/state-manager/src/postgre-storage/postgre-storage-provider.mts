@@ -284,7 +284,7 @@ export class PostgreStorageProvider implements StorageProvider {
         return res.rows[0] as IShift | undefined;
     }
 
-    async transferDevice(sourceDeviceId: number, targetDeviceId: number, userId: number): Promise<TransferDeviceResult | undefined> {
+    async transferDevice(sourceDeviceId: number, targetDeviceId: number, userId: number, transferNote?: boolean | undefined | null): Promise<TransferDeviceResult | undefined> {
         let transactionClient: pg.PoolClient | undefined;
         let result: TransferDeviceResult | undefined;
         try {
@@ -308,6 +308,23 @@ export class PostgreStorageProvider implements StorageProvider {
             const tempSourceDeviceId = sourceDeviceStatus.device_id;
             sourceDeviceStatus.device_id = targetDeviceStatus.device_id;
             targetDeviceStatus.device_id = tempSourceDeviceId;
+            if (transferNote) {
+                // Transfer note is requested
+                // Target device note must become source device note but if target device already has note,
+                // the source device note must be added to the existing note
+                // The source device becomes target because we switched their device_id values only
+                const noteAddition = targetDeviceStatus.note ? ` / ${targetDeviceStatus.note}` : '';
+                sourceDeviceStatus.note = sourceDeviceStatus.note ? `${sourceDeviceStatus.note}${noteAddition}` : targetDeviceStatus.note;
+                // Target device note must be cleared
+                targetDeviceStatus.note = null;
+            } else {
+                // Note should not be transferred
+                // Because we exchange device_id of the records, we must exchange their notes in order to keep the note
+                // at their original device_ids
+                const targetNote = targetDeviceStatus.note;
+                targetDeviceStatus.note = sourceDeviceStatus.note;
+                sourceDeviceStatus.note = targetNote;
+            }
             const updateSourceDeviceStatusQueryData = this.queryUtils.updateDeviceStatusQuery(sourceDeviceStatus);
             const updatedSourceDeviceStatusResult = await transactionClient.query(updateSourceDeviceStatusQueryData.text, updateSourceDeviceStatusQueryData.params);
             const updatedSourceDeviceStatus = updatedSourceDeviceStatusResult.rows[0] as IDeviceStatus;

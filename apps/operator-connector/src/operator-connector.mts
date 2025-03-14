@@ -364,7 +364,7 @@ export class OperatorConnector {
                 this.processCreateDeviceContinuationRequestMessage(clientData, message as OperatorCreateDeviceContinuationRequestMessage);
                 break;
             case OperatorRequestMessageType.transferDeviceRequest:
-                this.processTransfrerDeviceRequestMessage(clientData, message as OperatorTransferDeviceRequestMessage);
+                this.processTransferDeviceRequestMessage(clientData, message as OperatorTransferDeviceRequestMessage);
                 break;
             case OperatorRequestMessageType.stopDeviceRequest:
                 this.processStopDeviceRequestMessage(clientData, message as OperatorStopDeviceRequestMessage);
@@ -755,11 +755,12 @@ export class OperatorConnector {
             });
     }
 
-    processTransfrerDeviceRequestMessage(clientData: ConnectedClientData, message: OperatorTransferDeviceRequestMessage): void {
+    processTransferDeviceRequestMessage(clientData: ConnectedClientData, message: OperatorTransferDeviceRequestMessage): void {
         const busRequestMsg = createBusTransferDeviceRequestMessage();
         busRequestMsg.body.sourceDeviceId = message.body.sourceDeviceId;
         busRequestMsg.body.targetDeviceId = message.body.targetDeviceId;
         busRequestMsg.body.userId = clientData.userId!;
+        busRequestMsg.body.transferNote = message.body.transferNote;
         this.publishToOperatorsChannelAndWaitForReply<BusTransferDeviceReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorTransferDeviceReplyMessage();

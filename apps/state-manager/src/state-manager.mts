@@ -1777,7 +1777,12 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
-            const transferDeviceResult = await this.storageProvider.transferDevice(sourceDeviceStoreStatus.device_id, targetDeviceStoreStatus.device_id, userId);
+            const transferDeviceResult = await this.storageProvider.transferDevice(
+                sourceDeviceStoreStatus.device_id,
+                targetDeviceStoreStatus.device_id,
+                userId,
+                message.body.transferNote,
+            );
             if (!transferDeviceResult) {
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [{
