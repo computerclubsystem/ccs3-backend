@@ -10,13 +10,13 @@ import {
     CreateConnectedRedisClientOptions, RedisCacheClient, RedisClientMessageCallback, RedisPubClient, RedisSubClient
 } from '@computerclubsystem/redis-client';
 import { ChannelName } from '@computerclubsystem/types/channels/channel-name.mjs';
-import { createBusDeviceGetByCertificateRequestMessage } from '@computerclubsystem/types/messages/bus/bus-device-get-by-certificate-request.message.mjs';
-import { createBusDeviceUnknownDeviceConnectedRequestMessage } from '@computerclubsystem/types/messages/bus/bus-device-unknown-device-connected-request.message.mjs';
-import { BusDeviceGetByCertificateReplyMessage, BusDeviceGetByCertificateReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-device-get-by-certificate-reply.message.mjs';
+import { createBusDeviceGetByCertificateRequestMessage } from '@computerclubsystem/types/messages/bus/bus-device-get-by-certificate.messages.mjs';
+import { createBusDeviceUnknownDeviceConnectedRequestMessage } from '@computerclubsystem/types/messages/bus/bus-device-unknown-device-connected.messages.mjs';
+import { BusDeviceGetByCertificateReplyMessage, BusDeviceGetByCertificateReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-device-get-by-certificate.messages.mjs';
 import { MessageType } from '@computerclubsystem/types/messages/declarations/message-type.mjs';
-import { BusDeviceStatusesMessage, DeviceStatus } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
+import { BusDeviceStatusesNotificationMessage, DeviceStatus } from '@computerclubsystem/types/messages/bus/bus-device-statuses-notification.message.mjs';
 import { ConnectionRoundTripData } from '@computerclubsystem/types/messages/declarations/connection-roundtrip-data.mjs';
-import { createBusDeviceConnectionEventMessage } from '@computerclubsystem/types/messages/bus/bus-device-connection-event.message.mjs';
+import { createBusDeviceConnectionEventNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-device-connection-event-notification.message.mjs';
 import {
     ClientConnectedEventArgs, ConnectionClosedEventArgs, ConnectionErrorEventArgs,
     WssServerEventName, MessageReceivedEventArgs, WssServer, WssServerConfig
@@ -38,21 +38,21 @@ import { DeviceToServerNotificationMessageType } from '@computerclubsystem/types
 import { DeviceToServerRequestMessageType } from '@computerclubsystem/types/messages/devices/declarations/device-to-server-request-message-type.mjs';
 import { DeviceToServerStartOnPrepaidTariffRequestMessage } from '@computerclubsystem/types/messages/devices/device-to-server-start-on-prepaid-tariff-request.message.mjs';
 import { createServerToDeviceStartOnPrepaidTariffReplyMessage } from '@computerclubsystem/types/messages/devices/server-to-device-start-on-prepaid-tariff-reply.message.mjs';
-import { BusStartDeviceOnPrepaidTariffByCustomerReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer-reply.message.mjs';
-import { createBusStartDeviceOnPrepaidTariffByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer-request.message.mjs';
+import { BusStartDeviceOnPrepaidTariffByCustomerReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer.messages.mjs';
+import { createBusStartDeviceOnPrepaidTariffByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer.messages.mjs';
 import { ServerToDeviceReplyMessage } from '@computerclubsystem/types/messages/devices/declarations/server-to-device-reply-message.mjs';
 import { DeviceToServerRequestMessage } from '@computerclubsystem/types/messages/devices/declarations/device-to-server-request-message.mjs';
 import { DeviceToServerEndDeviceSessionByCustomerRequestMessage } from '@computerclubsystem/types/messages/devices/device-to-server-end-device-session-by-customer-request.message.mjs';
-import { createBusEndDeviceSessionByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-end-device-session-by-customer-request.message.mjs';
-import { BusEndDeviceSessionByCustomerReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-end-device-session-by-customer-reply.message.mjs';
+import { createBusEndDeviceSessionByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-end-device-session-by-customer.messages.mjs';
+import { BusEndDeviceSessionByCustomerReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-end-device-session-by-customer.messages.mjs';
 import { createServerToDeviceEndDeviceSessionByCustomerReplyMessage } from '@computerclubsystem/types/messages/devices/server-to-device-end-device-session-by-customer-reply.message.mjs';
 import { ErrorHelper } from './error-helper.mjs';
 import { DeviceToServerChangePrepaidTariffPasswordByCustomerRequestMessage } from '@computerclubsystem/types/messages/devices/device-to-server-change-prepaid-tariff-password-by-customer-request.message.mjs';
-import { createBusChangePrepaidTariffPasswordByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-change-prepaid-tariff-password-by-customer-request.message.mjs';
-import { BusChangePrepaidTariffPasswordByCustomerReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-change-prepaid-tariff-password-by-customer-reply.message.mjs';
+import { createBusChangePrepaidTariffPasswordByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-change-prepaid-tariff-password-by-customer.messages.mjs';
+import { BusChangePrepaidTariffPasswordByCustomerReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-change-prepaid-tariff-password-by-customer.messages.mjs';
 import { createServerToDeviceChangePrepaidTariffPasswordPasswordByCustomerReplyMessage } from '@computerclubsystem/types/messages/devices/server-to-device-change-prepaid-tariff-password-by-customer-reply.message.mjs';
-import { createBusGetAllSystemSettingsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings-request.message.mjs';
-import { BusGetAllSystemSettingsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings-reply.message.mjs';
+import { createBusGetAllSystemSettingsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings.messages.mjs';
+import { BusGetAllSystemSettingsReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings.messages.mjs';
 import { SystemSetting } from '@computerclubsystem/types/entities/system-setting.mjs';
 import { BusAllSystemSettingsNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-all-system-settings-notification.message.mjs';
 import { CacheHelper } from './cache-helper.mjs';
@@ -340,8 +340,8 @@ export class PcConnector {
             case MessageType.busShutdownStoppedRequest:
                 this.processBusShutdownStoppedRequestMessage(message as BusShutdownStoppedRequestMessage);
                 break;
-            case MessageType.busDeviceStatuses:
-                this.processDeviceStatusesMessage(message as BusDeviceStatusesMessage);
+            case MessageType.busDeviceStatusesNotification:
+                this.processDeviceStatusesMessage(message as BusDeviceStatusesNotificationMessage);
                 break;
         }
     }
@@ -376,7 +376,7 @@ export class PcConnector {
             });
     }
 
-    processDeviceStatusesMessage(message: BusDeviceStatusesMessage): void {
+    processDeviceStatusesMessage(message: BusDeviceStatusesNotificationMessage): void {
         this.sendStatusToDevices(message.body.deviceStatuses, message.body.continuationTariffShortInfos);
     }
 
@@ -641,7 +641,7 @@ export class PcConnector {
     }
 
     private publishDeviceConnectionEventMessage(deviceId: number, ipAddress: string, eventType: DeviceConnectionEventType, note?: string): void {
-        const deviceConnectionEventMsg = createBusDeviceConnectionEventMessage();
+        const deviceConnectionEventMsg = createBusDeviceConnectionEventNotificationMessage();
         deviceConnectionEventMsg.body = {
             ...deviceConnectionEventMsg.body,
             deviceId: deviceId,

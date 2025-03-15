@@ -7,10 +7,3 @@ export function transferSharedMessageData(targetMessage: Message<any>, sourceMes
         targetMessage.header.roundTripData = sourceMessage.header.roundTripData;
     }
 };
-
-export function transferSharedMessageDataToReplyOperatorMessage(targetMessage: Message<any>, sourceMessage?: OperatorRequestMessage<any> | null): void {
-    if (sourceMessage?.header) {
-        targetMessage.header.correlationId = sourceMessage.header.correlationId;
-        targetMessage.header.roundTripData = sourceMessage.header.roundTripData;
-    }
-};

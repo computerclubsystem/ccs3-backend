@@ -1,17 +1,16 @@
 import { OperatorRequestMessageType, OperatorReplyMessageType } from './declarations/operator-message-type.mjs';
 import { OperatorReplyMessage } from './declarations/operator.message.mjs';
 
-export interface OperatorNotAuthorizedMessageBody {
+export interface OperatorNotAuthorizedReplyMessageBody {
     requestedMessageType: OperatorRequestMessageType;
 }
 
-export interface OperatorNotAuthorizedMessage extends OperatorReplyMessage<OperatorNotAuthorizedMessageBody> {
-}
+export type OperatorNotAuthorizedReplyMessage = OperatorReplyMessage<OperatorNotAuthorizedReplyMessageBody>;
 
-export function createOperatorNotAuthorizedMessage(): OperatorNotAuthorizedMessage {
-    const msg: OperatorNotAuthorizedMessage = {
+export function createOperatorNotAuthorizedReplyMessage(): OperatorNotAuthorizedReplyMessage {
+    const msg: OperatorNotAuthorizedReplyMessage = {
         header: { type: OperatorReplyMessageType.notAuthorizedReply },
-        body: {} as OperatorNotAuthorizedMessageBody,
+        body: {} as OperatorNotAuthorizedReplyMessageBody,
     };
     return msg;
 };

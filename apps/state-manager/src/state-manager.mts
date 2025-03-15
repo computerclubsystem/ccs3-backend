@@ -7,133 +7,91 @@ import {
 import { ChannelName } from '@computerclubsystem/types/channels/channel-name.mjs';
 import { Message } from '@computerclubsystem/types/messages/declarations/message.mjs';
 import { Logger } from './logger.mjs';
-import { BusDeviceGetByCertificateRequestMessage } from '@computerclubsystem/types/messages/bus/bus-device-get-by-certificate-request.message.mjs';
-import { createBusDeviceGetByCertificateReplyMessage } from '@computerclubsystem/types/messages/bus/bus-device-get-by-certificate-reply.message.mjs';
+import { BusDeviceGetByCertificateRequestMessage, createBusDeviceGetByCertificateReplyMessage } from '@computerclubsystem/types/messages/bus/bus-device-get-by-certificate.messages.mjs';
 import { MessageType } from '@computerclubsystem/types/messages/declarations/message-type.mjs';
 import { Device } from '@computerclubsystem/types/entities/device.mjs';
-import { BusDeviceStatusesMessage, DeviceStatus, createBusDeviceStatusesMessage } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
+import { DeviceStatus, createBusDeviceStatusesNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-device-statuses-notification.message.mjs';
 // import { DeviceState } from '@computerclubsystem/types/entities/device-state.mjs';
 import { StorageProviderConfig } from './storage/storage-provider-config.mjs';
 import { StorageProvider } from './storage/storage-provider.mjs';
 import { PostgreStorageProvider } from './postgre-storage/postgre-storage-provider.mjs';
-import { BusDeviceUnknownDeviceConnectedRequestMessage } from '@computerclubsystem/types/messages/bus/bus-device-unknown-device-connected-request.message.mjs';
+import { BusDeviceUnknownDeviceConnectedRequestMessage } from '@computerclubsystem/types/messages/bus/bus-device-unknown-device-connected.messages.mjs';
 import { IDevice } from './storage/entities/device.mjs';
 import { SystemSettingsName as SystemSettingName } from './storage/entities/constants/system-setting-names.mjs';
 import { EntityConverter } from './entity-converter.mjs';
-import { BusDeviceConnectionEventMessage } from '@computerclubsystem/types/messages/bus/bus-device-connection-event.message.mjs';
+import { BusDeviceConnectionEventNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-device-connection-event-notification.message.mjs';
 import { IDeviceConnectionEvent } from './storage/entities/device-connection-event.mjs';
-import { BusOperatorAuthRequestMessage } from '@computerclubsystem/types/messages/bus/bus-operator-auth-request.message.mjs';
-import { BusOperatorAuthReplyMessage, createBusOperatorAuthReplyMessage } from '@computerclubsystem/types/messages/bus/bus-operator-auth-reply.message.mjs';
+import { BusUserAuthRequestMessage, BusUserAuthReplyMessage, createBusUserAuthReplyMessage } from '@computerclubsystem/types/messages/bus/bus-operator-auth.messages.mjs';
 import { transferSharedMessageData } from '@computerclubsystem/types/messages/utils.mjs';
 import { OperatorConnectionRoundTripData } from '@computerclubsystem/types/messages/operators/declarations/operator-connection-roundtrip-data.mjs';
 import { ISystemSetting } from './storage/entities/system-setting.mjs';
 import { CacheHelper } from './cache-helper.mjs';
 import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
-import { BusOperatorConnectionEventMessage } from '@computerclubsystem/types/messages/bus/bus-operator-connection-event.message.mjs';
+import { BusOperatorConnectionEventNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-operator-connection-event-notification.message.mjs';
 import { IOperatorConnectionEvent } from './storage/entities/operator-connection-event.mjs';
-import { BusOperatorGetAllDevicesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-operator-get-all-devices-request.message.mjs';
-import { createBusOperatorGetAllDevicesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-operator-get-all-devices-reply.message.mjs';
-import { BusDeviceGetByIdRequestMessage } from '@computerclubsystem/types/messages/bus/bus-device-get-by-id-request.message.mjs';
-import { createBusDeviceGetByIdReplyMessage } from '@computerclubsystem/types/messages/bus/bus-device-get-by-id-reply.message.mjs';
-import { BusUpdateDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-device-request.message.mjs';
-import { createBusUpdateDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-device-reply.message.mjs';
+import { BusGetAllDevicesRequestMessage, createBusOperatorGetAllDevicesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-devices.messages.mjs';
+import { BusDeviceGetByIdRequestMessage, createBusDeviceGetByIdReplyMessage } from '@computerclubsystem/types/messages/bus/bus-device-get-by-id.messages.mjs';
+import { BusUpdateDeviceRequestMessage, createBusUpdateDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-device.messages.mjs';
 import { IDeviceStatus, IDeviceStatusWithContinuationData } from './storage/entities/device-status.mjs';
-import { BusGetAllTariffsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-tariffs-request.message.mjs';
-import { createBusGetAllTariffsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-tariffs-reply.message.mjs';
-import { BusCreateTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-tariff-request.message.mjs';
-import { createBusCreateTariffReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-tariff-reply.message.mjs';
+import { BusGetAllTariffsRequestMessage, createBusGetAllTariffsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-tariffs.messages.mjs';
+import { BusCreateTariffRequestMessage, createBusCreateTariffReplyMessage} from '@computerclubsystem/types/messages/bus/bus-create-tariff.messages.mjs';
 import { Tariff, TariffShortInfo, TariffType } from '@computerclubsystem/types/entities/tariff.mjs';
-import { BusStartDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-request.message.mjs';
-import { createBusStartDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-reply.message.mjs';
+import { BusStartDeviceRequestMessage, createBusStartDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-start-device.messages.mjs';
 import { TariffHelper } from './tariff-helper.mjs';
 import { BusErrorCode } from '@computerclubsystem/types/messages/bus/declarations/bus-error-code.mjs';
 import { DateTimeHelper } from './date-time-helper.mjs';
-import { BusGetTariffByIdRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-tariff-by-id-request.message.mjs';
-import { createBusGetTariffByIdReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-tariff-by-id-reply.message.mjs';
-import { BusUpdateTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-tariff-request.message.mjs';
-import { createBusUpdateTariffReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-tariff-reply.message.mjs';
+import { BusGetTariffByIdRequestMessage, createBusGetTariffByIdReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-tariff-by-id.messages.mjs';
+import { BusUpdateTariffRequestMessage, createBusUpdateTariffReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-tariff.messages.mjs';
 import { IDeviceSession } from './storage/entities/device-session.mjs';
-import { BusGetAllRolesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-roles-request.message.mjs';
-import { createBusGetAllRolesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-roles-reply.message.mjs';
-import { BusGetRoleWithPermissionsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-role-with-permissions-request.message.mjs';
-import { createBusGetRoleWithPermissionsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-role-with-permissions-reply.message.mjs';
-import { BusGetAllPermissionsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-permissions-request.message.mjs';
-import { createBusGetAllPermissionsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-permissions-reply.message.mjs';
-import { BusCreateRoleWithPermissionsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-role-with-permissions-request.message.mjs';
-import { createBusCreateRoleWithPermissionsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-role-with-permissions-reply.message.mjs';
+import { BusGetAllRolesRequestMessage, createBusGetAllRolesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-roles.messages.mjs';
+import { BusGetRoleWithPermissionsRequestMessage, createBusGetRoleWithPermissionsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-role-with-permissions.messages.mjs';
+import { BusGetAllPermissionsRequestMessage, createBusGetAllPermissionsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-permissions.messages.mjs';
+import { BusCreateRoleWithPermissionsRequestMessage, createBusCreateRoleWithPermissionsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-role-with-permissions.messages.mjs';
 import { Role } from '@computerclubsystem/types/entities/role.mjs';
-import { BusUpdateRoleWithPermissionsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-role-with-permissions-request.message.mjs';
-import { createBusUpdateRoleWithPermissionsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-role-with-permissions-reply.message.mjs';
+import { BusUpdateRoleWithPermissionsRequestMessage, createBusUpdateRoleWithPermissionsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-role-with-permissions.messages.mjs';
 import { MessageError } from '@computerclubsystem/types/messages/declarations/message-error.mjs';
-import { createBusGetAllUsersReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-users-reply.message.mjs';
-import { BusGetAllUsersRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-users-request.message.mjs';
-import { BusCreateUserWithRolesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-user-with-roles-request.message.mjs';
-import { createBusCreateUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-user-with-roles-reply.message.mjs';
+import { BusGetAllUsersRequestMessage, createBusGetAllUsersReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-users.messages.mjs';
+import { BusCreateUserWithRolesRequestMessage, createBusCreateUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-user-with-roles.messages.mjs';
 import { User } from '@computerclubsystem/types/entities/user.mjs';
-import { BusGetUserWithRolesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-user-with-roles-request.message.mjs';
-import { createBusGetUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-user-with-roles-reply.message.mjs';
-import { createBusUpdateUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-user-with-roles-reply.message.mjs';
-import { BusUpdateUserWithRolesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-user-with-roles-request.message.mjs';
-import { BusStopDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-stop-device-request.message.mjs';
-import { createBusStopDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-stop-device-reply.message.mjs';
-import { BusTransferDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-transfer-device-request.message.mjs';
-import { createBusTransferDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-transfer-device-reply.message.mjs';
+import { BusGetUserWithRolesRequestMessage, createBusGetUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-user-with-roles.messages.mjs';
+import { BusUpdateUserWithRolesRequestMessage, createBusUpdateUserWithRolesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-user-with-roles.messages.mjs';
+import { BusStopDeviceRequestMessage, createBusStopDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-stop-device.messages.mjs';
+import { BusTransferDeviceRequestMessage, createBusTransferDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-transfer-device.messages.mjs';
 import { SystemNotes } from './system-notes.mjs';
 import { IDeviceContinuation } from './storage/entities/device-continuation.mjs';
 import { DeviceContinuation } from '@computerclubsystem/types/entities/device-continuation.mjs';
-import { BusCreateDeviceContinuationRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-continuation-request.message.mjs';
-import { createBusCreateDeviceContinuationReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-continuation-reply.message.mjs';
-import { BusDeleteDeviceContinuationRequestMessage } from '@computerclubsystem/types/messages/bus/bus-delete-device-continuation-request.message.mjs';
-import { createBusDeleteDeviceContinuationReplyMessage } from '@computerclubsystem/types/messages/bus/bus-delete-device-continuation-reply.message.mjs';
+import { BusCreateDeviceContinuationRequestMessage, createBusCreateDeviceContinuationReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-continuation.messages.mjs';
+import { BusDeleteDeviceContinuationRequestMessage, createBusDeleteDeviceContinuationReplyMessage } from '@computerclubsystem/types/messages/bus/bus-delete-device-continuation.messages.mjs';
 import { TariffValidator } from './tariff-validator.mjs';
-import { BusRechargeTariffDurationRequestMessage } from '@computerclubsystem/types/messages/bus/bus-recharge-tariff-duration-request.message.mjs';
-import { createBusRechargeTariffDurationReplyMessage } from '@computerclubsystem/types/messages/bus/bus-recharge-tariff-duration-reply.message.mjs';
+import { BusRechargeTariffDurationRequestMessage, createBusRechargeTariffDurationReplyMessage } from '@computerclubsystem/types/messages/bus/bus-recharge-tariff-duration.messages.mjs';
 import { IncreaseTariffRemainingSecondsResult } from './storage/results.mjs';
-import { BusStartDeviceOnPrepaidTariffByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer-request.message.mjs';
-import { createBusStartDeviceOnPrepaidTariffByCustomerReplyMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer-reply.message.mjs';
-import { BusEndDeviceSessionByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-end-device-session-by-customer-request.message.mjs';
-import { createBusEndDeviceSessionByCustomerReplyMessage } from '@computerclubsystem/types/messages/bus/bus-end-device-session-by-customer-reply.message.mjs';
+import { BusStartDeviceOnPrepaidTariffByCustomerRequestMessage, createBusStartDeviceOnPrepaidTariffByCustomerReplyMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer.messages.mjs';
+import { BusEndDeviceSessionByCustomerRequestMessage, createBusEndDeviceSessionByCustomerReplyMessage } from '@computerclubsystem/types/messages/bus/bus-end-device-session-by-customer.messages.mjs';
 import { ITariff } from './storage/entities/tariff.mjs';
-import { BusChangePrepaidTariffPasswordByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-change-prepaid-tariff-password-by-customer-request.message.mjs';
-import { createBusChangePrepaidTariffPasswordByCustomerReplyMessage } from '@computerclubsystem/types/messages/bus/bus-change-prepaid-tariff-password-by-customer-reply.message.mjs';
-import { BusGetCurrentShiftStatusRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-current-shift-status-request.message.mjs';
-import { createBusGetCurrentShiftStatusReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-current-shift-status-reply.message.mjs';
+import { BusChangePrepaidTariffPasswordByCustomerRequestMessage, createBusChangePrepaidTariffPasswordByCustomerReplyMessage } from '@computerclubsystem/types/messages/bus/bus-change-prepaid-tariff-password-by-customer.messages.mjs';
+import { BusGetCurrentShiftStatusRequestMessage, createBusGetCurrentShiftStatusReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-current-shift-status.messages.mjs';
 import { ShiftStatus } from '@computerclubsystem/types/entities/shift-status.mjs';
-import { BusCompleteShiftRequestMessage } from '@computerclubsystem/types/messages/bus/bus-complete-shift-request.message.mjs';
-import { createBusCompleteShiftReplyMessage } from '@computerclubsystem/types/messages/bus/bus-complete-shift-reply.message.mjs';
+import { BusCompleteShiftRequestMessage, createBusCompleteShiftReplyMessage } from '@computerclubsystem/types/messages/bus/bus-complete-shift.messages.mjs';
 import { IShift } from './storage/entities/shift.mjs';
-import { BusGetShiftsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-shifts-request.message.mjs';
-import { createBusGetShiftsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-shifts-reply.message.mjs';
-import { BusGetAllSystemSettingsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings-request.message.mjs';
-import { createBusGetAllSystemSettingsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings-reply.message.mjs';
-import { BusUpdateSystemSettingsValuesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-system-settings-values-request.message.mjs';
-import { createBusUpdateSystemSettingsValuesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-system-settings-values-reply.message.mjs';
+import { BusGetShiftsRequestMessage, createBusGetShiftsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-shifts.messages.mjs';
+import { BusGetAllSystemSettingsRequestMessage, createBusGetAllSystemSettingsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-system-settings.messages.mjs';
+import { BusUpdateSystemSettingsValuesRequestMessage, createBusUpdateSystemSettingsValuesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-system-settings-values.messages.mjs';
 import { SystemSettingsValidator } from './system-settings-validator.mjs';
 import { createBusAllSystemSettingsNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-all-system-settings-notification.message.mjs';
-import { BusCreateDeviceRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-request.message.mjs';
-import { createBusCreateDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-reply.message.mjs';
-import { BusCreatePrepaidTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-prepaid-tariff-request.message.mjs';
-import { createBusCreatePrepaidTariffReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-prepaid-tariff-reply.message.mjs';
-import { BusChangePasswordRequestMessage } from '@computerclubsystem/types/messages/bus/bus-change-password-request.message.mjs';
-import { createBusChangePasswordReplyMessage } from '@computerclubsystem/types/messages/bus/bus-change-password-reply.message.mjs';
-import { BusGetProfileSettingsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-profile-settings-request.message.mjs';
-import { createBusGetProfileSettingsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-profile-settings-reply.message.mjs';
+import { BusCreateDeviceRequestMessage, createBusCreateDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-device.messages.mjs';
+import { BusCreatePrepaidTariffRequestMessage, createBusCreatePrepaidTariffReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-prepaid-tariff.messages.mjs';
+import { BusChangePasswordRequestMessage, createBusChangePasswordReplyMessage } from '@computerclubsystem/types/messages/bus/bus-change-password.messages.mjs';
+import { BusGetProfileSettingsRequestMessage, createBusGetProfileSettingsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-profile-settings.messages.mjs';
 import { UserProfileSettingWithValue } from '@computerclubsystem/types/entities/user-profile-setting-with-value.mjs';
-import { BusUpdateProfileSettingsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-profile-settings-request.message.mjs';
-import { createBusUpdateProfileSettingsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-profile-settings-reply.message.mjs';
+import { BusUpdateProfileSettingsRequestMessage, createBusUpdateProfileSettingsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-profile-settings.messages.mjs';
 import { IUserProfileSettingWithValue } from './storage/entities/user-profile-setting-with-value.mjs';
-import { BusGetAllDeviceGroupsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-device-groups-request.message.mjs';
-import { createBusGetAllDeviceGroupsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-device-groups-reply.message.mjs';
-import { BusGetDeviceGroupDataRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-group-data-request.message.mjs';
-import { createBusGetDeviceGroupDataReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-group-data-reply.message.mjs';
+import { BusGetAllDeviceGroupsRequestMessage, createBusGetAllDeviceGroupsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-device-groups.messages.mjs';
+import { BusGetDeviceGroupDataRequestMessage, createBusGetDeviceGroupDataReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-group-data.messages.mjs';
 import { DeviceGroupData } from '@computerclubsystem/types/entities/device-group-data.mjs';
-import { BusCreateDeviceGroupRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-group-request.message.mjs';
-import { createBusCreateDeviceGroupReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-group-reply.message.mjs';
+import { BusCreateDeviceGroupRequestMessage, createBusCreateDeviceGroupReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-group.messages.mjs';
 import { DeviceGroup } from '@computerclubsystem/types/entities/device-group.mjs';
-import { BusUpdateDeviceGroupRequestMessage } from '@computerclubsystem/types/messages/bus/bus-update-device-group-request.message.mjs';
-import { createBusUpdateDeviceGroupReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-device-group-reply.message.mjs';
-import { BusGetAllAllowedDeviceObjectsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-allowed-device-objects-request.message.mjs';
-import { createBusGetAllAllowedDeviceObjectsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-allowed-device-objects-reply.message.mjs';
+import { BusUpdateDeviceGroupRequestMessage, createBusUpdateDeviceGroupReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-device-group.messages.mjs';
+import { BusGetAllAllowedDeviceObjectsRequestMessage, createBusGetAllAllowedDeviceObjectsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-allowed-device-objects.messages.mjs';
 import { AllowedDeviceObjects } from '@computerclubsystem/types/entities/allowed-device-objects.mjs';
 import { IDeviceGroup } from './storage/entities/device-group.mjs';
 import { ITariffInDeviceGroup } from './storage/entities/tariff-in-device-group.mjs';
@@ -379,17 +337,17 @@ export class StateManager {
             case MessageType.busUpdateDeviceRequest:
                 this.processBusUpdateDeviceRequest(message as BusUpdateDeviceRequestMessage);
                 break;
-            case MessageType.busOperatorGetDeviceByIdRequest:
-                this.processBusOperatorGetDeviceByIdRequest(message as BusDeviceGetByIdRequestMessage);
+            case MessageType.busGetDeviceByIdRequest:
+                this.processBusGetDeviceByIdRequest(message as BusDeviceGetByIdRequestMessage);
                 break;
-            case MessageType.busOperatorGetAllDevicesRequest:
-                this.processBusOperatorGetAllDevicesRequest(message as BusOperatorGetAllDevicesRequestMessage);
+            case MessageType.busGetAllDevicesRequest:
+                this.processBusGetAllDevicesRequest(message as BusGetAllDevicesRequestMessage);
                 break;
-            case MessageType.busOperatorAuthRequest:
-                this.processBusOperatorAuthRequest(message as BusOperatorAuthRequestMessage);
+            case MessageType.busUserAuthRequest:
+                this.processBusUserAuthRequest(message as BusUserAuthRequestMessage);
                 break;
-            case MessageType.busOperatorConnectionEvent:
-                this.processBusOperatorConnectionEvent(message as BusOperatorConnectionEventMessage);
+            case MessageType.busUserConnectionEventNotification:
+                this.processBusUserConnectionEventNotification(message as BusOperatorConnectionEventNotificationMessage);
                 break;
         }
     }
@@ -415,8 +373,8 @@ export class StateManager {
             case MessageType.busDeviceUnknownDeviceConnectedRequest:
                 this.processBusDeviceUnknownDeviceConnectedMessageRequest(message as BusDeviceUnknownDeviceConnectedRequestMessage);
                 break;
-            case MessageType.busDeviceConnectionEvent:
-                this.processDeviceConnectionEventMessage(message as BusDeviceConnectionEventMessage);
+            case MessageType.busDeviceConnectionEventNotification:
+                this.processDeviceConnectionEventMessage(message as BusDeviceConnectionEventNotificationMessage);
                 break;
         }
     }
@@ -2681,7 +2639,7 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusGetTariffByIdRequestMessage message`, message, err);
-            const replyMsg = createBusGetTariffByIdReplyMessage(message);
+            const replyMsg = createBusGetTariffByIdReplyMessage();
             replyMsg.header.failure = true;
             replyMsg.header.errors = [{
                 code: '',
@@ -2796,14 +2754,13 @@ export class StateManager {
     }
 
     async processBusGetAllTariffsRequestMessage(message: BusGetAllTariffsRequestMessage): Promise<void> {
+        const replyMsg = createBusGetAllTariffsReplyMessage();
         try {
             const allTariffs = await this.storageProvider.getAllTariffs(message.body.types);
-            const replyMsg = createBusGetAllTariffsReplyMessage(message);
             replyMsg.body.tariffs = allTariffs.map(tariff => this.entityConverter.toTariff(tariff));
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusGetAllTariffsRequestMessage message`, message, err);
-            const replyMsg = createBusGetAllTariffsReplyMessage(message);
             replyMsg.header.failure = true;
             replyMsg.header.errors = [{
                 code: '',
@@ -2817,7 +2774,7 @@ export class StateManager {
         try {
             if (!message.body.device?.id) {
                 this.logger.warn(`Can't update device without id`, message);
-                const replyMsg = createBusUpdateDeviceReplyMessage(message);
+                const replyMsg = createBusUpdateDeviceReplyMessage();
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [{
                     code: '',
@@ -2833,7 +2790,7 @@ export class StateManager {
                 const storageDeviceStatus = await this.storageProvider.getDeviceStatus(deviceToUpdate.id);
                 if (storageDeviceStatus?.started) {
                     this.logger.warn(`The device is currently started and cannot be made inactive`, message);
-                    const replyMsg = createBusUpdateDeviceReplyMessage(message);
+                    const replyMsg = createBusUpdateDeviceReplyMessage();
                     replyMsg.header.failure = true;
                     replyMsg.header.errors = [{
                         code: BusErrorCode.deviceIsInUse,
@@ -2858,12 +2815,12 @@ export class StateManager {
                 enabled: deviceStatusEnabled,
             };
             await this.storageProvider.addOrUpdateDeviceStatusEnabled(deviceStatus);
-            const replyMsg = createBusUpdateDeviceReplyMessage(message);
+            const replyMsg = createBusUpdateDeviceReplyMessage();
             replyMsg.body.device = updatedStorageDevice && this.entityConverter.toDevice(updatedStorageDevice);
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusUpdateDeviceRequestMessage message`, message, err);
-            const replyMsg = createBusUpdateDeviceReplyMessage(message);
+            const replyMsg = createBusUpdateDeviceReplyMessage();
             replyMsg.header.failure = true;
             replyMsg.header.errors = [{
                 code: '',
@@ -2873,10 +2830,10 @@ export class StateManager {
         }
     }
 
-    async processBusOperatorGetDeviceByIdRequest(message: BusDeviceGetByIdRequestMessage): Promise<void> {
+    async processBusGetDeviceByIdRequest(message: BusDeviceGetByIdRequestMessage): Promise<void> {
         try {
             const device = await this.storageProvider.getDeviceById(message.body.deviceId);
-            const replyMsg = createBusDeviceGetByIdReplyMessage(message);
+            const replyMsg = createBusDeviceGetByIdReplyMessage();
             replyMsg.body.device = device && this.entityConverter.toDevice(device);
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
@@ -2884,14 +2841,14 @@ export class StateManager {
         }
     }
 
-    async processBusOperatorGetAllDevicesRequest(message: BusOperatorGetAllDevicesRequestMessage): Promise<void> {
+    async processBusGetAllDevicesRequest(message: BusGetAllDevicesRequestMessage): Promise<void> {
         const storageDevices = await this.storageProvider.getAllDevices();
-        const replyMsg = createBusOperatorGetAllDevicesReplyMessage(message);
+        const replyMsg = createBusOperatorGetAllDevicesReplyMessage();
         replyMsg.body.devices = storageDevices.map(storageDevice => this.entityConverter.toDevice(storageDevice));
         this.publishToOperatorsChannel(replyMsg, message);
     }
 
-    async processBusOperatorConnectionEvent(message: BusOperatorConnectionEventMessage): Promise<void> {
+    async processBusUserConnectionEventNotification(message: BusOperatorConnectionEventNotificationMessage): Promise<void> {
         try {
             const operatorConnectionEvent: IOperatorConnectionEvent = {
                 operator_id: message.body.operatorId,
@@ -2906,7 +2863,7 @@ export class StateManager {
         }
     }
 
-    async processBusOperatorAuthRequest(message: BusOperatorAuthRequestMessage): Promise<void> {
+    async processBusUserAuthRequest(message: BusUserAuthRequestMessage): Promise<void> {
         try {
             const body = message.body;
             // const rtData = message.header.roundTripData as OperatorConnectionRoundTripData;
@@ -2930,7 +2887,7 @@ export class StateManager {
             // }
         } catch (err) {
             this.logger.warn(`Can't process BusOperatorAuthRequestMessage`, message, err);
-            const replyMsg = createBusOperatorAuthReplyMessage();
+            const replyMsg = createBusUserAuthReplyMessage();
             replyMsg.header.failure = true;
             replyMsg.header.errors = [
                 {
@@ -2955,7 +2912,7 @@ export class StateManager {
         }
     }
 
-    async processDeviceConnectionEventMessage(message: BusDeviceConnectionEventMessage): Promise<void> {
+    async processDeviceConnectionEventMessage(message: BusDeviceConnectionEventNotificationMessage): Promise<void> {
         try {
             const deviceConnectionEvent: IDeviceConnectionEvent = {
                 device_id: message.body.deviceId,
@@ -2970,15 +2927,15 @@ export class StateManager {
         }
     }
 
-    async getBusOperatorReplyMessageForUsernameAndPasswordHash(username: string, passwordHash: string): Promise<BusOperatorAuthReplyMessage> {
-        const replyMsg = createBusOperatorAuthReplyMessage();
+    async getBusOperatorReplyMessageForUsernameAndPasswordHash(username: string, passwordHash: string): Promise<BusUserAuthReplyMessage> {
+        const replyMsg = createBusUserAuthReplyMessage();
         const user = await this.storageProvider.getUserByUsernameAndPasswordHash(username, passwordHash);
         if (!user) {
             // TODO: Send "credentials are invalid"
             replyMsg.body.success = false;
         } else if (!user.enabled) {
             // TODO: Send "User not enabled"
-            const replyMsg = createBusOperatorAuthReplyMessage();
+            const replyMsg = createBusUserAuthReplyMessage();
             replyMsg.body.success = false;
             replyMsg.body.userId = user.id;
         } else {
@@ -3295,7 +3252,7 @@ export class StateManager {
                 }
             }
             // Send device statuses to the channel
-            const deviceStatusesMsg = createBusDeviceStatusesMessage();
+            const deviceStatusesMsg = createBusDeviceStatusesNotificationMessage();
             deviceStatusesMsg.body.deviceStatuses = deviceStatuses;
             const continuationTariffIds = deviceStatuses.filter(x => x.continuationTariffId).map(x => x.continuationTariffId);
             if (continuationTariffIds.length > 0) {

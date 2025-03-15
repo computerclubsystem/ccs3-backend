@@ -16,8 +16,7 @@ export interface OperatorDeviceConnectivitiesNotificationMessageBody {
     connectivityItems: OperatorDeviceConnectivityItem[];
 }
 
-export interface OperatorDeviceConnectivitiesNotificationMessage extends OperatorNotificationMessage<OperatorDeviceConnectivitiesNotificationMessageBody> {
-}
+export type OperatorDeviceConnectivitiesNotificationMessage = OperatorNotificationMessage<OperatorDeviceConnectivitiesNotificationMessageBody>;
 
 export function createOperatorDeviceConnectivitiesNotificationMessage(): OperatorDeviceConnectivitiesNotificationMessage {
     const msg: OperatorDeviceConnectivitiesNotificationMessage = {

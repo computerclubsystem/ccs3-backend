@@ -18,8 +18,7 @@ export interface BusDeviceConnectivitiesNotificationMessageBody {
     connectivityItems: BusDeviceConnectivityItem[];
 }
 
-export interface BusDeviceConnectivitiesNotificationMessage extends Message<BusDeviceConnectivitiesNotificationMessageBody> {
-}
+export type BusDeviceConnectivitiesNotificationMessage = Message<BusDeviceConnectivitiesNotificationMessageBody>;
 
 export function createBusDeviceConnectivitiesNotificationMessage(): BusDeviceConnectivitiesNotificationMessage {
     const msg: BusDeviceConnectivitiesNotificationMessage = {

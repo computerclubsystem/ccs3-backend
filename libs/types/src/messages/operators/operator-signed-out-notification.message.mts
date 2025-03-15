@@ -1,17 +1,13 @@
 import { OperatorNotificationMessageType } from './declarations/operator-message-type.mjs';
 import { OperatorNotificationMessage } from './declarations/operator.message.mjs';
 
-export interface OperatorSignedOutNotificationMessageBody {
-}
+export type OperatorSignedOutNotificationMessageBody = object;
 
-export interface OperatorSignedOutNotificationMessage extends OperatorNotificationMessage<OperatorSignedOutNotificationMessageBody> {
-}
+export type OperatorSignedOutNotificationMessage = OperatorNotificationMessage<OperatorSignedOutNotificationMessageBody>;
 
 export function createOperatorSignedOutNotificationMessage(): OperatorSignedOutNotificationMessage {
     const msg: OperatorSignedOutNotificationMessage = {
-        header: {
-            type: OperatorNotificationMessageType.signedOutNotification,
-        },
+        header: { type: OperatorNotificationMessageType.signedOutNotification, },
         body: {}
     };
     return msg;

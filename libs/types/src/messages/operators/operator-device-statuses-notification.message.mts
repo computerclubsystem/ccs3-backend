@@ -6,8 +6,7 @@ export interface OperatorDeviceStatusesNotificationMessageBody {
     deviceStatuses: OperatorDeviceStatus[];
 }
 
-export interface OperatorDeviceStatusesNotificationMessage extends OperatorNotificationMessage<OperatorDeviceStatusesNotificationMessageBody> {
-}
+export type OperatorDeviceStatusesNotificationMessage = OperatorNotificationMessage<OperatorDeviceStatusesNotificationMessageBody>;
 
 export function createOperatorDeviceStatusesNotificationMessage(): OperatorDeviceStatusesNotificationMessage {
     const msg: OperatorDeviceStatusesNotificationMessage = {

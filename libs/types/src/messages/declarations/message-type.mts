@@ -36,8 +36,8 @@ export const enum MessageType {
     busDeviceConnectivitiesNotification = 'bus-device-connectivities-notification',
     busDeviceGetByCertificateRequest = 'bus-device-get-by-certificate-request',
     busDeviceGetByCertificateReply = 'bus-device-get-by-certificate-reply',
-    busDeviceStatuses = 'bus-device-statuses',
-    busDeviceConnectionEvent = 'bus-device-connection-event',
+    busDeviceStatusesNotification = 'bus-device-statuses-notification',
+    busDeviceConnectionEventNotification = 'bus-device-connection-event-notification',
 
     busSetDeviceStatusNoteRequest = 'bus-set-device-status-note-request',
     busSetDeviceStatusNoteReply = 'bus-set-device-status-note-reply',
@@ -49,8 +49,8 @@ export const enum MessageType {
     busCreateDeviceReply = 'bus-create-device-reply',
 
     // Authentication
-    busOperatorAuthRequest = 'bus-operator-auth-request',
-    busOperatorAuthReply = 'bus-operator-auth-reply',
+    busUserAuthRequest = 'bus-user-auth-request',
+    busUserAuthReply = 'bus-user-auth-reply',
     busChangePasswordRequest = 'bus-change-password-request',
     busChangePasswordReply = 'bus-change-password-reply',
 
@@ -70,13 +70,13 @@ export const enum MessageType {
     busGetShiftsRequest = 'bus-get-shifts-request',
     busGetShiftsReply = 'bus-get-shifts-reply',
 
-    busOperatorConnectionEvent = 'bus-operator-connection-event',
+    busUserConnectionEventNotification = 'bus-user-connection-event-notification',
 
     // Devices
-    busOperatorGetAllDevicesRequest = 'bus-operator-get-all-devices-request',
-    busOperatorGetAllDevicesReply = 'bus-operator-get-all-devices-reply',
-    busOperatorGetDeviceByIdRequest = 'bus-operator-get-device-by-id-request',
-    busOperatorGetDeviceByIdReply = 'bus-operator-get-device-by-id-reply',
+    busGetAllDevicesRequest = 'bus-get-all-devices-request',
+    busGetAllDevicesReply = 'bus-get-all-devices-reply',
+    busGetDeviceByIdRequest = 'bus-get-device-by-id-request',
+    busGetDeviceByIdReply = 'bus-get-device-by-id-reply',
     busUpdateDeviceRequest = 'bus-update-device-request',
     busUpdateDeviceReply = 'bus-update-device-reply',
     busStartDeviceRequest = 'bus-start-device-request',

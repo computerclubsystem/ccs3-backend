@@ -3,7 +3,7 @@ import { IncomingHttpHeaders } from 'node:http2';
 import { UserAuthDataCacheValue } from './cache-helper.mjs';
 import { Permission } from '@computerclubsystem/types/entities/permission.mjs';
 import { TariffValidator } from './tariff-validator.mjs';
-import { BusDeviceStatusesMessage } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
+import { BusDeviceStatusesNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-device-statuses-notification.message.mjs';
 import { ChannelName } from '@computerclubsystem/types/channels/channel-name.mjs';
 import { SystemSetting } from '@computerclubsystem/types/entities/system-setting.mjs';
 import { FilterServerLogsItem } from '@computerclubsystem/types/messages/shared-declarations/filter-server-logs-item.mjs';
@@ -70,7 +70,7 @@ export interface OperatorConnectorState {
     operatorChannelMessageStatItems: MessageStatItem[];
     clientConnectionsMonitorTimerHandle?: NodeJS.Timeout;
     mainTimerHandle?: NodeJS.Timeout;
-    lastBusDeviceStatusesMessage?: BusDeviceStatusesMessage;
+    lastBusDeviceStatusesNotificationMessage?: BusDeviceStatusesNotificationMessage;
     systemSettings: SystemSetting[];
     filterLogsItem?: FilterServerLogsItem | null;
     filterLogsRequestedAt?: number | null;

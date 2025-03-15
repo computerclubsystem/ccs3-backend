@@ -1,7 +1,7 @@
 import { TariffShortInfo } from 'src/entities/tariff.mjs';
 import { MessageType } from '../declarations/message-type.mjs';
 import { Message } from '../declarations/message.mjs';
-import { DeviceStatus } from './bus-device-statuses.message.mjs';
+import { DeviceStatus } from './bus-device-statuses-notification.message.mjs';
 
 export type BusGetDeviceStatusesRequestMessageBody = object;
 

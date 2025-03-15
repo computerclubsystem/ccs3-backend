@@ -7,7 +7,7 @@ import { OperatorConnectionEventType } from '@computerclubsystem/types/entities/
 import { ITariff, TariffType as StorageTariffType } from './storage/entities/tariff.mjs';
 import { Tariff, TariffType } from '@computerclubsystem/types/entities/tariff.mjs';
 import { IDeviceStatus } from './storage/entities/device-status.mjs';
-import { DeviceStatus } from '@computerclubsystem/types/messages/bus/bus-device-statuses.message.mjs';
+import { DeviceStatus } from '@computerclubsystem/types/messages/bus/bus-device-statuses-notification.message.mjs';
 import { IRole } from './storage/entities/role.mjs';
 import { Role } from '@computerclubsystem/types/entities/role.mjs';
 import { IPermission } from './storage/entities/permission.mjs';
