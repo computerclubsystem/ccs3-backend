@@ -5,6 +5,7 @@ import { Tariff } from 'src/entities/tariff.mjs';
 export interface OperatorCreatePrepaidTariffRequestMessageBody {
     tariff: Tariff;
     passwordHash?: string;
+    deviceGroupIds?: number[] | null;
 }
 
 export type OperatorCreatePrepaidTariffRequestMessage = OperatorRequestMessage<OperatorCreatePrepaidTariffRequestMessageBody>;

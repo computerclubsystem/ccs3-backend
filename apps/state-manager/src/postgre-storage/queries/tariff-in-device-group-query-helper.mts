@@ -2,6 +2,20 @@ import { SelectQueryBuilder, WhereClauseOperation } from './query-builder.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
 
 export class TariffInDeviceGroupQueryHelper {
+    getTariffDeviceGroupsQueryData(tariffId: number): IQueryTextWithParamsResult {
+        const selectBuilder = new SelectQueryBuilder();
+        selectBuilder.setTableName(TableName.tariff_in_device_group);
+        selectBuilder.addSelectColumnName(ColumnName.device_group_id);
+        selectBuilder.addWhereClause({ columnName: ColumnName.tariff_id, operation: WhereClauseOperation.equals, parameterName: '$1' });
+        const params = [
+            tariffId,
+        ];
+        return {
+            text: selectBuilder.getQueryString(),
+            params: params,
+        };
+    }
+
     getAllTariffsInDeviceGroupsQueryData(): IQueryTextWithParamsResult {
         const selectBuilder = new SelectQueryBuilder();
         selectBuilder.setTableName(TableName.tariff_in_device_group);
@@ -11,6 +25,40 @@ export class TariffInDeviceGroupQueryHelper {
             params: undefined,
         };
     }
+
+    replaceTariffDeviceGroupIdsQueryData(tariffId: number, deviceGroupIds: number[]): IQueryTextWithParamsResult {
+        // TODO: Find better way like returning multiple lines with their parameters so the caller can execute them one by one
+        tariffId = +tariffId;
+        const parts: string[] = [this.removeTariffDeviceGroupsQueryText.replace('$1', `${tariffId}`)];
+        for (const deviceGroupId of deviceGroupIds) {
+            const addTariffText = this.addDeviceGroupToTariffQueryText.replace('$1', `${+tariffId}`).replace('$2', `${+deviceGroupId}`);
+            parts.push(addTariffText);
+        }
+        const fullQueryText = parts.join('\r\n');
+        return {
+            text: fullQueryText,
+            // TODO: Params are not needed because we replaced $1, $2 parameters with their values - instead return multiple lines with their parameters
+            params: undefined,
+        }
+    }
+
+    private readonly addDeviceGroupToTariffQueryText = `
+        INSERT INTO tariff_in_device_group
+        (
+            tariff_id,
+            device_group_id
+        )
+        VALUES
+        (
+            $1,
+            $2
+        );
+    `;
+
+    private readonly removeTariffDeviceGroupsQueryText = `
+        DELETE FROM tariff_in_device_group
+        WHERE tariff_id = $1;
+    `;
 
     replaceDeviceGroupTariffIdsQueryData(deviceGroupId: number, tariffIds: number[]): IQueryTextWithParamsResult {
         // TODO: Find better way like returning multiple lines with their parameters so the caller can execute them one by one

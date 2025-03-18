@@ -6,6 +6,7 @@ export interface BusCreatePrepaidTariffRequestMessageBody {
     tariff: Tariff;
     passwordHash?: string;
     userId: number;
+    deviceGroupIds?: number[] | null;
 }
 
 export type BusCreatePrepaidTariffRequestMessage = Message<BusCreatePrepaidTariffRequestMessageBody>;

@@ -5,6 +5,7 @@ import { Tariff } from 'src/entities/tariff.mjs';
 export interface OperatorUpdateTariffRequestMessageBody {
     tariff: Tariff;
     passwordHash?: string;
+    deviceGroupIds?: number[] | null;
 }
 
 export type OperatorUpdateTariffRequestMessage = OperatorRequestMessage<OperatorUpdateTariffRequestMessageBody>;

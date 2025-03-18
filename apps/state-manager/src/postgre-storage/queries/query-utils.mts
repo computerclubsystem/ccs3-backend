@@ -79,11 +79,19 @@ export class QueryUtils {
         return this.helpers.deviceStatus.setDeviceStatusNoteQueryData(deviceIds, note);
     }
 
+    getTariffDeviceGroupsQueryData(tariffId: number): IQueryTextWithParamsResult {
+        return this.helpers.tariffInDeviceGroup.getTariffDeviceGroupsQueryData(tariffId);
+    }
+
     getAllTariffsInDeviceGroupsQueryData(): IQueryTextWithParamsResult {
         return this.helpers.tariffInDeviceGroup.getAllTariffsInDeviceGroupsQueryData();
     }
     updateDeviceGroupQueryData(deviceGroup: IDeviceGroup): IQueryTextWithParamsResult {
         return this.helpers.deviceGroup.updateDeviceGroupQueryData(deviceGroup);
+    }
+
+    replaceTariffDeviceGroupsQueryData(tariffId: number, deviceGroupIds: number[]): IQueryTextWithParamsResult {
+        return this.helpers.tariffInDeviceGroup.replaceTariffDeviceGroupIdsQueryData(tariffId, deviceGroupIds);
     }
 
     replaceDeviceGroupTariffIdsQueryData(deviceGroupId: number, tariffIds: number[]): IQueryTextWithParamsResult {
@@ -268,11 +276,11 @@ export class QueryUtils {
         return this.helpers.tariff.checkTariffPasswordHashQueryData(tariffId, passwordHash);
     }
 
-    createTariffQueryData(tariff: ITariff, passwordHash?: string): IQueryTextWithParamsResult {
+    createTariffQueryData(tariff: ITariff, passwordHash: string | undefined | null): IQueryTextWithParamsResult {
         return this.helpers.tariff.createTariffQueryData(tariff, passwordHash);
     }
 
-    updateTariffQueryData(tariff: ITariff, passwordHash?: string): IQueryTextWithParamsResult {
+    updateTariffQueryData(tariff: ITariff, passwordHash: string | undefined | null): IQueryTextWithParamsResult {
         return this.helpers.tariff.updateTariffQueryData(tariff, passwordHash);
     }
 

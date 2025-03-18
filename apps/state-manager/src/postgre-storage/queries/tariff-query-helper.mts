@@ -141,7 +141,7 @@ export class TariffQueryHelper {
         return result;
     }
 
-    updateTariffQueryData(tariff: ITariff, passwordHash?: string): IQueryTextWithParamsResult {
+    updateTariffQueryData(tariff: ITariff, passwordHash: string | undefined | null): IQueryTextWithParamsResult {
         const builder = this.createUpdateQueryBuilder();
         builder.setTableName(TableName.tariff);
         builder.addUpdateColumnNameWithValue(ColumnName.name, tariff.name);
@@ -173,7 +173,7 @@ export class TariffQueryHelper {
         return result;
     }
 
-    createTariffQueryData(tariff: ITariff, passwordHash?: string): IQueryTextWithParamsResult {
+    createTariffQueryData(tariff: ITariff, passwordHash: string | undefined | null): IQueryTextWithParamsResult {
         const builder = this.createInsertQueryBuilder();
         builder.setTableName(TableName.tariff);
         const insertColumnNames = [

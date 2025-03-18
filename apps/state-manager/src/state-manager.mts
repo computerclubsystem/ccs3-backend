@@ -34,7 +34,7 @@ import { BusDeviceGetByIdRequestMessage, createBusDeviceGetByIdReplyMessage } fr
 import { BusUpdateDeviceRequestMessage, createBusUpdateDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-update-device.messages.mjs';
 import { IDeviceStatus, IDeviceStatusWithContinuationData } from './storage/entities/device-status.mjs';
 import { BusGetAllTariffsRequestMessage, createBusGetAllTariffsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-all-tariffs.messages.mjs';
-import { BusCreateTariffRequestMessage, createBusCreateTariffReplyMessage} from '@computerclubsystem/types/messages/bus/bus-create-tariff.messages.mjs';
+import { BusCreateTariffRequestMessage, createBusCreateTariffReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-tariff.messages.mjs';
 import { Tariff, TariffShortInfo, TariffType } from '@computerclubsystem/types/entities/tariff.mjs';
 import { BusStartDeviceRequestMessage, createBusStartDeviceReplyMessage } from '@computerclubsystem/types/messages/bus/bus-start-device.messages.mjs';
 import { TariffHelper } from './tariff-helper.mjs';
@@ -102,6 +102,7 @@ import { BusGetDeviceCompletedSessionsRequestMessage, createBusGetDeviceComplete
 import { FilterServerLogsItem } from '@computerclubsystem/types/messages/shared-declarations/filter-server-logs-item.mjs';
 import { BusFilterServerLogsNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-filter-server-logs-notification.message.mjs';
 import { BusGetDeviceStatusesRequestMessage, createBusGetDeviceStatusesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-statuses.messages.mjs';
+import { BusGetTariffDeviceGroupsRequestMessage, createBusGetTariffDeviceGroupsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-tariff-device-groups.messages.mjs';
 
 export class StateManager {
     private readonly className = (this as any).constructor.name;
@@ -232,6 +233,9 @@ export class StateManager {
     processOperatorsChannelMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busGetTariffDeviceGroupsRequest:
+                this.processBusGetTariffDeviceGroupsRequestMessage(message as BusGetTariffDeviceGroupsRequestMessage);
+                break;
             case MessageType.busGetDeviceCompletedSessionsRequest:
                 this.processBusGetDeviceCompletedSessionsRequestMessage(message as BusGetDeviceCompletedSessionsRequestMessage);
                 break;
@@ -418,6 +422,27 @@ export class StateManager {
             this.publishToDevicesChannel(replyMsg, message);
         }
     }
+
+    async processBusGetTariffDeviceGroupsRequestMessage(message: BusGetTariffDeviceGroupsRequestMessage): Promise<void> {
+        const replyMsg = createBusGetTariffDeviceGroupsReplyMessage();
+        try {
+            if (!(message.body.tariffId > 0)) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.tariffIdIsRequired,
+                    description: 'Tariff id is required',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
+            replyMsg.body.deviceGroupIds = await this.storageProvider.getTariffDeviceGroups(message.body.tariffId);
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToOperatorsChannel(replyMsg, message);
+        }
+    }
+
 
     async processBusGetDeviceCompletedSessionsRequestMessage(message: BusGetDeviceCompletedSessionsRequestMessage): Promise<void> {
         const replyMsg = createBusGetDeviceCompletedSessionsReplyMessage();
@@ -2566,8 +2591,8 @@ export class StateManager {
     }
 
     async processBusUpdateTariffRequestMessage(message: BusUpdateTariffRequestMessage): Promise<void> {
+        const replyMsg = createBusUpdateTariffReplyMessage();
         try {
-            const replyMsg = createBusUpdateTariffReplyMessage();
             if (!(message.body.userId > 0)) {
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [{
@@ -2588,10 +2613,22 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
+            if (message.body.deviceGroupIds) {
+                const hasInvalidDeviceGroupId = message.body.deviceGroupIds.some(x => !(x > 0));
+                if (hasInvalidDeviceGroupId) {
+                    replyMsg.header.failure = true;
+                    replyMsg.header.errors = [{
+                        code: BusErrorCode.deviceGroupNotFound,
+                        description: `Device group id is invalid`,
+                    }];
+                    this.publishToOperatorsChannel(replyMsg, message);
+                    return;
+                }
+            }
             const storageTariff = this.entityConverter.toStorageTariff(tariff);
             storageTariff.updated_by_user_id = message.body.userId;
             storageTariff.updated_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
-            const updatedTariff = await this.storageProvider.updateTariff(storageTariff, message.body.passwordHash);
+            const updatedTariff = await this.storageProvider.updateTariff(storageTariff, message.body.passwordHash, message.body.deviceGroupIds);
             if (!updatedTariff) {
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [{
@@ -2606,14 +2643,8 @@ export class StateManager {
             await this.cacheAllTariffs();
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
-            this.logger.warn(`Can't process BusUpdateTariffRequestMessage message`, message, err);
-            const replyMsg = createBusUpdateTariffReplyMessage();
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
-            this.publishToOperatorsChannel(replyMsg, message);
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToSharedChannel(replyMsg, message);
         }
     }
 
@@ -2661,6 +2692,18 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
+            if (message.body.deviceGroupIds) {
+                const hasInvalidDeviceGroupId = message.body.deviceGroupIds.some(x => !(x > 0));
+                if (hasInvalidDeviceGroupId) {
+                    replyMsg.header.failure = true;
+                    replyMsg.header.errors = [{
+                        code: BusErrorCode.deviceGroupNotFound,
+                        description: `Device group id is invalid`,
+                    }];
+                    this.publishToOperatorsChannel(replyMsg, message);
+                    return;
+                }
+            }
             const requestedTariffToCreate: Tariff = message.body.tariff;
             const validateTariffResult = this.tariffValidator.validateTariff(requestedTariffToCreate);
             if (!validateTariffResult.success) {
@@ -2685,7 +2728,16 @@ export class StateManager {
             tariffToCreate.createdByUserId = message.body.userId;
             const storageTariffToCreate = this.entityConverter.toStorageTariff(tariffToCreate);
             storageTariffToCreate.created_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
-            const createdStorageTariff = await this.storageProvider.createTariff(storageTariffToCreate, message.body.passwordHash);
+            const createdStorageTariff = await this.storageProvider.createTariff(storageTariffToCreate, message.body.passwordHash, message.body.deviceGroupIds);
+            if (!createdStorageTariff) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.serverError,
+                    description: `Can't create prepaid tariff`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
             await this.cacheAllTariffs();
             const createdTariff = this.entityConverter.toTariff(createdStorageTariff);
             replyMsg.body.tariff = createdTariff;
@@ -2737,7 +2789,16 @@ export class StateManager {
             tariffToCreate.createdByUserId = message.body.userId;
             const storageTariffToCreate = this.entityConverter.toStorageTariff(tariffToCreate);
             storageTariffToCreate.created_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
-            const createdStorageTariff = await this.storageProvider.createTariff(storageTariffToCreate, undefined);
+            const createdStorageTariff = await this.storageProvider.createTariff(storageTariffToCreate, null, message.body.deviceGroupIds);
+            if (!createdStorageTariff) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.serverError,
+                    description: `Can't create tariff`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
             await this.cacheAllTariffs();
             const createdTariff = this.entityConverter.toTariff(createdStorageTariff);
             replyMsg.body.tariff = createdTariff;

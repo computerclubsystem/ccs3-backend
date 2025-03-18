@@ -73,6 +73,16 @@ export class PostgreStorageProvider implements StorageProvider {
         return result;
     }
 
+    async getTariffDeviceGroups(tariffId: number): Promise<number[]> {
+        const queryData = this.queryUtils.getTariffDeviceGroupsQueryData(tariffId);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows.map((x: ITariffInDeviceGroup) => x.device_group_id);;
+    }
+
+    async setTariffDeviceGroups(tariffId: number, deviceGroupIds: number[]): Promise<void> {
+
+    }
+
     async getDeviceSessions(
         fromDate: string,
         toDate: string,
@@ -84,7 +94,6 @@ export class PostgreStorageProvider implements StorageProvider {
         const res = await this.execQuery(queryData.text, queryData.params);
         return res.rows as IDeviceSession[];
     }
-
 
     async getAllTariffsInDeviceGroups(): Promise<ITariffInDeviceGroup[]> {
         const queryData = this.queryUtils.getAllTariffsInDeviceGroupsQueryData();
@@ -664,16 +673,59 @@ export class PostgreStorageProvider implements StorageProvider {
     }
 
 
-    async createTariff(tariff: ITariff, passwordHash?: string): Promise<ITariff> {
-        const queryData = this.queryUtils.createTariffQueryData(tariff, passwordHash);
-        const res = await this.execQuery(queryData.text, queryData.params);
-        return res.rows[0] as ITariff;
+    async createTariff(tariff: ITariff, passwordHash: string | undefined | null, deviceGroupIds: number[] | undefined | null): Promise<ITariff | undefined> {
+        let transactionClient: pg.PoolClient | undefined;
+        try {
+            transactionClient = await this.getPoolClient();
+            await transactionClient.query('BEGIN');
+            const queryData = this.queryUtils.createTariffQueryData(tariff, passwordHash);
+            const res = await transactionClient.query(queryData.text, queryData.params);
+            const createdTariff = res.rows[0] as ITariff;
+            if (!createdTariff) {
+                await transactionClient?.query('ROLLBACK');
+                return undefined;
+            }
+            if (deviceGroupIds) {
+                const replaceTariffDeviceGroupIdsQueryData = this.queryUtils.replaceTariffDeviceGroupsQueryData(createdTariff.id, deviceGroupIds);
+                await transactionClient.query(replaceTariffDeviceGroupIdsQueryData.text, replaceTariffDeviceGroupIdsQueryData.params);
+            }
+            await transactionClient.query('COMMIT');
+            return createdTariff;
+        } catch (err) {
+            await transactionClient?.query('ROLLBACK');
+            throw err;
+        } finally {
+            transactionClient?.release();
+        }
+        // const queryData = this.queryUtils.createTariffQueryData(tariff, passwordHash);
+        // const res = await this.execQuery(queryData.text, queryData.params);
+        // return res.rows[0] as ITariff;
     }
 
-    async updateTariff(tariff: ITariff, passwordHash?: string): Promise<ITariff> {
-        const queryData = this.queryUtils.updateTariffQueryData(tariff, passwordHash);
-        const res = await this.execQuery(queryData.text, queryData.params);
-        return res.rows[0] as ITariff;
+    async updateTariff(tariff: ITariff, passwordHash: string | undefined | null, deviceGroupIds: number[] | undefined | null): Promise<ITariff | undefined> {
+        let transactionClient: pg.PoolClient | undefined;
+        try {
+            transactionClient = await this.getPoolClient();
+            await transactionClient.query('BEGIN');
+            const queryData = this.queryUtils.updateTariffQueryData(tariff, passwordHash);
+            const res = await transactionClient.query(queryData.text, queryData.params);
+            const updatedTariff = res.rows[0] as ITariff;
+            if (!updatedTariff) {
+                await transactionClient?.query('ROLLBACK');
+                return undefined;
+            }
+            if (deviceGroupIds) {
+                const replaceTariffDeviceGroupIdsQueryData = this.queryUtils.replaceTariffDeviceGroupsQueryData(updatedTariff.id, deviceGroupIds);
+                await transactionClient.query(replaceTariffDeviceGroupIdsQueryData.text, replaceTariffDeviceGroupIdsQueryData.params);
+            }
+            await transactionClient.query('COMMIT');
+            return updatedTariff;
+        } catch (err) {
+            await transactionClient?.query('ROLLBACK');
+            throw err;
+        } finally {
+            transactionClient?.release();
+        }
     }
 
     async updateTariffRemainingSeconds(tariffId: number, remainingSeconds: number): Promise<ITariff | undefined> {

@@ -221,6 +221,8 @@ import { createBusFilterServerLogsNotificationMessage } from '@computerclubsyste
 import { createOperatorShutdownStoppedReplyMessage, OperatorShutdownStoppedRequestMessage } from '@computerclubsystem/types/messages/operators/operator-shutdown-stopped.messages.mjs';
 import { BusGetDeviceStatusesReplyMessageBody, createBusGetDeviceStatusesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-statuses.messages.mjs';
 import { BusShutdownStoppedReplyMessageBody, BusShutdownStoppedRequestMessageBody, createBusShutdownStoppedRequestMessage } from '@computerclubsystem/types/messages/bus/bus-shutdown-stopped.messages.mjs';
+import { createOperatorGetTariffDeviceGroupsReplyMessage, OperatorGetTariffDeviceGroupsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-tariff-device-groups.messages.mjs';
+import { BusGetTariffDeviceGroupsReplyMessageBody, createBusGetTariffDeviceGroupsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-tariff-device-groups.messages.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -293,6 +295,9 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorRequestMessageType.getTariffDeviceGroupsRequest:
+                this.processOperatorGetTariffDeviceGroupsRequestMessage(clientData, message as OperatorGetTariffDeviceGroupsRequestMessage);
+                break;
             case OperatorRequestMessageType.shutdownStoppedRequest:
                 this.processOperatorShutdownStoppedRequestMessage(clientData, message as OperatorShutdownStoppedRequestMessage);
                 break;
@@ -439,6 +444,18 @@ export class OperatorConnector {
                 this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    processOperatorGetTariffDeviceGroupsRequestMessage(clientData: ConnectedClientData, message: OperatorGetTariffDeviceGroupsRequestMessage): void {
+        const busReqMsg = createBusGetTariffDeviceGroupsRequestMessage();
+        busReqMsg.body.tariffId = message.body.tariffId;
+        this.publishToOperatorsChannelAndWaitForReply<BusGetTariffDeviceGroupsReplyMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorGetTariffDeviceGroupsReplyMessage();
+                operatorReplyMsg.body.deviceGroupIds = busReplyMsg.body.deviceGroupIds;
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
     }
 
     processOperatorShutdownStoppedRequestMessage(clientData: ConnectedClientData, message: OperatorShutdownStoppedRequestMessage): void {
@@ -945,7 +962,8 @@ export class OperatorConnector {
         const busRequestMsg = createBusUpdateTariffRequestMessage();
         busRequestMsg.body.tariff = message.body.tariff;
         busRequestMsg.body.passwordHash = message.body.passwordHash;
-        busRequestMsg.body.userId = clientData.userId!;;
+        busRequestMsg.body.userId = clientData.userId!;
+        busRequestMsg.body.deviceGroupIds = message.body.deviceGroupIds;
         this.publishToOperatorsChannelAndWaitForReply<BusGetTariffByIdReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorUpdateTariffReplyMessage();
@@ -1040,6 +1058,7 @@ export class OperatorConnector {
         busRequestMsg.body.tariff = requestedTariff;
         busRequestMsg.body.passwordHash = message.body.passwordHash;
         busRequestMsg.body.userId = clientData.userId!;
+        busRequestMsg.body.deviceGroupIds = message.body.deviceGroupIds;
         this.publishToOperatorsChannelAndWaitForReply<BusCreatePrepaidTariffReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorCreatePrepaidTariffReplyMessage();
@@ -1075,6 +1094,7 @@ export class OperatorConnector {
         const busRequestMsg = createBusCreateTariffRequestMessage();
         busRequestMsg.body.tariff = requestedTariff;
         busRequestMsg.body.userId = clientData.userId!;
+        busRequestMsg.body.deviceGroupIds = message.body.deviceGroupIds;
         this.publishToOperatorsChannelAndWaitForReply<BusCreateTariffReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorCreateTariffReplyMessage();
@@ -1183,7 +1203,7 @@ export class OperatorConnector {
         );
     }
 
-     publishToDevicesChannelAndWaitForReply<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData): Observable<Message<TReplyBody>> {
+    publishToDevicesChannelAndWaitForReply<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData): Observable<Message<TReplyBody>> {
         const messageStatItem: MessageStatItem = {
             sentAt: this.getNowAsNumber(),
             channel: ChannelName.devices,

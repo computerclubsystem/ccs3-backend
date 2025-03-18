@@ -25,6 +25,8 @@ import { IDeviceGroup } from './entities/device-group.mjs';
 import { ITariffInDeviceGroup } from './entities/tariff-in-device-group.mjs';
 
 export interface StorageProvider {
+    getTariffDeviceGroups(tariffId: number): Promise<number[]>;
+    setTariffDeviceGroups(tariffId: number, deviceGroupIds: number[]): Promise<void>;
     getAllTariffsInDeviceGroups(): Promise<ITariffInDeviceGroup[]>;
     updateDeviceGroup(deviceGroup: IDeviceGroup, assignedTariffIds: number[] | undefined | null): Promise<IDeviceGroup | undefined>;
     createDeviceGroup(deviceGroup: IDeviceGroup, assignedTariffIds: number[] | undefined | null): Promise<IDeviceGroup | undefined>;
@@ -81,8 +83,8 @@ export interface StorageProvider {
     getAllTariffs(types?: number[]): Promise<ITariff[]>;
     getTariffById(tariffId: number): Promise<ITariff | undefined>;
     checkTariffPasswordHash(tariffId: number, passwordHash: string): Promise<boolean>;
-    createTariff(tariff: ITariff, passwordHash?: string): Promise<ITariff>;
-    updateTariff(tariff: ITariff, passwordHash?: string): Promise<ITariff>;
+    createTariff(tariff: ITariff, passwordHash: string | undefined | null, deviceGroupIds: number[] | undefined | null): Promise<ITariff | undefined>;
+    updateTariff(tariff: ITariff, passwordHash: string | undefined | null, deviceGroupIds: number[] | undefined | null): Promise<ITariff | undefined>;
     updateTariffRemainingSeconds(tariffId: number, remainingSeconds: number): Promise<ITariff | undefined>;
     increaseTariffRemainingSeconds(tariffId: number, secondsToAdd: number, userId: number, increasedAt: string): Promise<IncreaseTariffRemainingSecondsResult | undefined>;
     updateTariffPasswordHash(tariffId: number, passwordHash: string): Promise<ITariff | undefined>;
