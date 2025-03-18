@@ -62,9 +62,11 @@ import { TariffShortInfo } from '@computerclubsystem/types/entities/tariff.mjs';
 import { BusFilterServerLogsNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-filter-server-logs-notification.message.mjs';
 import { FilterServerLogsItem } from '@computerclubsystem/types/messages/shared-declarations/filter-server-logs-item.mjs';
 import { BusShutdownStoppedRequestMessage, createBusShutdownStoppedReplyMessage } from '@computerclubsystem/types/messages/bus/bus-shutdown-stopped.messages.mjs';
-import { BusGetDeviceStatusesReplyMessage, BusGetDeviceStatusesReplyMessageBody, createBusGetDeviceStatusesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-statuses.messages.mjs';
+import { BusGetDeviceStatusesReplyMessageBody, createBusGetDeviceStatusesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-statuses.messages.mjs';
 import { createServerToDeviceShutdownNoitificationMessage } from '@computerclubsystem/types/messages/devices/server-to-device-shutdown-notification.message.mjs';
 import { transferSharedMessageData } from '@computerclubsystem/types/messages/utils.mjs';
+import { BusRestartDevicesRequestMessage, createBusRestartDevicesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-restart-devices.messages.mjs';
+import { createServerToDeviceRestartNoitificationMessage } from '@computerclubsystem/types/messages/devices/server-to-device-restart-notification.message.mjs';
 
 export class PcConnector {
     wssServer!: WssServer;
@@ -337,6 +339,9 @@ export class PcConnector {
         const type = message.header.type;
         // Process only notification messages. Reply message should be processed by the caller
         switch (type) {
+            case MessageType.busRestartDevicesRequest:
+                this.processBusRestartDevicesRequestMessage(message as BusRestartDevicesRequestMessage);
+                break;
             case MessageType.busShutdownStoppedRequest:
                 this.processBusShutdownStoppedRequestMessage(message as BusShutdownStoppedRequestMessage);
                 break;
@@ -344,6 +349,32 @@ export class PcConnector {
                 this.processDeviceStatusesMessage(message as BusDeviceStatusesNotificationMessage);
                 break;
         }
+    }
+
+    processBusRestartDevicesRequestMessage(message: BusRestartDevicesRequestMessage): void {
+        const replyMsg = createBusRestartDevicesReplyMessage();
+        if (!(message.body.deviceIds?.length > 0)) {
+            replyMsg.body.targetsCount = 0;
+            this.publishToDevicesChannel(replyMsg, message);
+            return;
+        }
+        const deviceIdsSet = new Set<number>(Array.from(message.body.deviceIds));
+        const clientsToSendTo: ConnectedClientData[] = [];
+        for (const connectedClient of this.connectedClients.values()) {
+            if (connectedClient.deviceId && deviceIdsSet.has(connectedClient.deviceId)) {
+                clientsToSendTo.push(connectedClient);
+            }
+        }
+        replyMsg.body.targetsCount = (new Set<number>(clientsToSendTo.map(x => x.deviceId!))).size;
+        const restartNotificationMsg = createServerToDeviceRestartNoitificationMessage();
+        for (const client of clientsToSendTo) {
+            try {
+                this.sendNotificationMessageToDevice(restartNotificationMsg, client.connectionId);
+            } catch (err) {
+                this.logger.warn(`Can't send to device connection id ${client.connectionId}`, restartNotificationMsg, err);
+            }
+        }
+        this.publishToDevicesChannel(replyMsg, message);
     }
 
     processBusShutdownStoppedRequestMessage(message: BusShutdownStoppedRequestMessage): void {

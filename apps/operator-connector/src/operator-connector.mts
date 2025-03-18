@@ -223,6 +223,8 @@ import { BusGetDeviceStatusesReplyMessageBody, createBusGetDeviceStatusesRequest
 import { BusShutdownStoppedReplyMessageBody, BusShutdownStoppedRequestMessageBody, createBusShutdownStoppedRequestMessage } from '@computerclubsystem/types/messages/bus/bus-shutdown-stopped.messages.mjs';
 import { createOperatorGetTariffDeviceGroupsReplyMessage, OperatorGetTariffDeviceGroupsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-tariff-device-groups.messages.mjs';
 import { BusGetTariffDeviceGroupsReplyMessageBody, createBusGetTariffDeviceGroupsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-tariff-device-groups.messages.mjs';
+import { createOperatorRestartDevicesReplyMessage, OperatorRestartDevicesRequestMessage } from '@computerclubsystem/types/messages/operators/operator-restart-devices.messages.mjs';
+import { BusRestartDevicesReplyMessageBody, createBusRestartDevicesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-restart-devices.messages.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -297,6 +299,9 @@ export class OperatorConnector {
         switch (type) {
             case OperatorRequestMessageType.getTariffDeviceGroupsRequest:
                 this.processOperatorGetTariffDeviceGroupsRequestMessage(clientData, message as OperatorGetTariffDeviceGroupsRequestMessage);
+                break;
+            case OperatorRequestMessageType.restartDevicesRequest:
+                this.processOperatorRestartDevicesRequestMessage(clientData, message as OperatorRestartDevicesRequestMessage);
                 break;
             case OperatorRequestMessageType.shutdownStoppedRequest:
                 this.processOperatorShutdownStoppedRequestMessage(clientData, message as OperatorShutdownStoppedRequestMessage);
@@ -453,6 +458,18 @@ export class OperatorConnector {
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorGetTariffDeviceGroupsReplyMessage();
                 operatorReplyMsg.body.deviceGroupIds = busReplyMsg.body.deviceGroupIds;
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
+    }
+
+    processOperatorRestartDevicesRequestMessage(clientData: ConnectedClientData, message: OperatorRestartDevicesRequestMessage): void {
+        const busReqMsg = createBusRestartDevicesRequestMessage();
+        busReqMsg.body.deviceIds = message.body.deviceIds;
+        this.publishToDevicesChannelAndWaitForReply<BusRestartDevicesReplyMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorRestartDevicesReplyMessage();
+                operatorReplyMsg.body.targetsCount = busReplyMsg.body.targetsCount;
                 this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
                 this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
             });

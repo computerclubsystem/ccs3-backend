@@ -4,6 +4,8 @@ export const enum MessageType {
     busSetTariffDeviceGroupsRequest = 'bus-set-tariff-device-groups-request',
     busSetTariffDeviceGroupsReply = 'bus-set-tariff-device-groups-reply',
 
+    busRestartDevicesRequest = 'bus-restart-devices-request',
+    busRestartDevicesReply = 'bus-restart-devices-reply',
     busShutdownStoppedRequest = 'bus-shutdown-stopped-request',
     busShutdownStoppedReply = 'bus-shutdown-stopped-reply',
 

@@ -1,4 +1,5 @@
 export enum OperatorRequestMessageType {
+    restartDevicesRequest = 'restart-devices-request',
     getTariffDeviceGroupsRequest = 'get-tariff-device-groups-request',
     shutdownStoppedRequest = 'shutdown-stopped-request',
     filterServerLogsRequest = 'filter-server-logs-request',
@@ -51,6 +52,7 @@ export enum OperatorRequestMessageType {
 }
 
 export enum OperatorReplyMessageType {
+    restartDevicesReply = 'restart-devices-reply',
     getTariffDeviceGroupsReply = 'get-tariff-device-groups-reply',
     shutdownStoppedReply = 'shutdown-stopped-reply',
     filterServerLogsReply = 'filter-server-logs-reply',
