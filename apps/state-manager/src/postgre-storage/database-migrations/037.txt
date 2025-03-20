@@ -1,0 +1,14 @@
+INSERT INTO user_profile_setting
+(
+    name,
+    description
+)
+VALUES
+(
+    'language',
+    'User language'
+);
+
+UPDATE db_metadata
+SET value = '37'
+WHERE name = 'database-version';
