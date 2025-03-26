@@ -60,7 +60,7 @@ export class DateTimeHelper {
      * @param toMinute 
      */
     isCurrentMinuteInMinutePeriod(fromMinute: number, toMinute: number): IsCurrentMinuteInMinutePeriodResult {
-        const currentMinute = this.getCurrentMinute();
+        const currentMinute = this.getCurrentMinuteWithSecondsPart();
         const result: IsCurrentMinuteInMinutePeriodResult = {
             currentMinute: currentMinute,
             isInPeriod: this.isInMinutePeriod(fromMinute, toMinute, currentMinute),
@@ -87,6 +87,13 @@ export class DateTimeHelper {
     getCurrentMinute(): number {
         const now = this.getNow();
         const currentMinute = now.hour * 60 + now.minute;
+        return currentMinute;
+    }
+
+    getCurrentMinuteWithSecondsPart(): number {
+        const now = this.getNow();
+        const minutesFractionValue = now.second / 60 + now.millisecond / 1000 / 60;
+        const currentMinute = now.hour * 60 + now.minute + minutesFractionValue;
         return currentMinute;
     }
 
