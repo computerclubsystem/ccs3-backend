@@ -19,6 +19,7 @@ export class UdpHelper {
     }
 
     private sendToSocket(socket: Socket, buffer: Buffer, port: number, ipAddress: string): void {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         socket.send(buffer, port, ipAddress, (error, bytes) => {
             socket.close();
         });

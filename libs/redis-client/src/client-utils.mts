@@ -31,6 +31,7 @@ export const createConnectedRedisClient = async (options: CreateConnectedRedisCl
     const client = createClient(createClientOptions);
     const errorCallback = options?.errorCallback;
     if (errorCallback) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         client.on('error', (err: any) => errorCallback(err));
     }
     // client.on('connect', () => console.log('connected'));

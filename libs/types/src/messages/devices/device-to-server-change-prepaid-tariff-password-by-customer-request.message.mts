@@ -5,5 +5,4 @@ export interface DeviceToServerChangePrepaidTariffPasswordByCustomerRequestMessa
     newPasswordHash: string;
 }
 
-export interface DeviceToServerChangePrepaidTariffPasswordByCustomerRequestMessage extends DeviceToServerRequestMessage<DeviceToServerChangePrepaidTariffPasswordByCustomerRequestMessageBody> {
-}
+export type DeviceToServerChangePrepaidTariffPasswordByCustomerRequestMessage = DeviceToServerRequestMessage<DeviceToServerChangePrepaidTariffPasswordByCustomerRequestMessageBody>;

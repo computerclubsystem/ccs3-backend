@@ -5,5 +5,4 @@ export interface DeviceToServerStartOnPrepaidTariffRequestMessageBody {
     passwordHash: string;
 }
 
-export interface DeviceToServerStartOnPrepaidTariffRequestMessage extends DeviceToServerRequestMessage<DeviceToServerStartOnPrepaidTariffRequestMessageBody> {
-}
+export type DeviceToServerStartOnPrepaidTariffRequestMessage = DeviceToServerRequestMessage<DeviceToServerStartOnPrepaidTariffRequestMessageBody>;

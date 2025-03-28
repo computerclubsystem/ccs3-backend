@@ -72,7 +72,7 @@ export class DateTimeHelper {
         return this.getNow().toMillis();
     }
 
-    setDefaultTimeZone(timeZone: string): void {
+    setDefaultTimeZone(timeZone: string | undefined | null): void {
         // null means that current machine timezone configuration will be used
         const calculatedTimeZone = timeZone?.trim() || null;
         Settings.defaultZone = calculatedTimeZone!;

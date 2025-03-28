@@ -8,7 +8,7 @@ export interface BusEndDeviceSessionByCustomerRequestMessageBody {
 export type BusEndDeviceSessionByCustomerRequestMessage = Message<BusEndDeviceSessionByCustomerRequestMessageBody>;
 
 export function createBusEndDeviceSessionByCustomerRequestMessage(): BusEndDeviceSessionByCustomerRequestMessage {
-    var msg: BusEndDeviceSessionByCustomerRequestMessage = {
+    const msg: BusEndDeviceSessionByCustomerRequestMessage = {
         header: {
             type: MessageType.busEndDeviceSessionByCustomerRequest,
         },

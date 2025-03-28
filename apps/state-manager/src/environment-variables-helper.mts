@@ -1,9 +1,10 @@
 export class EnvironmentVariablesHelper {
-    getObjectValueByKey(obj: any, key: string): any {
-        return obj?.[key];
+    getObjectValueByKey(obj: object, key: string): unknown {
+        return (obj as never)?.[key];
     }
 
-    setObjectValueByKey(obj: any, key: string, value: any): void {
+    setObjectValueByKey(obj: object, key: string, value: unknown): void {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (obj as any)[key] = value;
     }
 
@@ -15,7 +16,7 @@ export class EnvironmentVariablesHelper {
             CCS3_REDIS_HOST: {} as EnvironmentVariableNameWithValue<string>,
             CCS3_REDIS_PORT: {} as EnvironmentVariableNameWithValue<number>,
         };
-        Object.keys(result).forEach(key => this.setObjectValueByKey(result, key, { name: key } as EnvironmentVariableNameWithValue<any>));
+        Object.keys(result).forEach(key => this.setObjectValueByKey(result, key, { name: key } as EnvironmentVariableNameWithValue<unknown>));
         result.CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING.value = this.getEnvVarValue(result.CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING.name)!;
         result.CCS3_STATE_MANAGER_STORAGE_PROVIDER_DATABASE_MIGRATION_SCRIPTS_DIRECTORY.value = this.getEnvVarValue(result.CCS3_STATE_MANAGER_STORAGE_PROVIDER_DATABASE_MIGRATION_SCRIPTS_DIRECTORY.name, './postgre-storage/database-migrations')!;
         result.CCS3_REDIS_HOST.value = this.getEnvVarValue(result.CCS3_REDIS_HOST.name, 'ccs3-valkey-service')!;

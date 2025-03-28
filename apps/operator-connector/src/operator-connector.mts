@@ -26,7 +26,7 @@ import { OperatorRequestMessage, OperatorNotificationMessage, OperatorReplyMessa
 import { OperatorRequestMessageType, OperatorNotificationMessageType } from '@computerclubsystem/types/messages/operators/declarations/operator-message-type.mjs';
 import { OperatorConnectionRoundTripData } from '@computerclubsystem/types/messages/operators/declarations/operator-connection-roundtrip-data.mjs';
 import { createOperatorConfigurationNotificationMessage, OperatorConfigurationNotificationMessage } from '@computerclubsystem/types/messages/operators/operator-configuration-notification.message.mjs';
-import { OperatorPingRequestMessage } from '@computerclubsystem/types/messages/operators/operator-ping-request.message.mjs';
+// import { OperatorPingRequestMessage } from '@computerclubsystem/types/messages/operators/operator-ping-request.message.mjs';
 import { CacheHelper, UserAuthDataCacheValue } from './cache-helper.mjs';
 import {
     CanProcessOperatorMessageResult, CanProcessOperatorMessageResultErrorReason, ConnectedClientData,
@@ -213,14 +213,12 @@ import { createOperatorSetDeviceStatusNoteReplyMessage, OperatorSetDeviceStatusN
 import { BusSetDeviceStatusNoteReplyMessageBody, createBusSetDeviceStatusNoteRequestMessage } from '@computerclubsystem/types/messages/bus/bus-set-device-status-note.messages.mjs';
 import { BusGetLastCompletedShiftReplyMessageBody, createBusGetLastCompletedShiftRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-last-completed-shift.messages.mjs';
 import { createOperatorSignInInformationNotificationMessage } from '@computerclubsystem/types/messages/operators/operator-sign-in-information-notification.message.mjs';
-import { Shift } from '@computerclubsystem/types/entities/shift.mjs';
 import { createOperatorGetDeviceCompletedSessionsReplyMessage, OperatorGetDeviceCompletedSessionsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-device-completed-sessions.messages.mjs';
 import { BusGetDeviceCompletedSessionsReplyMessageBody, createBusGetDeviceCompletedSessionsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-completed-sessions.messages.mjs';
 import { createOperatorFilterServerLogsReplyMessage, OperatorFilterServerLogsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-filter-server-logs.messages.mjs';
 import { createBusFilterServerLogsNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-filter-server-logs-notification.message.mjs';
 import { createOperatorShutdownStoppedReplyMessage, OperatorShutdownStoppedRequestMessage } from '@computerclubsystem/types/messages/operators/operator-shutdown-stopped.messages.mjs';
-import { BusGetDeviceStatusesReplyMessageBody, createBusGetDeviceStatusesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-statuses.messages.mjs';
-import { BusShutdownStoppedReplyMessageBody, BusShutdownStoppedRequestMessageBody, createBusShutdownStoppedRequestMessage } from '@computerclubsystem/types/messages/bus/bus-shutdown-stopped.messages.mjs';
+import { BusShutdownStoppedReplyMessageBody, createBusShutdownStoppedRequestMessage } from '@computerclubsystem/types/messages/bus/bus-shutdown-stopped.messages.mjs';
 import { createOperatorGetTariffDeviceGroupsReplyMessage, OperatorGetTariffDeviceGroupsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-tariff-device-groups.messages.mjs';
 import { BusGetTariffDeviceGroupsReplyMessageBody, createBusGetTariffDeviceGroupsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-tariff-device-groups.messages.mjs';
 import { createOperatorRestartDevicesReplyMessage, OperatorRestartDevicesRequestMessage } from '@computerclubsystem/types/messages/operators/operator-restart-devices.messages.mjs';
@@ -245,7 +243,7 @@ export class OperatorConnector {
     private wssEmitter!: EventEmitter;
     private connectedClients = new Map<number, ConnectedClientData>();
 
-    async processOperatorMessage(connectionId: number, message: OperatorRequestMessage<any>): Promise<void> {
+    async processOperatorMessage(connectionId: number, message: OperatorRequestMessage<unknown>): Promise<void> {
         const clientData = this.getConnectedClientData(connectionId);
         if (!clientData) {
             return;
@@ -446,7 +444,7 @@ export class OperatorConnector {
                 break;
             case OperatorRequestMessageType.pingRequest:
                 clientData.receivedPingMessagesCount++;
-                this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
+                // this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
     }
@@ -1191,6 +1189,7 @@ export class OperatorConnector {
             });
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     publishToSharedChannelAndWaitForReply<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData | null): Observable<Message<TReplyBody>> {
         const messageStatItem: MessageStatItem = {
             sentAt: this.getNowAsNumber(),
@@ -1220,6 +1219,7 @@ export class OperatorConnector {
         );
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     publishToDevicesChannelAndWaitForReply<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData): Observable<Message<TReplyBody>> {
         const messageStatItem: MessageStatItem = {
             sentAt: this.getNowAsNumber(),
@@ -1249,6 +1249,7 @@ export class OperatorConnector {
         );
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     publishToOperatorsChannelAndWaitForReply<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData): Observable<Message<TReplyBody>> {
         const messageStatItem: MessageStatItem = {
             sentAt: this.getNowAsNumber(),
@@ -1483,11 +1484,11 @@ export class OperatorConnector {
         return roundTripData;
     }
 
-    processOperatorPingRequestMessage(clientData: ConnectedClientData, message: OperatorPingRequestMessage): void {
-        // TODO: Do we need to do something on ping ? The lastMessageReceivedAt is already set
-    }
+    // processOperatorPingRequestMessage(clientData: ConnectedClientData, message: OperatorPingRequestMessage): void {
+    //     // TODO: Do we need to do something on ping ? The lastMessageReceivedAt is already set
+    // }
 
-    processBusMessageReceived(channelName: string, message: Message<any>): void {
+    processBusMessageReceived(channelName: string, message: Message<unknown>): void {
         if (this.isOwnMessage(message)) {
             return;
         }
@@ -1532,7 +1533,7 @@ export class OperatorConnector {
     async processBusOperatorAuthReplyMessage(
         clientData: ConnectedClientData,
         message: BusUserAuthReplyMessage,
-        operatorMessage: OperatorRequestMessage<any>,
+        operatorMessage: OperatorRequestMessage<unknown>,
         username: string
     ): Promise<void> {
         const replyMsg = createOperatorAuthReplyMessage();
@@ -1756,6 +1757,7 @@ export class OperatorConnector {
         return opDeviceStatus;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     removeNullAndUndefinedKeys(obj: Record<string, any>): void {
         const keys = Object.keys(obj);
         keys.forEach(key => {
@@ -1802,6 +1804,7 @@ export class OperatorConnector {
         this.publishToOperatorsChannel(deviceConnectionEventMsg);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     publishToSharedChannel<TBody>(message: Message<TBody>): Observable<Message<any>> {
         message.header.source = this.messageBusIdentifier;
         this.logger.log('Publishing message', ChannelName.shared, message.header.type, message);
@@ -1809,6 +1812,7 @@ export class OperatorConnector {
         return this.subjectsService.getSharedChannelBusMessageReceived();
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     publishToDevicesChannel<TBody>(message: Message<TBody>): Observable<Message<any>> {
         message.header.source = this.messageBusIdentifier;
         this.logger.log('Publishing message', ChannelName.devices, message.header.type, message);
@@ -1816,6 +1820,7 @@ export class OperatorConnector {
         return this.subjectsService.getDevicesChannelBusMessageReceived();
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     publishToOperatorsChannel<TBody>(message: Message<TBody>): Observable<Message<any>> {
         message.header.source = this.messageBusIdentifier;
         this.logger.log('Publishing message', ChannelName.operators, message.header.type, message);
@@ -1840,9 +1845,9 @@ export class OperatorConnector {
         return json as TMessage;
     }
 
-    deserializeBusMessageToMessage(text: string): Message<any> | null {
+    deserializeBusMessageToMessage(text: string): Message<unknown> | null {
         const json = JSON.parse(text);
-        return json as Message<any>;
+        return json as Message<unknown>;
     }
 
     isOwnMessage<TBody>(message: Message<TBody>): boolean {
@@ -1889,7 +1894,7 @@ export class OperatorConnector {
         return Array.from(this.connectedClients.entries());
     }
 
-    sendReplyMessageToOperator<TBody>(message: OperatorReplyMessage<TBody>, clientData: ConnectedClientData, requestMessage?: OperatorRequestMessage<any>): void {
+    sendReplyMessageToOperator<TBody>(message: OperatorReplyMessage<TBody>, clientData: ConnectedClientData, requestMessage?: OperatorRequestMessage<unknown>): void {
         if (requestMessage) {
             message.header.correlationId = requestMessage.header.correlationId;
         }
@@ -2067,6 +2072,7 @@ export class OperatorConnector {
         this.serveStaticFiles();
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     applySystemSettings(systemSettings: SystemSetting[]): void {
         // TODO: Set this.state values according to systemSettings
         const configurationMsg = this.createOperatorConfigurationMessage();
@@ -2099,7 +2105,7 @@ export class OperatorConnector {
     }
 
     processOperatorMessageReceived(args: MessageReceivedEventArgs): void {
-        let msg: OperatorRequestMessage<any> | null;
+        let msg: OperatorRequestMessage<unknown> | null;
         let type: OperatorRequestMessageType | undefined;
         try {
             msg = this.deserializeWebSocketBufferToMessage(args.buffer);

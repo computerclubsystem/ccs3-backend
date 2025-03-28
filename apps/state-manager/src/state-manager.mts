@@ -23,7 +23,6 @@ import { BusDeviceConnectionEventNotificationMessage } from '@computerclubsystem
 import { IDeviceConnectionEvent } from './storage/entities/device-connection-event.mjs';
 import { BusUserAuthRequestMessage, BusUserAuthReplyMessage, createBusUserAuthReplyMessage } from '@computerclubsystem/types/messages/bus/bus-operator-auth.messages.mjs';
 import { transferSharedMessageData } from '@computerclubsystem/types/messages/utils.mjs';
-import { OperatorConnectionRoundTripData } from '@computerclubsystem/types/messages/operators/declarations/operator-connection-roundtrip-data.mjs';
 import { ISystemSetting } from './storage/entities/system-setting.mjs';
 import { CacheHelper } from './cache-helper.mjs';
 import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
@@ -105,7 +104,7 @@ import { BusGetDeviceStatusesRequestMessage, createBusGetDeviceStatusesReplyMess
 import { BusGetTariffDeviceGroupsRequestMessage, createBusGetTariffDeviceGroupsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-tariff-device-groups.messages.mjs';
 
 export class StateManager {
-    private readonly className = (this as any).constructor.name;
+    private readonly className = (this as object).constructor.name;
     private readonly messageBusIdentifier = 'ccs3/state-manager';
     private readonly subClient = new RedisSubClient();
     private readonly pubClient = new RedisPubClient();
@@ -121,7 +120,7 @@ export class StateManager {
     private readonly systemNotes = new SystemNotes();
     private readonly envVars = new EnvironmentVariablesHelper().createEnvironmentVars();
 
-    processReceivedBusMessage(channelName: string, message: Message<any>): void {
+    processReceivedBusMessage(channelName: string, message: Message<unknown>): void {
         if (this.isOwnMessage(message)) {
             return;
         }
@@ -392,7 +391,7 @@ export class StateManager {
         if (leftKeys.length !== rightKeys.length) {
             return false;
         }
-        const getObjectValue = (obj: unknown, key: string) => (obj as any)[key];
+        const getObjectValue = (obj: unknown, key: string) => (obj as never)[key];
         const keysToExclude = new Set<string>(['completedSummaryByUser', 'runningSummaryByUser']);
         for (const key of leftKeys) {
             // We must exclude objects like arrays
@@ -1057,11 +1056,7 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusCompleteShiftRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -1102,8 +1097,8 @@ export class StateManager {
         // Created prepaid tariffs
         const storageCreatedTariffs = await this.storageProvider.getCreatedTariffsForDateTimeInterval(fromDate, nowISOString);
         const storageCreatedPrepaidTariffs = storageCreatedTariffs.filter(x => this.isPrepaidType(x.type as number as TariffType));
-        let createdPrepaidTariffsCount = storageCreatedPrepaidTariffs.length;
-        let createdPrepaidTariffsTotal = storageCreatedPrepaidTariffs.reduce((acc, tariff) => this.roundAmount(acc + tariff.price), 0);
+        const createdPrepaidTariffsCount = storageCreatedPrepaidTariffs.length;
+        const createdPrepaidTariffsTotal = storageCreatedPrepaidTariffs.reduce((acc, tariff) => this.roundAmount(acc + tariff.price), 0);
         for (const storageCreatedPrepaidTariff of storageCreatedPrepaidTariffs) {
             const userId = storageCreatedPrepaidTariff.created_by_user_id!;
             const mapItem = userWithTotalAndCountCompletedMap.get(userId);
@@ -1122,8 +1117,8 @@ export class StateManager {
 
         // Recharged tariffs
         const storageRechargedTariffs = await this.storageProvider.getRechargedTariffsForDateTimeInterval(fromDate, nowISOString);
-        let rechargedPrepaidTariffsCount = storageRechargedTariffs.length;
-        let rechargedPrepaidTariffsTotal = storageRechargedTariffs.reduce((acc, tariff) => this.roundAmount(acc + tariff.recharge_price), 0);
+        const rechargedPrepaidTariffsCount = storageRechargedTariffs.length;
+        const rechargedPrepaidTariffsTotal = storageRechargedTariffs.reduce((acc, tariff) => this.roundAmount(acc + tariff.recharge_price), 0);
         for (const storageRechargedTariff of storageRechargedTariffs) {
             const userId = storageRechargedTariff.user_id;
             const mapItem = userWithTotalAndCountCompletedMap.get(userId);
@@ -1147,7 +1142,7 @@ export class StateManager {
         // const storageStartedDeviceStatusesForNonPrepaidTariffs = storageStartedDeviceStatuses.filter(x => nonPrepaidTariffsIdsSet.has(x.start_reason!));
         // Running sessions count will include started device on all tariffs
         // while the running sessions total will include only devices started for non-prepaid tariffs
-        let runningSessionsCount = storageStartedDeviceStatuses.length;
+        const runningSessionsCount = storageStartedDeviceStatuses.length;
         let runningSessionsTotal = 0;
         let continuationsCount = 0;
         let continuationsTotal = 0;
@@ -1174,13 +1169,13 @@ export class StateManager {
                 continuationsTotal = this.roundAmount(continuationsTotal + continuationTariff.price);
                 continuationsCount++;
                 const continuationUserId = startedDevice.continuation_user_id!;
-                const continuationUsername = allUsersMap.get(continuationUserId)?.username!;
-                let continuationMapItem = userWithTotalAndCountRunningMap.get(continuationUserId);
+                const continuationUsername = allUsersMap.get(continuationUserId)?.username;
+                const continuationMapItem = userWithTotalAndCountRunningMap.get(continuationUserId);
                 if (continuationMapItem == undefined) {
                     mapItem = {
                         count: 1,
                         total: continuationTariff.price,
-                        username: continuationUsername,
+                        username: continuationUsername!,
                     };
                     userWithTotalAndCountRunningMap.set(continuationUserId, mapItem);
                 } else {
@@ -1231,11 +1226,7 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusGetCurrentShiftStatusRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -1324,15 +1315,11 @@ export class StateManager {
                 this.publishToDevicesChannel(replyMsg, message);
                 return;
             }
-            const updatedTariff = await this.storageProvider.updateTariffPasswordHash(tariff.id, message.body.newPasswordHash);
+            await this.storageProvider.updateTariffPasswordHash(tariff.id, message.body.newPasswordHash);
             this.publishToDevicesChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusChangePrepaidTariffPasswordByCustomerRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToDevicesChannel(replyMsg, message);
         }
     }
@@ -1406,11 +1393,7 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusRechargeTariffDurationRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -1432,11 +1415,7 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusDeleteDeviceContinuationRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -1589,11 +1568,7 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusCreateDeviceContinuationRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -1782,11 +1757,7 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusTransferDeviceRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -1870,11 +1841,7 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusEndDeviceSessionByCustomerRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -1990,11 +1957,7 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusStopDeviceRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -2029,11 +1992,7 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusUpdateUserWithRolesRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -2067,11 +2026,7 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusGetUserWithRolesRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -2113,11 +2068,7 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusCreateUserWithRolesRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -2131,11 +2082,7 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusGetAllUsersRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -2166,11 +2113,7 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusUpdateRoleWithPermissionsRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -2201,11 +2144,7 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusCreateRoleWithPermissionsRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -2214,15 +2153,11 @@ export class StateManager {
         const replyMsg = createBusGetAllPermissionsReplyMessage();
         try {
             const allPermissions = await this.cacheHelper.getAllPermissions();
-            replyMsg.body.permissions = allPermissions;
+            replyMsg.body.permissions = allPermissions!;
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusGetAllPermissionsRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -2252,16 +2187,12 @@ export class StateManager {
             const rolePermissionIds = await this.storageProvider.getRolePermissionIds(message.body.roleId);
             const allPermissions = await this.cacheHelper.getAllPermissions();
             replyMsg.body.role = this.entityConverter.toRole(storageRole);
-            replyMsg.body.allPermissions = allPermissions;
+            replyMsg.body.allPermissions = allPermissions!;
             replyMsg.body.rolePermissionIds = rolePermissionIds;
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusGetRoleWithPermissionsRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -2275,18 +2206,14 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusGetAllRolesRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
 
     async processBusStartDeviceOnPrepaidTariffByCustomerRequestMessage(message: BusStartDeviceOnPrepaidTariffByCustomerRequestMessage): Promise<void> {
+        const replyMsg = createBusStartDeviceOnPrepaidTariffByCustomerReplyMessage();
         try {
-            const replyMsg = createBusStartDeviceOnPrepaidTariffByCustomerReplyMessage();
             if (!message.body.deviceId) {
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [
@@ -2410,12 +2337,7 @@ export class StateManager {
             this.publishToDevicesChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusStartDeviceRequestMessage message`, message, err);
-            const replyMsg = createBusStartDeviceReplyMessage();
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToDevicesChannel(replyMsg, message);
         }
     }
@@ -2439,9 +2361,9 @@ export class StateManager {
     }
 
     async processBusStartDeviceRequestMessage(message: BusStartDeviceRequestMessage): Promise<void> {
+        const replyMsg = createBusStartDeviceReplyMessage();
         try {
             if (!(message.body.userId > 0)) {
-                const replyMsg = createBusStartDeviceReplyMessage();
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [
                     { code: BusErrorCode.userIdIsRequired, description: 'User Id is required to start device' },
@@ -2452,7 +2374,6 @@ export class StateManager {
             const currentStorageDeviceStatus = (await this.storageProvider.getDeviceStatus(message.body.deviceId))!;
             if (currentStorageDeviceStatus.started) {
                 // Already started
-                const replyMsg = createBusStartDeviceReplyMessage();
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [
                     { code: BusErrorCode.deviceAlreadyStarted, description: 'Selected device is already started' },
@@ -2463,7 +2384,6 @@ export class StateManager {
             const allTariffs = await this.getOrCacheAllTariffs();
             const tariff = allTariffs.find(x => x.id === message.body.tariffId)!;
             if (!tariff) {
-                const replyMsg = createBusStartDeviceReplyMessage();
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [
                     { code: BusErrorCode.tariffNotFound, description: 'Selected tariff is not found' },
@@ -2472,7 +2392,6 @@ export class StateManager {
                 return;
             }
             if (!tariff.enabled) {
-                const replyMsg = createBusStartDeviceReplyMessage();
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [
                     { code: BusErrorCode.tariffIsNotActive, description: `Specified tariff is not active` },
@@ -2495,7 +2414,6 @@ export class StateManager {
             if (tariff.type === TariffType.fromTo) {
                 const isCurrentMinuteInPeriodResult = this.dateTimeHelper.isCurrentMinuteInMinutePeriod(tariff.fromTime!, tariff.toTime!);
                 if (!isCurrentMinuteInPeriodResult.isInPeriod) {
-                    const replyMsg = createBusStartDeviceReplyMessage();
                     replyMsg.header.failure = true;
                     replyMsg.header.errors = [
                         { code: BusErrorCode.cantUseTheTariffNow, description: `Can't use the tariff right now` },
@@ -2508,7 +2426,6 @@ export class StateManager {
             if (this.isPrepaidType(tariff.type)) {
                 const hasRemainingSeconds = !!(tariff.remainingSeconds! > 0);
                 if (!hasRemainingSeconds) {
-                    const replyMsg = createBusStartDeviceReplyMessage();
                     replyMsg.header.failure = true;
                     replyMsg.header.errors = [
                         { code: BusErrorCode.noRemainingTimeLeft, description: `The tariff '${tariff.name}' has no time remaining` },
@@ -2520,7 +2437,6 @@ export class StateManager {
                 const firstDeviceStartedForTariff = devicesStatusesByTariff.find(x => x.started && x.start_reason === tariff.id);
                 if (firstDeviceStartedForTariff) {
                     // Started on another device
-                    const replyMsg = createBusStartDeviceReplyMessage();
                     const allDevices = await this.getOrCacheAllDevices();
                     const device = allDevices.find(x => x.id === firstDeviceStartedForTariff.device_id);
                     replyMsg.header.failure = true;
@@ -2539,7 +2455,6 @@ export class StateManager {
                 if (tariff.restrictStartTime) {
                     const isCurrentMinuteInPeriodResult = this.dateTimeHelper.isCurrentMinuteInMinutePeriod(tariff.restrictStartFromTime!, tariff.restrictStartToTime!);
                     if (!isCurrentMinuteInPeriodResult.isInPeriod) {
-                        const replyMsg = createBusStartDeviceReplyMessage();
                         replyMsg.header.failure = true;
                         replyMsg.header.errors = [
                             { code: BusErrorCode.cantStartTheTariffNow, description: `Can't start the tariff right now` },
@@ -2556,7 +2471,6 @@ export class StateManager {
                 allTariffs,
             );
             if (!isTariffAvailable) {
-                const replyMsg = createBusStartDeviceReplyMessage();
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [{
                     code: BusErrorCode.tariffIsNotAvailable,
@@ -2574,18 +2488,12 @@ export class StateManager {
             currentStorageDeviceStatus.total = tariff.price;
             currentStorageDeviceStatus.started_by_user_id = message.body.userId;
             await this.storageProvider.updateDeviceStatus(currentStorageDeviceStatus);
-            const replyMsg = createBusStartDeviceReplyMessage();
             replyMsg.body.deviceStatus = this.createAndCalculateDeviceStatusFromStorageDeviceStatus(currentStorageDeviceStatus, tariff);
             await this.refreshDeviceStatuses();
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusStartDeviceRequestMessage message`, message, err);
-            const replyMsg = createBusStartDeviceReplyMessage();
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -2643,14 +2551,15 @@ export class StateManager {
             await this.cacheAllTariffs();
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
+            this.logger.warn(`Can't process BusUpdateTariffRequestMessage message`, message, err);
             this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToSharedChannel(replyMsg, message);
         }
     }
 
     async processBusGetTariffByIdRequestMessage(message: BusGetTariffByIdRequestMessage): Promise<void> {
+        const replyMsg = createBusGetTariffByIdReplyMessage();
         try {
-            const replyMsg = createBusGetTariffByIdReplyMessage();
             const allTariffs = await this.getOrCacheAllTariffs();
             const cachedTariff = allTariffs?.find(x => x.id === message.body.tariffId);
             if (cachedTariff) {
@@ -2670,12 +2579,7 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusGetTariffByIdRequestMessage message`, message, err);
-            const replyMsg = createBusGetTariffByIdReplyMessage();
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -2744,11 +2648,7 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusCreatePrepaidTariffRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -2805,11 +2705,7 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusCreateTariffRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -2822,20 +2718,16 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusGetAllTariffsRequestMessage message`, message, err);
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
 
     async processBusUpdateDeviceRequest(message: BusUpdateDeviceRequestMessage): Promise<void> {
+        const replyMsg = createBusUpdateDeviceReplyMessage();
         try {
             if (!message.body.device?.id) {
                 this.logger.warn(`Can't update device without id`, message);
-                const replyMsg = createBusUpdateDeviceReplyMessage();
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [{
                     code: '',
@@ -2851,7 +2743,6 @@ export class StateManager {
                 const storageDeviceStatus = await this.storageProvider.getDeviceStatus(deviceToUpdate.id);
                 if (storageDeviceStatus?.started) {
                     this.logger.warn(`The device is currently started and cannot be made inactive`, message);
-                    const replyMsg = createBusUpdateDeviceReplyMessage();
                     replyMsg.header.failure = true;
                     replyMsg.header.errors = [{
                         code: BusErrorCode.deviceIsInUse,
@@ -2876,29 +2767,25 @@ export class StateManager {
                 enabled: deviceStatusEnabled,
             };
             await this.storageProvider.addOrUpdateDeviceStatusEnabled(deviceStatus);
-            const replyMsg = createBusUpdateDeviceReplyMessage();
             replyMsg.body.device = updatedStorageDevice && this.entityConverter.toDevice(updatedStorageDevice);
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusUpdateDeviceRequestMessage message`, message, err);
-            const replyMsg = createBusUpdateDeviceReplyMessage();
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [{
-                code: '',
-                description: (err as any)?.message
-            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
 
     async processBusGetDeviceByIdRequest(message: BusDeviceGetByIdRequestMessage): Promise<void> {
+        const replyMsg = createBusDeviceGetByIdReplyMessage();
         try {
             const device = await this.storageProvider.getDeviceById(message.body.deviceId);
-            const replyMsg = createBusDeviceGetByIdReplyMessage();
             replyMsg.body.device = device && this.entityConverter.toDevice(device);
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusDeviceGetByIdRequestMessage message`, message, err);
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToOperatorsChannel(replyMsg, message);
         }
     }
 
@@ -2949,13 +2836,7 @@ export class StateManager {
         } catch (err) {
             this.logger.warn(`Can't process BusOperatorAuthRequestMessage`, message, err);
             const replyMsg = createBusUserAuthReplyMessage();
-            replyMsg.header.failure = true;
-            replyMsg.header.errors = [
-                {
-                    code: BusErrorCode.cantAuthenticateUser,
-                    description: (err as any)?.message,
-                }
-            ] as MessageError[];
+            this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
     }
@@ -3086,16 +2967,16 @@ export class StateManager {
         return JSON.stringify(message);
     }
 
-    deserializeToMessage(text: string): Message<any> | null {
+    deserializeToMessage(text: string): Message<unknown> | null {
         const json = JSON.parse(text);
-        return json as Message<any>;
+        return json as Message<unknown>;
     }
 
     isOwnMessage<TBody>(message: Message<TBody>): boolean {
         return (message.header?.source === this.messageBusIdentifier);
     }
 
-    async publishToOperatorsChannel<TBody>(message: Message<TBody>, sourceMessage?: Message<any>): Promise<number> {
+    async publishToOperatorsChannel<TBody>(message: Message<TBody>, sourceMessage?: Message<unknown>): Promise<number> {
         if (sourceMessage) {
             // Transfer source message common data (like round trip data) to destination message
             transferSharedMessageData(message, sourceMessage);
@@ -3103,7 +2984,7 @@ export class StateManager {
         return this.publishMessage(ChannelName.operators, message);
     }
 
-    async publishToDevicesChannel<TBody>(message: Message<TBody>, sourceMessage?: Message<any>): Promise<number> {
+    async publishToDevicesChannel<TBody>(message: Message<TBody>, sourceMessage?: Message<unknown>): Promise<number> {
         if (sourceMessage) {
             // Transfer source message common data (like round trip data) to destination message
             transferSharedMessageData(message, sourceMessage);
@@ -3111,7 +2992,7 @@ export class StateManager {
         return this.publishMessage(ChannelName.devices, message);
     }
 
-    async publishToSharedChannel<TBody>(message: Message<TBody>, sourceMessage: Message<any> | null): Promise<number> {
+    async publishToSharedChannel<TBody>(message: Message<TBody>, sourceMessage: Message<unknown> | null): Promise<number> {
         if (sourceMessage) {
             // Transfer source message common data (like round trip data) to destination message
             transferSharedMessageData(message, sourceMessage);
@@ -3209,7 +3090,7 @@ export class StateManager {
             const allTariffs = await this.getOrCacheAllTariffs();
             const allTariffsMap = new Map<number, Tariff>(allTariffs.map(x => ([x.id, x])));
             const allDevices = await this.getOrCacheAllDevices();
-            const allDevicesMap = new Map<number, Device>(allDevices.map(x => ([x.id, x])));
+            // const allDevicesMap = new Map<number, Device>(allDevices.map(x => ([x.id, x])));
             // TODO: We will process only enabled devices
             //       If the user disables device while it is started (the system should prevent this),
             //       it will not be processed here and will remain started until enabled again
@@ -3256,7 +3137,7 @@ export class StateManager {
                         } as IDeviceSession;
                         // TODO: If the continuation is configured but the tariff cannot be used right now - send notification message
                         // See if we need to switch to another tariff
-                        let shouldPerformContinuation = false;
+                        // let shouldPerformContinuation = false;
                         if (shouldStartForContinuationTariffResult.shouldStart && continuationTariff) {
                             storageDeviceStatus.enabled = true;
                             storageDeviceStatus.start_reason = continuationTariff.id;
@@ -3266,7 +3147,7 @@ export class StateManager {
                             storageDeviceStatus.total = continuationTariff.price;
                             storageDeviceStatus.started_by_user_id = storageDeviceStatus.continuation_user_id;
                             storageDeviceStatus.stopped_by_user_id = null;
-                            shouldPerformContinuation = true;
+                            // shouldPerformContinuation = true;
                             calculatedDeviceStatus = this.createAndCalculateDeviceStatusFromStorageDeviceStatus(storageDeviceStatus, continuationTariff);
                             // Set the device will no longer continue - it was already updated to the continuation tariff
                             calculatedDeviceStatus.continuationTariffId = null;
@@ -3610,12 +3491,12 @@ export class StateManager {
         const allSystemSettings = await this.storageProvider.getAllSystemSettings();
         const settingsMap = new Map<string, ISystemSetting>();
         allSystemSettings.forEach(x => settingsMap.set(x.name, x));
-        const getAsNumber = (name: SystemSettingName) => +settingsMap.get(name)?.value!;
+        const getAsNumber = (name: SystemSettingName) => +(settingsMap.get(name)?.value || 0);
         this.state.systemSettings = {
             [SystemSettingName.device_status_refresh_interval]: 1000 * getAsNumber(SystemSettingName.device_status_refresh_interval),
             [SystemSettingName.token_duration]: 1000 * getAsNumber(SystemSettingName.token_duration),
             [SystemSettingName.free_seconds_at_start]: getAsNumber(SystemSettingName.free_seconds_at_start),
-            [SystemSettingName.timezone]: settingsMap.get(SystemSettingName.timezone)?.value!,
+            [SystemSettingName.timezone]: settingsMap.get(SystemSettingName.timezone)?.value,
             [SystemSettingName.seconds_before_restarting_stopped_computers]: getAsNumber(SystemSettingName.seconds_before_restarting_stopped_computers),
         };
         return allSystemSettings;
@@ -3653,11 +3534,24 @@ export class StateManager {
         this.applySystemSettingTimeZone();
         // TODO: Should we publish system settings to the shared channel ? They can contain sensitive information
 
-        this.state.mainTimerHandle = setInterval(() => this.mainTimerCallback(), 1000);
-
         const redisHost = this.envVars.CCS3_REDIS_HOST.value;
         const redisPort = this.envVars.CCS3_REDIS_PORT.value;
         this.logger.log(`Using Redis host ${redisHost} and port ${redisPort}`);
+
+        const redisCacheClientOptions: CreateConnectedRedisClientOptions = {
+            host: redisHost,
+            port: redisPort,
+            errorCallback: err => console.error('CacheClient error', err),
+            reconnectStrategyCallback: (retries: number, err: Error) => {
+                console.error(`CacheClient reconnect strategy error ${retries}`, err);
+                return 5000;
+            },
+        };
+        this.logger.log('CacheClient connecting');
+        await this.cacheClient.connect(redisCacheClientOptions);
+        this.logger.log('CacheClient connected');
+
+        await this.cacheStaticData();
 
         const subClientOptions: CreateConnectedRedisClientOptions = {
             host: redisHost,
@@ -3677,7 +3571,7 @@ export class StateManager {
                     this.logger.warn('The message deserialized to null', message);
                 }
             } catch (err) {
-                this.logger.warn(`Cannot deserialize channel ${channelName} message`, message);
+                this.logger.warn(`Cannot deserialize channel ${channelName} message`, message, err);
             }
         };
         await this.subClient.connect(subClientOptions, subClientMessageCallback);
@@ -3699,25 +3593,12 @@ export class StateManager {
         await this.pubClient.connect(pubClientOptions);
         this.logger.log('PubClient connected');
 
-        const redisCacheClientOptions: CreateConnectedRedisClientOptions = {
-            host: redisHost,
-            port: redisPort,
-            errorCallback: err => console.error('CacheClient error', err),
-            reconnectStrategyCallback: (retries: number, err: Error) => {
-                console.error(`CacheClient reconnect strategy error ${retries}`, err);
-                return 5000;
-            },
-        };
-        this.logger.log('CacheClient connecting');
-        await this.cacheClient.connect(redisCacheClientOptions);
-        this.logger.log('CacheClient connected');
-
-        await this.cacheStaticData();
-
         const notificationMsg = createBusAllSystemSettingsNotificationMessage();
         const systemSettings = storageSystemSettings.map(x => this.entityConverter.toSystemSetting(x));
         notificationMsg.body.systemSettings = systemSettings;
         this.publishToSharedChannel(notificationMsg, null);
+
+        this.state.mainTimerHandle = setInterval(() => this.mainTimerCallback(), 1000);
 
         return true;
     }
@@ -3731,7 +3612,7 @@ export class StateManager {
         replyMessage.header.failure = true;
         replyMessage.header.errors = [{
             code: BusErrorCode.serverError,
-            description: (err as any)?.message
+            description: (err as Error)?.message
         }];
     }
 
@@ -3739,7 +3620,7 @@ export class StateManager {
         const map = new Map<TKey, TItem[]>();
         for (const item of items) {
             const key = keySelector(item);
-            let mapItem = map.get(key);
+            const mapItem = map.get(key);
             if (!mapItem) {
                 map.set(key, [item]);
             } else {
@@ -3784,16 +3665,16 @@ interface StateManagerState {
 interface StateManagerStateSystemSettings {
     [SystemSettingName.device_status_refresh_interval]: number;
     [SystemSettingName.token_duration]: number;
-    [SystemSettingName.timezone]: string;
+    [SystemSettingName.timezone]: string | undefined | null;
     [SystemSettingName.free_seconds_at_start]: number;
     [SystemSettingName.seconds_before_restarting_stopped_computers]: number;
 }
 
-interface UserAuthDataCacheValue {
-    userId: number;
-    roundtripData: OperatorConnectionRoundTripData;
-    permissions: string[];
-    setAt: number;
-    token: string;
-    tokenExpiresAt: number;
-}
+// interface UserAuthDataCacheValue {
+//     userId: number;
+//     roundtripData: OperatorConnectionRoundTripData;
+//     permissions: string[];
+//     setAt: number;
+//     token: string;
+//     tokenExpiresAt: number;
+// }

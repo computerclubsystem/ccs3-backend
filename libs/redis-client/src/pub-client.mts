@@ -8,6 +8,7 @@ export class RedisPubClient {
         this.#client = await createConnectedRedisClient(options);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async publish(channelName: string, message: any): Promise<number> {
         return this.#client.publish(channelName, message);
     }

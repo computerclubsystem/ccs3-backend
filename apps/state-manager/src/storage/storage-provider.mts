@@ -26,7 +26,7 @@ import { ITariffInDeviceGroup } from './entities/tariff-in-device-group.mjs';
 
 export interface StorageProvider {
     getTariffDeviceGroups(tariffId: number): Promise<number[]>;
-    setTariffDeviceGroups(tariffId: number, deviceGroupIds: number[]): Promise<void>;
+    // setTariffDeviceGroups(tariffId: number, deviceGroupIds: number[]): Promise<void>;
     getAllTariffsInDeviceGroups(): Promise<ITariffInDeviceGroup[]>;
     updateDeviceGroup(deviceGroup: IDeviceGroup, assignedTariffIds: number[] | undefined | null): Promise<IDeviceGroup | undefined>;
     createDeviceGroup(deviceGroup: IDeviceGroup, assignedTariffIds: number[] | undefined | null): Promise<IDeviceGroup | undefined>;

@@ -137,11 +137,11 @@ export class UpdateQueryBuilder extends QueryBuilderBase {
         return this.updateColumnsWithValues;
     }
 
-    getParameterValues(): any[] {
+    getParameterValues(): unknown[] {
         return [...this.getUpdateColumnsWithValues().map(x => x.value), ...this.whereColumnsWithValues.map(x => x.value)];
     }
 
-    addWhereParameterColumnNameWithValue(columnName: string, value: any): ColumnNameWithValueAndParameterName {
+    addWhereParameterColumnNameWithValue(columnName: string, value: unknown): ColumnNameWithValueAndParameterName {
         const result: ColumnNameWithValueAndParameterName = {
             columnName,
             value,
@@ -151,7 +151,7 @@ export class UpdateQueryBuilder extends QueryBuilderBase {
         return result;
     }
 
-    addUpdateColumnNameWithValue(columnName: string, value: any): ColumnNameWithValueAndParameterName {
+    addUpdateColumnNameWithValue(columnName: string, value: unknown): ColumnNameWithValueAndParameterName {
         const result: ColumnNameWithValueAndParameterName = {
             columnName,
             value,
@@ -162,7 +162,7 @@ export class UpdateQueryBuilder extends QueryBuilderBase {
     }
 
     override getQueryString(): string {
-        const columnNameWithValue = this.updateColumnsWithValues.map((x, index) => `"${x.columnName}"=${x.parameterName}`);
+        const columnNameWithValue = this.updateColumnsWithValues.map(x => `"${x.columnName}"=${x.parameterName}`);
         const setColumnsWithValuesText = this.commaJoin(columnNameWithValue);
         let insertIntoText = `UPDATE "${this.tableName}" SET ${setColumnsWithValuesText}`;
         if (this.whereColumnsWithValues.length > 0) {
@@ -180,13 +180,13 @@ export class UpdateQueryBuilder extends QueryBuilderBase {
 
 export interface ColumnNameWithValue {
     columnName: string;
-    value: any;
+    value: unknown;
 }
 
 export interface ColumnNameWithValueAndParameterName {
     columnName: string;
     parameterName: string;
-    value: any;
+    value: unknown;
 }
 
 export interface ColumnNameWithParameterName {

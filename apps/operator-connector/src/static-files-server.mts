@@ -11,7 +11,7 @@ export class StaticFilesServer {
     private basePath = '';
     private readonly mimeMap: { [key: string]: string } = {};
     private totalRequests = 0;
-    private reqHandler = (req: any, res: any): void => this.requestCallback(req, res);
+    private reqHandler = (req: http.IncomingMessage, res: http.ServerResponse): void => this.requestCallback(req, res);
 
     /**
      * Creates new instance using provided configuration
@@ -121,6 +121,7 @@ export class StaticFilesServer {
             this.setCustomHeaders(response, this.config.responseHeaders);
             fileReadStream.on('error', (fileReadErr: Error) => {
                 this.closeReadStream(fileReadStream);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 if ((fileReadErr as any).code === 'ENOENT') {
                     // File was not found. This could happen if fs.stats was executed on an existing file/directory
                     // but it was later changed to a non existing file before fs.createReadStream is called
@@ -302,7 +303,7 @@ export interface IResponseSent {
     duration: number;
 }
 
-interface IDirectoryEntry {
-    isDirectory: boolean;
-    path: string;
-}
+// interface IDirectoryEntry {
+//     isDirectory: boolean;
+//     path: string;
+// }

@@ -10,7 +10,7 @@ export class CacheHelper {
     };
 
     getAllDevices(): Promise<Device[]> {
-        return this.cacheClient.getValue(this.keys.allDevices);
+        return this.cacheClient.getValue(this.keys.allDevices) as Promise<Device[]>;
     }
 
     async deleteKey(key: string): Promise<number> {
@@ -24,7 +24,7 @@ export class CacheHelper {
             return cachedItem.item as TValue;
         }
         const value = await this.cacheClient.getValue(key);
-        return value;
+        return value as TValue;
     }
 
     getCachedItem(key: string): CachedItem | undefined {

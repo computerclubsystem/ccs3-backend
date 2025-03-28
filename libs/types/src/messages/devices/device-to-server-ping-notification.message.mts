@@ -1,7 +1,5 @@
 import { DeviceToServerNotificationMessage } from './declarations/device-to-server-notification-message.mjs';
 
-export interface DeviceToServerPingNotificationMessageBody {
-}
+export type DeviceToServerPingNotificationMessageBody = object;
 
-export interface DeviceToServerPingNotificationMessage extends DeviceToServerNotificationMessage<DeviceToServerPingNotificationMessageBody> {
-}
+export type DeviceToServerPingNotificationMessage = DeviceToServerNotificationMessage<DeviceToServerPingNotificationMessageBody>;

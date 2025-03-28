@@ -6,6 +6,6 @@ export interface MessageStatItem {
     channel: ChannelName;
     sentAt: number;
     completedAt: number;
-    error?: any;
+    error?: Error;
     deviceId?: number | null;
 }

@@ -16,7 +16,7 @@ export interface OperatorForceSignOutAllUserSessionsReplyMessageBody {
 export type OperatorForceSignOutAllUserSessionsReplyMessage = OperatorReplyMessage<OperatorForceSignOutAllUserSessionsReplyMessageBody>;
 
 export function createOperatorForceSignOutAllUserSessionsReplyMessage(): OperatorForceSignOutAllUserSessionsReplyMessage {
-    var msg: OperatorForceSignOutAllUserSessionsReplyMessage = {
+    const msg: OperatorForceSignOutAllUserSessionsReplyMessage = {
         header: { type: OperatorReplyMessageType.forceSignOutAllUserSessionsReply, },
         body: {} as OperatorForceSignOutAllUserSessionsReplyMessageBody,
     };

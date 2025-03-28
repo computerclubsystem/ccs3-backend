@@ -7,8 +7,7 @@ export interface BusStartDeviceOnPrepaidTariffByCustomerRequestMessageBody {
     passwordHash: string;
 }
 
-export interface BusStartDeviceOnPrepaidTariffByCustomerRequestMessage extends Message<BusStartDeviceOnPrepaidTariffByCustomerRequestMessageBody> {
-}
+export type BusStartDeviceOnPrepaidTariffByCustomerRequestMessage = Message<BusStartDeviceOnPrepaidTariffByCustomerRequestMessageBody>;
 
 export function createBusStartDeviceOnPrepaidTariffByCustomerRequestMessage(): BusStartDeviceOnPrepaidTariffByCustomerRequestMessage {
     const msg: BusStartDeviceOnPrepaidTariffByCustomerRequestMessage = {

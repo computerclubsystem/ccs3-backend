@@ -6,8 +6,7 @@ export interface ServerToDeviceDeviceConfigurationNotificationMessageBody {
     secondsAfterStoppedBeforeRestart?: number;
 }
 
-export interface ServerToDeviceDeviceConfigurationNotificationMessage extends ServerToDeviceNotificationMessage<ServerToDeviceDeviceConfigurationNotificationMessageBody> {
-}
+export type ServerToDeviceDeviceConfigurationNotificationMessage = ServerToDeviceNotificationMessage<ServerToDeviceDeviceConfigurationNotificationMessageBody>;
 
 export function createServerToDeviceDeviceConfigurationNotificationMessage(): ServerToDeviceDeviceConfigurationNotificationMessage {
     const msg: ServerToDeviceDeviceConfigurationNotificationMessage = {

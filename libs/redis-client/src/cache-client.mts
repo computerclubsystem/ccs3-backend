@@ -24,7 +24,7 @@ export class RedisCacheClient {
         this.#client = await createConnectedRedisClient(options);
     }
 
-    async setValue(key: string, value: any): Promise<any> {
+    async setValue(key: string, value: unknown): Promise<unknown> {
         return this.#client.set(key, JSON.stringify(value));
     }
 
@@ -32,7 +32,7 @@ export class RedisCacheClient {
         return this.#client.del(key);
     }
 
-    async getValue(key: string): Promise<any> {
+    async getValue<TValue>(key: string): Promise<TValue | null> {
         const value = await this.#client.get(key);
         if (value === null) {
             return null;

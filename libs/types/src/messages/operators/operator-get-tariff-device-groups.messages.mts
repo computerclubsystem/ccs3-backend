@@ -1,4 +1,4 @@
-import { OperatorReplyMessageType, OperatorRequestMessageType } from './declarations/operator-message-type.mjs';
+import { OperatorReplyMessageType } from './declarations/operator-message-type.mjs';
 import { OperatorReplyMessage, OperatorRequestMessage } from './declarations/operator.message.mjs';
 
 export interface OperatorGetTariffDeviceGroupsRequestMessageBody {
