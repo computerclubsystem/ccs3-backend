@@ -36,7 +36,7 @@ import { IDeviceTransfer } from 'src/storage/entities/device-transfer.mjs';
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
     private logger: Logger;
-    private readonly className = (this as any).constructor.name;
+    private readonly className = (this as object).constructor.name;
     private readonly queryUtils = new QueryUtils();
 
     constructor() {
@@ -60,7 +60,7 @@ export class PostgreStorageProvider implements StorageProvider {
         result.success = migrateResult.success;
         pg.types.setTypeParser(1114, stringValue => {
             // TODO: Revisit this - make it more effective if possible
-            var temp = new Date(stringValue);
+            const temp = new Date(stringValue);
             const newDate = new Date(Date.UTC(
                 temp.getFullYear(), temp.getMonth(), temp.getDate(), temp.getHours(), temp.getMinutes(), temp.getSeconds(), temp.getMilliseconds())
             );
@@ -79,9 +79,9 @@ export class PostgreStorageProvider implements StorageProvider {
         return res.rows.map((x: ITariffInDeviceGroup) => x.device_group_id);;
     }
 
-    async setTariffDeviceGroups(tariffId: number, deviceGroupIds: number[]): Promise<void> {
+    // async setTariffDeviceGroups(tariffId: number, deviceGroupIds: number[]): Promise<void> {
 
-    }
+    // }
 
     async getDeviceSessions(
         fromDate: string,
@@ -361,7 +361,7 @@ export class PostgreStorageProvider implements StorageProvider {
 
             // Also change device continuation if any
             const updateDeviceContinuationDeviceIdQueryData = this.queryUtils.updateDeviceContinuationDeviceIdQuery(sourceDeviceId, targetDeviceId);
-            const updateDeviceContinuationDeviceIdResult = await transactionClient.query(updateDeviceContinuationDeviceIdQueryData.text, updateDeviceContinuationDeviceIdQueryData.params);
+            await transactionClient.query(updateDeviceContinuationDeviceIdQueryData.text, updateDeviceContinuationDeviceIdQueryData.params);
 
             // TODO: Save record in new table with source and target device status properties, the user id that made the transfer and current date-time
             await transactionClient.query('COMMIT');
@@ -497,7 +497,8 @@ export class PostgreStorageProvider implements StorageProvider {
     async getRolePermissionIds(roleId: number): Promise<number[]> {
         const queryData = this.queryUtils.getRolePermissionIdsQueryData(roleId);
         const res = await this.execQuery(queryData.text, queryData.params);
-        return res.rows.map(x => x.permission_id) as number[];
+        const typedRows = res.rows as { permission_id: number }[];
+        return typedRows.map(x => x.permission_id) as number[];
     }
 
     async getAllRoles(): Promise<IRole[]> {
@@ -622,7 +623,7 @@ export class PostgreStorageProvider implements StorageProvider {
                 return undefined;
             }
             const deleteDeviceContinuationQuery = this.queryUtils.deleteDeviceContinuationQueryData(deviceStatus.device_id);
-            const deleteDeviceContinuationResult = await transactionClient.query(deleteDeviceContinuationQuery.text, deleteDeviceContinuationQuery.params);
+            await transactionClient.query(deleteDeviceContinuationQuery.text, deleteDeviceContinuationQuery.params);
 
             await transactionClient?.query('COMMIT');
             result = {
@@ -800,7 +801,8 @@ export class PostgreStorageProvider implements StorageProvider {
     async getUserRoleIds(userId: number): Promise<number[]> {
         const queryData = this.queryUtils.getUserRoleIdsQueryData(userId);
         const res = await this.execQuery(queryData.text, queryData.params);
-        return res.rows.map(x => x.role_id) as number[];
+        const typedRows = res.rows as { role_id: number }[];
+        return typedRows.map(x => x.role_id) as number[];
     }
 
 
@@ -863,7 +865,7 @@ export class PostgreStorageProvider implements StorageProvider {
         return this.state.pool.end();
     }
 
-    private async execQuery(query: string, params?: any[]): Promise<QueryResult<any>> {
+    private async execQuery(query: string, params?: unknown[]): Promise<QueryResult<never>> {
         return await this.state.pool.query(query, params);
     }
 
@@ -995,6 +997,7 @@ export class PostgreStorageProvider implements StorageProvider {
         return client;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     private handlePoolError(err: Error, client: pg.PoolClient): void {
         this.logger.error(`Pool error: ${err.message}`);
     }

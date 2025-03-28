@@ -12,8 +12,7 @@ export interface ServerToDeviceStartOnPrepaidTariffReplyMessageBody {
     success?: boolean | null;
 }
 
-export interface ServerToDeviceStartOnPrepaidTariffReplyMessage extends ServerToDeviceReplyMessage<ServerToDeviceStartOnPrepaidTariffReplyMessageBody> {
-}
+export type ServerToDeviceStartOnPrepaidTariffReplyMessage = ServerToDeviceReplyMessage<ServerToDeviceStartOnPrepaidTariffReplyMessageBody>;
 
 export function createServerToDeviceStartOnPrepaidTariffReplyMessage(): ServerToDeviceStartOnPrepaidTariffReplyMessage {
     const msg: ServerToDeviceStartOnPrepaidTariffReplyMessage = {

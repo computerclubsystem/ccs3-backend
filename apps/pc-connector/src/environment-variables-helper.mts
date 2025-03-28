@@ -9,7 +9,7 @@ export class EnvironmentVariablesHelper {
             CCS3_PC_CONNECTOR_ISSUER_CERTIFICATE_CRT_FILE_PATH: {},
             CCS3_PC_CONNECTOR_PORT: {},
         } as EnvironmentVarsData;
-        Object.keys(result).forEach(key => this.setObjectValueByKey(result, key, { name: key } as EnvironmentVariableNameWithValue<any>));
+        Object.keys(result).forEach(key => this.setObjectValueByKey(result, key, { name: key } as EnvironmentVariableNameWithValue<unknown>));
         result.CCS3_REDIS_HOST.value = this.getEnvVarValue(result.CCS3_REDIS_HOST.name, 'ccs3-valkey-service');
         result.CCS3_REDIS_PORT.value = this.getEnvironmentVarValueAsNumber(result.CCS3_REDIS_PORT.name, 6379);
         result.CCS3_PC_CONNECTOR_CERTIFICATE_CRT_FILE_PATH.value = this.getEnvVarValue(result.CCS3_PC_CONNECTOR_CERTIFICATE_CRT_FILE_PATH.name, './certificates/ccs3-pc-connector.crt');
@@ -29,11 +29,12 @@ export class EnvironmentVariablesHelper {
         return process.env[envVarName] || defaultValue;
     }
 
-    getObjectValueByKey(obj: any, key: string): any {
-        return obj?.[key];
+    getObjectValueByKey(obj: unknown, key: string): unknown {
+        return (obj as never)?.[key];
     }
 
-    setObjectValueByKey(obj: any, key: string, value: any): void {
+    setObjectValueByKey(obj: unknown, key: string, value: unknown): void {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (obj as any)[key] = value;
     }
 }

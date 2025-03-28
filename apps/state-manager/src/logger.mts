@@ -7,15 +7,15 @@ export class Logger {
         this.messageFilter = messageFilter;
     }
     
-    log(message: string, ...params: any[]): void {
+    log(message: string, ...params: unknown[]): void {
         this.outputMessage(this.output.log, message, ...params);
     }
 
-    warn(message: string, ...params: any[]): void {
+    warn(message: string, ...params: unknown[]): void {
         this.outputMessage(this.output.warn, message, ...params);
     }
 
-    error(message: string, ...params: any[]): void {
+    error(message: string, ...params: unknown[]): void {
         this.outputMessage(this.output.error, message, ...params);
     }
 
@@ -27,7 +27,7 @@ export class Logger {
         this.prefix = text;
     }
 
-    private outputMessage(func: typeof this.output.log, message: string, ...params: any[]): void {
+    private outputMessage(func: typeof this.output.log, message: string, ...params: unknown[]): void {
         if (this.messageFilter) {
             // Message filter is defined
             if (message.indexOf(this.messageFilter) === -1) {

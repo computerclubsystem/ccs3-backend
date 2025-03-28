@@ -77,7 +77,7 @@ export enum OperatorReplyMessageType {
     updateDeviceReply = 'update-device-reply',
     getTariffByIdReply = 'get-tariff-by-id-reply',
     createTariffReply = 'create-tariff-reply',
-    createPrepaidTariffReply = 'create-tariff-reply',
+    createPrepaidTariffReply = 'create-prepaid-tariff-reply',
     rechargeTariffDurationReply = 'recharge-tariff-duration-reply',
     getAllTariffsReply = 'get-all-tariffs-reply',
     startDeviceReply = 'start-device-reply',

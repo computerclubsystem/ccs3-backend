@@ -9,8 +9,7 @@ export interface BusGetShiftsRequestMessageBody {
     userId?: number | null;
 }
 
-export interface BusGetShiftsRequestMessage extends Message<BusGetShiftsRequestMessageBody> {
-}
+export type BusGetShiftsRequestMessage = Message<BusGetShiftsRequestMessageBody>;
 
 export function createBusGetShiftsRequestMessage(): BusGetShiftsRequestMessage {
     const msg: BusGetShiftsRequestMessage = {

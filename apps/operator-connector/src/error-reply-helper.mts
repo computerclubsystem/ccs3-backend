@@ -5,7 +5,7 @@ import { OperatorReplyMessageErrorCode } from '@computerclubsystem/types/message
 import { OperatorRequestMessage, OperatorReplyMessage } from '@computerclubsystem/types/messages/operators/declarations/operator.message.mjs';
 
 export class ErrorReplyHelper {
-    setBusMessageFailure(busMessage: Message<any>, requestMessage: OperatorRequestMessage<any>, replyMessage: OperatorReplyMessage<any>): void {
+    setBusMessageFailure(busMessage: Message<unknown>, requestMessage: OperatorRequestMessage<unknown>, replyMessage: OperatorReplyMessage<unknown>): void {
         if (busMessage.header.failure) {
             const firstErrorCode = busMessage.header.errors?.[0]?.code || '';
             replyMessage.header.failure = true;
@@ -87,9 +87,9 @@ export class ErrorReplyHelper {
         return messageErrors;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     cantGetAllUsersErrors(busMessageErrors: MessageError[] | undefined): MessageError[] {
-        let messageErrors: MessageError[];
-        messageErrors = [{
+        const messageErrors: MessageError[] = [{
             code: OperatorReplyMessageErrorCode.cantGetAllUsers,
             description: `Can't get all users.`,
         }] as MessageError[];
@@ -117,18 +117,18 @@ export class ErrorReplyHelper {
         return messageErrors;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     cantCreateRoleWithPermissionsErrors(busMessageErrors: MessageError[] | undefined): MessageError[] {
-        let messageErrors: MessageError[];
-        messageErrors = [{
+        const messageErrors: MessageError[] = [{
             code: OperatorReplyMessageErrorCode.cantCreateRoleWithPermissions,
             description: `Can't crate role with permissions. Check if role with the same name already exists.`,
         }] as MessageError[];
         return messageErrors;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     cantGetAllPermissionsErrors(busMessageErrors: MessageError[] | undefined): MessageError[] {
-        let messageErrors: MessageError[];
-        messageErrors = [{
+        const messageErrors: MessageError[] = [{
             code: OperatorReplyMessageErrorCode.cantGetAllPermissions,
             description: `Can't get all permissions.`,
         }] as MessageError[];
@@ -151,9 +151,9 @@ export class ErrorReplyHelper {
         return messageErrors;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     cantGetAllRolesErrors(busMessageErrors: MessageError[] | undefined): MessageError[] {
-        let messageErrors: MessageError[];
-        messageErrors = [{
+        const messageErrors: MessageError[] = [{
             code: OperatorReplyMessageErrorCode.cantGetAllRoles,
             description: `Can't get all roles.`,
         }] as MessageError[];

@@ -8,8 +8,7 @@ export interface BusDeviceUnknownDeviceConnectedRequestMessageBody {
     ipAddress: string;
 }
 
-export interface BusDeviceUnknownDeviceConnectedRequestMessage extends Message<BusDeviceUnknownDeviceConnectedRequestMessageBody> {
-}
+export type BusDeviceUnknownDeviceConnectedRequestMessage = Message<BusDeviceUnknownDeviceConnectedRequestMessageBody>;
 
 export function createBusDeviceUnknownDeviceConnectedRequestMessage(): BusDeviceUnknownDeviceConnectedRequestMessage {
     const msg: BusDeviceUnknownDeviceConnectedRequestMessage = {

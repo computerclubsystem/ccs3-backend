@@ -1,5 +1,4 @@
 import { RedisCacheClient } from '@computerclubsystem/redis-client';
-import { Device } from '@computerclubsystem/types/entities/device.mjs';
 import { OperatorConnectionRoundTripData } from '@computerclubsystem/types/messages/operators/declarations/operator-connection-roundtrip-data.mjs';
 
 export class CacheHelper {
@@ -22,8 +21,10 @@ export class CacheHelper {
         const keyPattern = `${this.prefixes.userAuthData}${userId}:*`;
         const allKeys = await this.cacheClient.scanForKeysByPattern(keyPattern);
         for (const key of allKeys) {
-            const item: UserAuthDataCacheValue = await this.getValue(key);
-            result.push(item);
+            const item: UserAuthDataCacheValue | null = await this.getValue(key);
+            if (item) {
+                result.push(item);
+            }
         }
         return result;
     }
@@ -32,8 +33,10 @@ export class CacheHelper {
         const result: UserAuthDataCacheValue[] = [];
         const allKeys = await this.cacheClient.scanForKeysByPattern(`${this.prefixes.userAuthData}*`);
         for (const key of allKeys) {
-            const item: UserAuthDataCacheValue = await this.getValue(key);
-            result.push(item);
+            const item: UserAuthDataCacheValue | null = await this.getValue(key);
+            if (item) {
+                result.push(item);
+            }
         }
         return result;
     }
@@ -42,12 +45,12 @@ export class CacheHelper {
         return `${this.prefixes.userAuthToken}${token}`;
     }
 
-    async getAuthTokenValue(token: string): Promise<UserAuthDataCacheValue> {
+    async getAuthTokenValue(token: string): Promise<UserAuthDataCacheValue | null> {
         const key = this.getUserAuthTokenKey(token);
         return this.getValue(key);
     }
 
-    async setAuthTokenValue(value: UserAuthDataCacheValue): Promise<any> {
+    async setAuthTokenValue(value: UserAuthDataCacheValue): Promise<unknown> {
         const key = this.getUserAuthTokenKey(value.token);
         return this.cacheClient.setValue(key, value);
     }
@@ -61,17 +64,17 @@ export class CacheHelper {
         return `${this.prefixes.userAuthData}${userId}:${connectionInstanceId}`;
     }
 
-    async getUserAuthDataValue<TValue>(userId: number, connectionInstanceId: string): Promise<TValue> {
+    async getUserAuthDataValue<TValue>(userId: number, connectionInstanceId: string): Promise<TValue | null> {
         const key = this.getUserAuthDataKey(userId, connectionInstanceId);
         return this.getValue(key);
     }
 
-    async setUserAuthData(value: UserAuthDataCacheValue): Promise<any> {
+    async setUserAuthData(value: UserAuthDataCacheValue): Promise<unknown> {
         const key = this.getUserAuthDataKey(value.userId, value.roundtripData.connectionInstanceId);
         return this.cacheClient.setValue(key, value);
     }
 
-    async deleteUserAuthDataKey(userId: number, connectionInstanceId: string): Promise<any> {
+    async deleteUserAuthDataKey(userId: number, connectionInstanceId: string): Promise<unknown> {
         const key = this.getUserAuthDataKey(userId, connectionInstanceId);
         return this.cacheClient.deleteItem(key);
     }
@@ -81,13 +84,13 @@ export class CacheHelper {
         return result;
     }
 
-    async getValue<TValue>(key: string): Promise<TValue> {
+    async getValue<TValue>(key: string): Promise<TValue | null> {
         const cachedItem = this.getCachedItem(key);
         if (cachedItem) {
             return cachedItem.item as TValue;
         }
         const value = await this.cacheClient.getValue(key);
-        return value;
+        return value as (TValue | null);
     }
 
     getCachedItem(key: string): CachedItem | undefined {

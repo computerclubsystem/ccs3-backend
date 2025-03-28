@@ -7,8 +7,7 @@ export interface BusUpdateRoleWithPermissionsRequestMessageBody {
     permissionIds: number[];
 }
 
-export interface BusUpdateRoleWithPermissionsRequestMessage extends Message<BusUpdateRoleWithPermissionsRequestMessageBody> {
-}
+export type BusUpdateRoleWithPermissionsRequestMessage = Message<BusUpdateRoleWithPermissionsRequestMessageBody>;
 
 export function createBusUpdateRoleWithPermissionsRequestMessage(): BusUpdateRoleWithPermissionsRequestMessage {
     const msg: BusUpdateRoleWithPermissionsRequestMessage = {

@@ -62,7 +62,7 @@ export class WssServer {
         return ids;
     }
 
-    sendJSON(message: Record<string | number, any>, connectionId: number): number {
+    sendJSON(message: MessageContent, connectionId: number): number {
         const client = this.clientsByConnectionId.get(connectionId);
         if (!client || client.readyState !== client.OPEN) {
             return 0;
@@ -83,7 +83,7 @@ export class WssServer {
         return data.length;
     }
 
-    sendJSONToAll(message: Record<string | number, any>): number {
+    sendJSONToAll(message: MessageContent): number {
         let bytesSent = 0;
         this.clientsByConnectionId.forEach((webSocket, id) => {
             bytesSent += this.sendJSON(message, id);
@@ -155,6 +155,7 @@ export class WssServer {
             return false;
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         webSocket.on('message', (data: RawData, isBinary: boolean) => {
             if (data instanceof Buffer) {
                 const args: MessageReceivedEventArgs = {
@@ -184,6 +185,7 @@ export class WssServer {
             const args: ConnectionClosedEventArgs = {
                 connectionId: connectionId,
                 code: code,
+                reason: reason?.toString(),
             };
             this.emitter.emit(WssServerEventName.connectionClosed, args);
         });
@@ -201,7 +203,7 @@ export class WssServer {
             // terminate() will immediately close the socket but will cause error at the other party 
             // "(0x80004005): The remote party closed the WebSocket connection without completing the close handshake"
             // webSocket?.terminate();
-        } catch (err) { }
+        } catch { }
     }
 
     private createNewConnectionId(): number {
@@ -249,6 +251,7 @@ export interface MessageReceivedEventArgs extends ConnectionEventArgs {
 
 export interface ConnectionClosedEventArgs extends ConnectionEventArgs {
     code: number;
+    reason?: string | null;
 }
 
 export interface ConnectionErrorEventArgs extends ConnectionEventArgs {
@@ -261,8 +264,10 @@ export interface ServerErrorEventArgs {
 
 export interface SendErrorEventArgs extends ConnectionEventArgs {
     err: Error;
-    message: Record<string | number, any>;
+    message: MessageContent;
 }
+
+export type MessageContent = object | Record<string | number, unknown>;
 
 export const enum WssServerEventName {
     serverError = 'server-error',

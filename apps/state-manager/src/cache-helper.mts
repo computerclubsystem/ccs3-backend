@@ -13,35 +13,35 @@ export class CacheHelper {
         allPermissions: 'permissions:all',
     };
 
-    setAllPermissions(permissions: Permission[]): Promise<any> {
+    setAllPermissions(permissions: Permission[]): Promise<unknown> {
         return this.cacheClient.setValue(this.keys.allPermissions, permissions);
     }
 
-    getAllPermissions(): Promise<Permission[]> {
+    getAllPermissions(): Promise<Permission[] | null> {
         return this.cacheClient.getValue(this.keys.allPermissions);
     }
 
-    setAllTariffs(tariffs: Tariff[]): Promise<any> {
+    setAllTariffs(tariffs: Tariff[]): Promise<unknown> {
         return this.cacheClient.setValue(this.keys.allTariffs, tariffs);
     }
 
-    getAllTariffs(): Promise<Tariff[]> {
+    getAllTariffs(): Promise<Tariff[] | null> {
         return this.cacheClient.getValue(this.keys.allTariffs);
     }
 
-    deleteAllTariffs(): Promise<any> {
+    deleteAllTariffs(): Promise<number> {
         return this.cacheClient.deleteItem(this.keys.allTariffs);
     }
 
-    setAllDevices(devices: Device[]): Promise<any> {
+    setAllDevices(devices: Device[]): Promise<unknown> {
         return this.cacheClient.setValue(this.keys.allDevices, devices);
     }
 
-    getAllDevices(): Promise<Device[]> {
+    getAllDevices(): Promise<Device[] | null> {
         return this.cacheClient.getValue(this.keys.allDevices);
     }
 
-    deleteAllDevices(): Promise<any> {
+    deleteAllDevices(): Promise<number> {
         return this.cacheClient.deleteItem(this.keys.allDevices);
     }
 

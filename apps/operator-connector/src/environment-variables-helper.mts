@@ -1,9 +1,10 @@
 export class EnvironmentVariablesHelper {
-    getObjectValueByKey(obj: any, key: string): any {
-        return obj?.[key];
+    getObjectValueByKey(obj: unknown, key: string): unknown {
+        return (obj as never)?.[key];
     }
 
-    setObjectValueByKey(obj: any, key: string, value: any): void {
+    setObjectValueByKey(obj: unknown, key: string, value: unknown): void {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (obj as any)[key] = value;
     }
 
@@ -19,7 +20,7 @@ export class EnvironmentVariablesHelper {
             CCS3_REDIS_HOST: {} as EnvironmentVariableNameWithValue<string>,
             CCS3_REDIS_PORT: {} as EnvironmentVariableNameWithValue<number>,
         };
-        Object.keys(result).forEach(key => this.setObjectValueByKey(result, key, { name: key } as EnvironmentVariableNameWithValue<any>));
+        Object.keys(result).forEach(key => this.setObjectValueByKey(result, key, { name: key } as EnvironmentVariableNameWithValue<unknown>));
         result.CCS3_OPERATOR_CONNECTOR_NO_STATIC_FILES_SERVING.value = this.getEnvironmentVarValueAsBoolean(result.CCS3_OPERATOR_CONNECTOR_NO_STATIC_FILES_SERVING.name, false);
         result.CCS3_OPERATOR_CONNECTOR_STATIC_FILES_PATH.value = this.getEnvVarValue(result.CCS3_OPERATOR_CONNECTOR_STATIC_FILES_PATH.name, './operator-web-app');
         result.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_CRT_FILE_PATH.value = this.getEnvVarValue(result.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_CRT_FILE_PATH.name, './certificates/ccs3-operator-connector.crt')!;

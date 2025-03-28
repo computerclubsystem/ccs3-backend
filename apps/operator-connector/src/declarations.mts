@@ -138,6 +138,6 @@ export interface MessageStatItem {
     correlationId?: string;
     sentAt: number;
     completedAt: number;
-    error?: any;
+    error?: Error;
     operatorId?: number | null;
 }

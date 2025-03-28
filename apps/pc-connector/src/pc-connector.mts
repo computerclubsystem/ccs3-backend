@@ -174,7 +174,7 @@ export class PcConnector {
         }
         this.connectivityHelper.setDeviceMessageReceived(clientData.certificateThumbprint, clientData.deviceId, clientData.device?.name);
         clientData.lastMessageReceivedAt = this.getNowAsNumber();
-        let msg: DevicePartialMessage<any> | null;
+        let msg: DevicePartialMessage<unknown> | null;
         try {
             msg = this.deserializeWebSocketBufferToMessage(args.buffer);
             this.logger.log(
@@ -196,7 +196,7 @@ export class PcConnector {
         this.processDeviceMessage(msg, clientData);
     }
 
-    processDeviceMessage(message: DevicePartialMessage<any>, clientData: ConnectedClientData): void {
+    processDeviceMessage(message: DevicePartialMessage<unknown>, clientData: ConnectedClientData): void {
         const type = message.header.type;
         switch (type) {
             case DeviceToServerRequestMessageType.changePrepaidTariffPasswordByCustomer: {
@@ -285,7 +285,7 @@ export class PcConnector {
         this.removeClient(args.connectionId);
     }
 
-    processBusMessageReceived(channelName: string, message: Message<any>): void {
+    processBusMessageReceived(channelName: string, message: Message<unknown>): void {
         if (this.isOwnMessage(message)) {
             return;
         }
@@ -411,9 +411,9 @@ export class PcConnector {
         this.sendStatusToDevices(message.body.deviceStatuses, message.body.continuationTariffShortInfos);
     }
 
-    sendMessageToConnectedDevice(connectedClientData: ConnectedClientData, message: any): void {
+    // sendMessageToConnectedDevice(connectedClientData: ConnectedClientData, message: any): void {
 
-    }
+    // }
 
     sendStatusToDevices(deviceStatuses: DeviceStatus[], continuationTariffsShortInfo: TariffShortInfo[] | undefined): void {
         for (const status of deviceStatuses) {
@@ -597,7 +597,7 @@ export class PcConnector {
                     this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: Http-to-Udp proxy response status 200 expected but '${res.status}' received`);
                 }
             } catch (err) {
-                this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: Can't send request to Http-To-Udp proxy 'proxyUrl'.  Error: ${err}, ${(err as any).cause}`);
+                this.logger.warn(`processBusDeviceStatusesMessageForNoCertificateDevices: Can't send request to Http-To-Udp proxy 'proxyUrl'.  Error: ${err}, ${(err as Error).cause}`);
             }
         }
 
@@ -626,7 +626,7 @@ export class PcConnector {
     }
 
     async delay(ms: number): Promise<void> {
-        return new Promise((resolve, reject) => {
+        return new Promise(resolve => {
             setTimeout(() => resolve(), ms);
         });
     }
@@ -754,15 +754,15 @@ export class PcConnector {
         return (message.header.source === this.messageBusIdentifier);
     }
 
-    deserializeWebSocketBufferToMessage(buffer: Buffer): Message<any> | null {
+    deserializeWebSocketBufferToMessage(buffer: Buffer): Message<unknown> | null {
         const text = buffer.toString();
         const json = JSON.parse(text);
-        return json as Message<any>;
+        return json as Message<unknown>;
     }
 
-    deserializeBusMessageToMessage(text: string): Message<any> | null {
+    deserializeBusMessageToMessage(text: string): Message<unknown> | null {
         const json = JSON.parse(text);
-        return json as Message<any>;
+        return json as Message<unknown>;
     }
 
     // private sendToDevice<TBody>(message: Message<TBody>, connectionId: number): void {
@@ -775,7 +775,7 @@ export class PcConnector {
         this.wssServer.sendJSON(message, connectionId);
     }
 
-    private sendReplyMessageToDevice<TBody>(message: ServerToDeviceReplyMessage<TBody>, requestMessage: DeviceToServerRequestMessage<any>, connectionId: number): void {
+    private sendReplyMessageToDevice<TBody>(message: ServerToDeviceReplyMessage<TBody>, requestMessage: DeviceToServerRequestMessage<unknown>, connectionId: number): void {
         this.logger.log(`Sending reply message ${message.header.type} to device connection ${connectionId}`, message);
         message.header.correlationId = requestMessage.header.correlationId;
         if (message.header.failure) {
@@ -786,6 +786,7 @@ export class PcConnector {
         this.wssServer.sendJSON(message, connectionId);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     publishToDevicesChannelAndWaitForReply<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData | null): Observable<Message<TReplyBody>> {
         const messageStatItem: MessageStatItem = {
             sentAt: this.getNowAsNumber(),
@@ -815,6 +816,7 @@ export class PcConnector {
         );
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     publishToSharedChannelAndWaitForReply<TReplyBody>(busMessage: Message<any>, clientData: ConnectedClientData | null): Observable<Message<TReplyBody>> {
         const messageStatItem: MessageStatItem = {
             sentAt: this.getNowAsNumber(),
@@ -849,6 +851,7 @@ export class PcConnector {
     // }
 
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private publishToDevicesChannel<TBody>(message: Message<TBody>, sourceMessage?: Message<any>): Observable<Message<any>> {
         if (sourceMessage) {
             // Transfer source message common data (like round trip data) to destination message
@@ -858,6 +861,7 @@ export class PcConnector {
         return this.subjectsService.getDevicesChannelBusMessageReceived();
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private publishToSharedChannel<TBody>(message: Message<TBody>, sourceMessage?: Message<any>): Observable<Message<any>> {
         if (sourceMessage) {
             // Transfer source message common data (like round trip data) to destination message
@@ -871,11 +875,11 @@ export class PcConnector {
         message.header.source = this.messageBusIdentifier;
         this.logger.log(`Publishing message ${message.header.type} to channel ${channelName}`, message);
         try {
-            const publishResult = await this.pubClient.publish(channelName, JSON.stringify(message));
+            await this.pubClient.publish(channelName, JSON.stringify(message));
             this.state.pubClientPublishErrorsCount = 0;
         } catch (err) {
             this.state.pubClientPublishErrorsCount++;
-            this.logger.warn(`Cannot publish message to channel ${channelName}`, message);
+            this.logger.warn(`Cannot publish message to channel ${channelName}`, message, err);
             this.logger.warn(`PubClient publish errors count ${this.state.pubClientPublishErrorsCount}. Maximum allowed ${this.state.maxAllowedPubClientPublishErrorsCount}`);
             if (this.state.pubClientPublishErrorsCount > this.state.maxAllowedPubClientPublishErrorsCount) {
                 this.exitProcessManager.exitProcess(ProcessExitCode.maxPubClientPublishErrorsReached);
@@ -896,7 +900,6 @@ export class PcConnector {
         const redisPort = this.envVars.CCS3_REDIS_PORT.value;
         this.logger.log(`Using redis host ${redisHost} and port ${redisPort}`);
 
-        let receivedMessagesCount = 0;
         const subClientOptions: CreateConnectedRedisClientOptions = {
             host: redisHost,
             port: redisPort,
@@ -904,7 +907,6 @@ export class PcConnector {
             reconnectStrategyCallback: (retries: number, err: Error) => this.processSubClientReconnectStrategyError(retries, err),
         };
         const subClientMessageCallback: RedisClientMessageCallback = (channelName, message) => {
-            receivedMessagesCount++;
             try {
                 const messageJson = this.deserializeBusMessageToMessage(message);
                 if (messageJson) {
@@ -954,7 +956,7 @@ export class PcConnector {
         this.logger.log('CacheClient connected');
     }
 
-    private processSubClientError(error: any): void {
+    private processSubClientError(error: unknown): void {
         this.logger.error('SubClient error', error);
         this.state.subClientErrorsCount++;
         this.logger.warn(`SubClient errors count: ${this.state.subClientErrorsCount}. Maximum allowed: ${this.state.maxAllowedSubClientErrorsCount}`);

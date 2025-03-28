@@ -7,7 +7,7 @@ export class CertificateHelper {
         return parts.join(',');
     }
 
-    getObjectValueByKey(obj: any, key: string): any {
-        return obj?.[key];
+    getObjectValueByKey(obj: unknown, key: string): unknown {
+        return (obj as never)?.[key];
     }
 }
