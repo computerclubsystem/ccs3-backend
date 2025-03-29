@@ -1,0 +1,14 @@
+INSERT INTO user_profile_setting
+(
+    name,
+    description
+)
+VALUES
+(
+    'actions_and_options_buttons_placement',
+    'Where to show computer Actions and Options button. Possible values are "start" and "end". Default value is "start"'
+);
+
+UPDATE db_metadata
+SET value = '38'
+WHERE name = 'database-version';
