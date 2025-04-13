@@ -125,7 +125,7 @@ export class PcConnector {
         this.logger.log('Client connected', args);
         const clientCertificateFingerprint = this.getLowercasedCertificateThumbprint(args.certificate?.fingerprint);
         if (clientCertificateFingerprint) {
-            this.connectivityHelper.setDeviceConnected(clientCertificateFingerprint, args.certificate);
+            this.connectivityHelper.setDeviceConnected(clientCertificateFingerprint, args);
         }
         if (!args.ipAddress || !clientCertificateFingerprint) {
             // The args.ipAddress can be undefined if the client already closed the connection
@@ -267,7 +267,8 @@ export class PcConnector {
         const clientData = this.getConnectedClientData(args.connectionId);
         if (clientData) {
             this.connectivityHelper.setDeviceDisconnected(clientData.certificateThumbprint);
-            if (clientData?.deviceId) {
+            if (clientData.deviceId) {
+                // TODO: Why we have second call here ?
                 this.connectivityHelper.setDeviceDisconnected(clientData.certificateThumbprint);
                 const note = `Code: ${args.code}, connection id: ${args.connectionId}`;
                 this.publishDeviceConnectionEventMessage(clientData.deviceId, clientData.ipAddress, DeviceConnectionEventType.disconnected, note);
@@ -457,7 +458,6 @@ export class PcConnector {
 
     async processBusDeviceStatusesMessageForNoCertificateDevices(deviceStatuses: DeviceStatus[]): Promise<void> {
         // TODO: Try to not load devices every time - load them on start-up and also add notification from state-manager when devices are changed
-        this.logger.log('processBusDeviceStatusesMessageForNoCertificateDevices: Loading all devices');
         const allDevices = await this.cacheHelper.getAllDevices();
         if (!allDevices) {
             return;
@@ -475,7 +475,6 @@ export class PcConnector {
         const noCertDataItems: NoCertificateDataItem[] = [];
 
         const devicesWithoutCertificateThumbprints = allDevices.filter(x => x.enabled && x.approved && !x.certificateThumbprint && x.description);
-        this.logger.log(`processBusDeviceStatusesMessageForNoCertificateDevices: Devices without certificate thumprints count: ${devicesWithoutCertificateThumbprints.length}`);
         for (const noCertDevice of devicesWithoutCertificateThumbprints) {
             const deviceStatus = deviceStatuses.find(x => x.deviceId === noCertDevice.id);
             if (deviceStatus) {
@@ -1038,15 +1037,7 @@ export class PcConnector {
                 const busConnectivityItems: BusDeviceConnectivityItem[] = [];
                 for (const snapshotItem of snapshot) {
                     const busItem: BusDeviceConnectivityItem = {
-                        certificateThumbprint: snapshotItem.certificateThumbprint,
-                        connectionsCount: snapshotItem.connectionsCount,
-                        lastConnectionSince: snapshotItem.lastConnectionSince,
-                        secondsSinceLastConnected: this.getDiffInSeconds(now, snapshotItem.lastConnectionSince),
-                        lastMessageSince: snapshotItem.lastMessageSince,
-                        secondsSinceLastMessage: snapshotItem.lastMessageSince ? this.getDiffInSeconds(now, snapshotItem.lastMessageSince) : undefined,
-                        messagesCount: snapshotItem.messagesCount,
                         deviceId: snapshotItem.deviceId,
-                        deviceName: snapshotItem.deviceName,
                         isConnected: snapshotItem.isConnected,
                     };
                     busConnectivityItems.push(busItem);

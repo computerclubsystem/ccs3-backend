@@ -1,9 +1,12 @@
 import { DetailedPeerCertificate } from 'node:tls';
 
+import { ClientConnectedEventArgs } from '@computerclubsystem/websocket-server';
+
 export class ConnectivityHelper {
     // Will contain map between certificate thumbprints and statistics about this device
     private connectionItemsMap = new Map<string, ConnectionItem>();
     private messageItemsMap = new Map<string, MessageItem>();
+    private maxCappedArrayItemsCount = 10;
 
     setDeviceMessageReceived(certificateThumbprint: string, deviceId?: number | null, deviceName?: string | null): void {
         let mapItem = this.messageItemsMap.get(certificateThumbprint);
@@ -31,24 +34,30 @@ export class ConnectivityHelper {
         }
     }
 
-    setDeviceConnected(certificateThumbprint: string, certificate: DetailedPeerCertificate): void {
+    setDeviceConnected(certificateThumbprint: string, args: ClientConnectedEventArgs): void {
         let mapItem = this.connectionItemsMap.get(certificateThumbprint);
         const now = this.getNow();
+        const connectedEventItem: ConnectedEventItem = {
+            connectedAt: now,
+            connectionId: args.connectionId
+        };
         if (!mapItem) {
             mapItem = {
                 connectionsCount: 1,
                 timestamp: now,
                 certificateThumbprint: certificateThumbprint,
-                certificate: certificate,
+                certificate: args.certificate,
                 isConnected: true,
+                connectedEventItems: [],
             };
             this.connectionItemsMap.set(certificateThumbprint, mapItem);
         } else {
             mapItem.timestamp = now;
             mapItem.connectionsCount++;
-            mapItem.certificate = certificate;
+            mapItem.certificate = args.certificate;
             mapItem.isConnected = true;
         }
+        this.addItemToCappedArray(mapItem.connectedEventItems, connectedEventItem, this.maxCappedArrayItemsCount);
     }
 
     getSnapshot(): ConnectivitySnapshotItem[] {
@@ -68,6 +77,7 @@ export class ConnectivityHelper {
                     connectionsCount: item.connectionsCount,
                     lastConnectionSince: item.timestamp,
                     isConnected: item.isConnected,
+                    connectedEventItems: item.connectedEventItems,
                 } as ConnectivitySnapshotItem;
                 connectivityMap.set(thumbprint, connectivityItem);
             }
@@ -87,6 +97,13 @@ export class ConnectivityHelper {
         return result;
     }
 
+    private addItemToCappedArray<TItem>(array: TItem[], item: TItem, maxItems: number): void {
+        const hasRoomForNewItem = array.length < maxItems;
+        if (!hasRoomForNewItem) {
+            array.shift();
+        }
+        array.push(item);
+    }
 
     private getNow(): number {
         return Date.now();
@@ -103,6 +120,12 @@ export interface ConnectivitySnapshotItem {
     lastMessageSince?: number | null;
     lastConnectionSince: number;
     isConnected: boolean;
+    connectedEventItems: ConnectedEventItem[];
+}
+
+export interface ConnectedEventItem {
+    connectedAt: number;
+    connectionId: number;
 }
 
 interface ConnectionItem {
@@ -111,6 +134,7 @@ interface ConnectionItem {
     certificate: DetailedPeerCertificate;
     connectionsCount: number;
     isConnected: boolean;
+    connectedEventItems: ConnectedEventItem[];
 }
 
 interface MessageItem {

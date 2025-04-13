@@ -1677,14 +1677,8 @@ export class OperatorConnector {
 
     convertBusDeviceConnectivityItemtoOperatorDeviceConnectivityItem(busItem: BusDeviceConnectivityItem): OperatorDeviceConnectivityItem {
         const result: OperatorDeviceConnectivityItem = {
-            certificateThumbprint: busItem.certificateThumbprint,
-            connectionsCount: busItem.connectionsCount,
-            messagesCount: busItem.messagesCount,
             deviceId: busItem.deviceId,
-            deviceName: busItem.deviceName,
             isConnected: busItem.isConnected,
-            secondsSinceLastConnected: busItem.secondsSinceLastConnected,
-            secondsSinceLastMessage: busItem.secondsSinceLastMessage
         };
         return result;
     }
