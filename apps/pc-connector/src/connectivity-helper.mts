@@ -1,7 +1,7 @@
 import { DetailedPeerCertificate } from 'node:tls';
 
 import { ClientConnectedEventArgs } from '@computerclubsystem/websocket-server';
-import { DeviceConnectivityConnectionEventType } from '@computerclubsystem/types/messages/shared-declarations/device-connectivity-connection-event-type.mjs';
+import { DeviceConnectivityConnectionEventType } from '@computerclubsystem/types/messages/shared-declarations/device-connectivity-types.mjs';
 
 export class ConnectivityHelper {
     // Will contain map between certificate thumbprints and statistics about this device

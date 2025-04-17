@@ -67,9 +67,9 @@ import { createServerToDeviceShutdownNoitificationMessage } from '@computerclubs
 import { transferSharedMessageData } from '@computerclubsystem/types/messages/utils.mjs';
 import { BusRestartDevicesRequestMessage, createBusRestartDevicesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-restart-devices.messages.mjs';
 import { createServerToDeviceRestartNoitificationMessage } from '@computerclubsystem/types/messages/devices/server-to-device-restart-notification.message.mjs';
-import { DeviceConnectivityConnectionEventType } from '@computerclubsystem/types/messages/shared-declarations/device-connectivity-connection-event-type.mjs';
 import { BusGetDeviceConnectivityDetailsRequestMessage, createBusGetDeviceConnectivityDetailsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-connectivity-details.messages.mjs';
 import { BusShutdownDevicesRequestMessage, createBusShutdownDevicesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-shutdown-devices.messages.mjs';
+import { DeviceConnectivityConnectionEventType } from '@computerclubsystem/types/messages/shared-declarations/device-connectivity-types.mjs';
 
 export class PcConnector {
     wssServer!: WssServer;
