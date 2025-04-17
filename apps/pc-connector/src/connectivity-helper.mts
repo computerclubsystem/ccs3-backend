@@ -1,12 +1,13 @@
 import { DetailedPeerCertificate } from 'node:tls';
 
 import { ClientConnectedEventArgs } from '@computerclubsystem/websocket-server';
+import { DeviceConnectivityConnectionEventType } from '@computerclubsystem/types/messages/shared-declarations/device-connectivity-connection-event-type.mjs';
 
 export class ConnectivityHelper {
     // Will contain map between certificate thumbprints and statistics about this device
-    private connectionItemsMap = new Map<string, ConnectionItem>();
-    private messageItemsMap = new Map<string, MessageItem>();
-    private maxCappedArrayItemsCount = 10;
+    private connectionItemsMap = new Map<string, DeviceConnectivityConnectionItem>();
+    private messageItemsMap = new Map<string, DeviceConnectivityMessageItem>();
+    private maxCappedArrayItemsCount = 20;
 
     setDeviceMessageReceived(certificateThumbprint: string, deviceId?: number | null, deviceName?: string | null): void {
         let mapItem = this.messageItemsMap.get(certificateThumbprint);
@@ -27,19 +28,30 @@ export class ConnectivityHelper {
         }
     }
 
-    setDeviceDisconnected(certificateThumbprint: string): void {
+    setDeviceDisconnected(certificateThumbprint: string, connectionId: number, connectionInstanceId: string, eventType: DeviceConnectivityConnectionEventType, note: string | null): void {
         const connectionItem = this.connectionItemsMap.get(certificateThumbprint);
         if (connectionItem) {
             connectionItem.isConnected = false;
+            const now = this.getNow();
+            const connectionEventItem: DeviceConnectivityConnectionEventItem = {
+                timestamp: now,
+                connectionId: connectionId,
+                connectionInstanceId: connectionInstanceId,
+                type: eventType,
+                note: note,
+            };
+            this.addItemToCappedArray(connectionItem.connectionEventItems, connectionEventItem, this.maxCappedArrayItemsCount);
         }
     }
 
-    setDeviceConnected(certificateThumbprint: string, args: ClientConnectedEventArgs): void {
+    setDeviceConnected(certificateThumbprint: string, args: ClientConnectedEventArgs, connectionInstanceId: string): void {
         let mapItem = this.connectionItemsMap.get(certificateThumbprint);
         const now = this.getNow();
-        const connectedEventItem: ConnectedEventItem = {
-            connectedAt: now,
-            connectionId: args.connectionId
+        const connectedEventItem: DeviceConnectivityConnectionEventItem = {
+            timestamp: now,
+            connectionId: args.connectionId,
+            connectionInstanceId: connectionInstanceId,
+            type: DeviceConnectivityConnectionEventType.connected,
         };
         if (!mapItem) {
             mapItem = {
@@ -48,7 +60,7 @@ export class ConnectivityHelper {
                 certificateThumbprint: certificateThumbprint,
                 certificate: args.certificate,
                 isConnected: true,
-                connectedEventItems: [],
+                connectionEventItems: [],
             };
             this.connectionItemsMap.set(certificateThumbprint, mapItem);
         } else {
@@ -57,11 +69,11 @@ export class ConnectivityHelper {
             mapItem.certificate = args.certificate;
             mapItem.isConnected = true;
         }
-        this.addItemToCappedArray(mapItem.connectedEventItems, connectedEventItem, this.maxCappedArrayItemsCount);
+        this.addItemToCappedArray(mapItem.connectionEventItems, connectedEventItem, this.maxCappedArrayItemsCount);
     }
 
-    getSnapshot(): ConnectivitySnapshotItem[] {
-        const connectivityMap = new Map<string, ConnectivitySnapshotItem>();
+    getSnapshot(): DeviceConnectivitySnapshotItem[] {
+        const connectivityMap = new Map<string, DeviceConnectivitySnapshotItem>();
         // Iterate connection items map and match message item
         // There will be as much message items as connections (both connection and message items are keyed by certificate thumbrint)
         // It is possible to have connection item but not matched message item (but not the outher way around)
@@ -77,8 +89,8 @@ export class ConnectivityHelper {
                     connectionsCount: item.connectionsCount,
                     lastConnectionSince: item.timestamp,
                     isConnected: item.isConnected,
-                    connectedEventItems: item.connectedEventItems,
-                } as ConnectivitySnapshotItem;
+                    connectionEventItems: item.connectionEventItems,
+                } as DeviceConnectivitySnapshotItem;
                 connectivityMap.set(thumbprint, connectivityItem);
             }
             const messageMapItem = this.messageItemsMap.get(thumbprint);
@@ -90,7 +102,7 @@ export class ConnectivityHelper {
             }
         }
 
-        const result: ConnectivitySnapshotItem[] = [];
+        const result: DeviceConnectivitySnapshotItem[] = [];
         for (const item of connectivityMap.values()) {
             result.push(item);
         }
@@ -110,7 +122,7 @@ export class ConnectivityHelper {
     }
 }
 
-export interface ConnectivitySnapshotItem {
+export interface DeviceConnectivitySnapshotItem {
     deviceId?: number | null;
     deviceName?: string | null;
     certificateThumbprint: string;
@@ -120,24 +132,27 @@ export interface ConnectivitySnapshotItem {
     lastMessageSince?: number | null;
     lastConnectionSince: number;
     isConnected: boolean;
-    connectedEventItems: ConnectedEventItem[];
+    connectionEventItems: DeviceConnectivityConnectionEventItem[];
 }
 
-export interface ConnectedEventItem {
-    connectedAt: number;
+export interface DeviceConnectivityConnectionEventItem {
+    timestamp: number;
     connectionId: number;
+    connectionInstanceId: string;
+    type: DeviceConnectivityConnectionEventType;
+    note?: string | null;
 }
 
-interface ConnectionItem {
+interface DeviceConnectivityConnectionItem {
     timestamp: number;
     certificateThumbprint: string;
     certificate: DetailedPeerCertificate;
     connectionsCount: number;
     isConnected: boolean;
-    connectedEventItems: ConnectedEventItem[];
+    connectionEventItems: DeviceConnectivityConnectionEventItem[];
 }
 
-interface MessageItem {
+interface DeviceConnectivityMessageItem {
     timestamp: number;
     deviceId?: number | null;
     deviceName?: string | null;

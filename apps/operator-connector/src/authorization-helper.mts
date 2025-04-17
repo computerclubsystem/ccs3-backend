@@ -53,7 +53,15 @@ export class AuthorizationHelper {
         map.set(OperatorRequestMessageType.getDeviceCompletedSessionsRequest, [PermissionName.reportsDeviceSessions]);
         map.set(OperatorRequestMessageType.filterServerLogsRequest, [PermissionName.diagnosticsFilterServerLogs]);
         map.set(OperatorRequestMessageType.shutdownStoppedRequest, [PermissionName.devicesStop]);
+        map.set(OperatorRequestMessageType.getTariffDeviceGroupsRequest, [
+            PermissionName.tariffsRead,
+            PermissionName.tariffsCreate,
+            PermissionName.tariffsCreatePrepaid,
+            PermissionName.tariffsUpdate,
+            PermissionName.tariffsRechargeDuration,
+        ]);
         map.set(OperatorRequestMessageType.restartDevicesRequest, [PermissionName.devicesStop]);
+        map.set(OperatorRequestMessageType.getDeviceConnectivityDetailsRequest, [PermissionName.devicesReadStatus]);
         this.messageTypeToPermissionMap = map;
     }
 

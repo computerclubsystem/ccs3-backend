@@ -223,6 +223,8 @@ import { createOperatorGetTariffDeviceGroupsReplyMessage, OperatorGetTariffDevic
 import { BusGetTariffDeviceGroupsReplyMessageBody, createBusGetTariffDeviceGroupsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-tariff-device-groups.messages.mjs';
 import { createOperatorRestartDevicesReplyMessage, OperatorRestartDevicesRequestMessage } from '@computerclubsystem/types/messages/operators/operator-restart-devices.messages.mjs';
 import { BusRestartDevicesReplyMessageBody, createBusRestartDevicesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-restart-devices.messages.mjs';
+import { createOperatorGetDeviceConnectivityDetailsReplyMessage, OperatorGetDeviceConnectivityDetailsReplyMessageBody, OperatorGetDeviceConnectivityDetailsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-device-connectivity-details.messages.mjs';
+import { BusGetDeviceConnectivityDetailsReplyMessageBody, createBusGetDeviceConnectivityDetailsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-connectivity-details.messages.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -295,6 +297,9 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorRequestMessageType.getDeviceConnectivityDetailsRequest:
+                this.processGetDeviceConnectivityDetailsRequestMessage(clientData, message as OperatorGetDeviceConnectivityDetailsRequestMessage);
+                break;
             case OperatorRequestMessageType.getTariffDeviceGroupsRequest:
                 this.processOperatorGetTariffDeviceGroupsRequestMessage(clientData, message as OperatorGetTariffDeviceGroupsRequestMessage);
                 break;
@@ -447,6 +452,30 @@ export class OperatorConnector {
                 // this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    processGetDeviceConnectivityDetailsRequestMessage(clientData: ConnectedClientData, message: OperatorGetDeviceConnectivityDetailsRequestMessage): void {
+        const busReqMsg = createBusGetDeviceConnectivityDetailsRequestMessage();
+        busReqMsg.body.deviceId = message.body.deviceId;
+        this.publishToDevicesChannelAndWaitForReply<BusGetDeviceConnectivityDetailsReplyMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorGetDeviceConnectivityDetailsReplyMessage();
+                const busBody = busReplyMsg.body;
+                const replyMsgBody: OperatorGetDeviceConnectivityDetailsReplyMessageBody = {
+                    connectionEventItems: busBody.connectionEventItems,
+                    connectionsCount: busBody.connectionsCount,
+                    deviceId: busBody.deviceId,
+                    isConnected: busBody.isConnected,
+                    receivedMessagesCount: busBody.receivedMessagesCount,
+                    secondsSinceLastConnection: busBody.secondsSinceLastConnection,
+                    sentMessagesCount: busBody.sentMessagesCount,
+                    secondsSinceLastReceivedMessage: busBody.secondsSinceLastReceivedMessage,
+                    secondsSinceLastSentMessage: busBody.secondsSinceLastSentMessage,
+                };
+                operatorReplyMsg.body = replyMsgBody;
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
     }
 
     processOperatorGetTariffDeviceGroupsRequestMessage(clientData: ConnectedClientData, message: OperatorGetTariffDeviceGroupsRequestMessage): void {
@@ -2125,9 +2154,9 @@ export class OperatorConnector {
         const redisPort = this.envVars.CCS3_REDIS_PORT.value;
         this.logger.log(`Using redis host ${redisHost} and port ${redisPort}`);
 
-        await this.connectSubClient(redisHost, redisPort);
-        await this.connectPubClient(redisHost, redisPort);
         await this.connectCacheClient(redisHost, redisPort);
+        await this.connectPubClient(redisHost, redisPort);
+        await this.connectSubClient(redisHost, redisPort);
     }
 
     processOperatorConnected(args: ClientConnectedEventArgs): void {

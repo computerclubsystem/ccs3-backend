@@ -67,6 +67,8 @@ import { createServerToDeviceShutdownNoitificationMessage } from '@computerclubs
 import { transferSharedMessageData } from '@computerclubsystem/types/messages/utils.mjs';
 import { BusRestartDevicesRequestMessage, createBusRestartDevicesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-restart-devices.messages.mjs';
 import { createServerToDeviceRestartNoitificationMessage } from '@computerclubsystem/types/messages/devices/server-to-device-restart-notification.message.mjs';
+import { DeviceConnectivityConnectionEventType } from '@computerclubsystem/types/messages/shared-declarations/device-connectivity-connection-event-type.mjs';
+import { BusGetDeviceConnectivityDetailsRequestMessage, createBusGetDeviceConnectivityDetailsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-connectivity-details.messages.mjs';
 
 export class PcConnector {
     wssServer!: WssServer;
@@ -105,7 +107,7 @@ export class PcConnector {
         const msg = createServerToDeviceDeviceConfigurationNotificationMessage();
         msg.body = this.createServerToDeviceDeviceConfigurationNotificationMessageBody(systemSettings);
         for (const data of allConnectedClientsData) {
-            this.sendNotificationMessageToDevice(msg, data.connectionId);
+            this.sendNotificationMessageToDevice(msg, data);
         }
     }
 
@@ -124,25 +126,23 @@ export class PcConnector {
     private processDeviceConnected(args: ClientConnectedEventArgs): void {
         this.logger.log('Client connected', args);
         const clientCertificateFingerprint = this.getLowercasedCertificateThumbprint(args.certificate?.fingerprint);
-        if (clientCertificateFingerprint) {
-            this.connectivityHelper.setDeviceConnected(clientCertificateFingerprint, args);
-        }
         if (!args.ipAddress || !clientCertificateFingerprint) {
             // The args.ipAddress can be undefined if the client already closed the connection
             this.logger.warn(
                 'The client ip address is missing (client disconnected ?) or the certificate does not have fingerprint.',
-                'IP address:',
-                args.ipAddress,
-                ', Certificate thumbprint:',
-                args.certificate?.fingerprint,
+                'IP address:', args.ipAddress,
+                ', Certificate thumbprint:', args.certificate?.fingerprint,
                 ', Connection Id:', args.connectionId
             );
             this.wssServer.closeConnection(args.connectionId);
             return;
         }
 
+        const connectionInstanceId = this.createUUIDString();
+        this.connectivityHelper.setDeviceConnected(clientCertificateFingerprint, args, connectionInstanceId);
         const clientData: ConnectedClientData = {
             connectionId: args.connectionId,
+            connectionInstanceId: connectionInstanceId,
             connectedAt: this.getNowAsNumber(),
             deviceId: null,
             device: null,
@@ -151,6 +151,8 @@ export class PcConnector {
             ipAddress: args.ipAddress,
             lastMessageReceivedAt: null,
             receivedMessagesCount: 0,
+            lastMessageSentAt: null,
+            sentMessagesCount: 0,
             // isAuthenticated: false,
         };
         this.connectedClients.set(args.connectionId, clientData);
@@ -174,6 +176,7 @@ export class PcConnector {
         }
         this.connectivityHelper.setDeviceMessageReceived(clientData.certificateThumbprint, clientData.deviceId, clientData.device?.name);
         clientData.lastMessageReceivedAt = this.getNowAsNumber();
+        clientData.receivedMessagesCount++;
         let msg: DevicePartialMessage<unknown> | null;
         try {
             msg = this.deserializeWebSocketBufferToMessage(args.buffer);
@@ -226,7 +229,7 @@ export class PcConnector {
             .subscribe(busReplyMsg => {
                 const replyMsg = createServerToDeviceChangePrepaidTariffPasswordPasswordByCustomerReplyMessage();
                 this.errorHelper.setBusMessageFailure(busReplyMsg, message, replyMsg);
-                this.sendReplyMessageToDevice(replyMsg, message, clientData.connectionId);
+                this.sendReplyMessageToDevice(replyMsg, message, clientData);
             });
     }
 
@@ -237,7 +240,7 @@ export class PcConnector {
             .subscribe(busReplyMsg => {
                 const replyMsg = createServerToDeviceEndDeviceSessionByCustomerReplyMessage();
                 this.errorHelper.setBusMessageFailure(busReplyMsg, message, replyMsg);
-                this.sendReplyMessageToDevice(replyMsg, message, clientData.connectionId);
+                this.sendReplyMessageToDevice(replyMsg, message, clientData);
             });
     }
 
@@ -257,21 +260,22 @@ export class PcConnector {
                 replyMsg.body.notAvailableForThisDeviceGroup = busReplyMsg.body.notAvailableForThisDeviceGroup;
                 replyMsg.body.success = busReplyMsg.body.success;
                 replyMsg.header.failure = busReplyMsg.header.failure;
-                this.sendReplyMessageToDevice(replyMsg, message, clientData.connectionId);
+                this.sendReplyMessageToDevice(replyMsg, message, clientData);
             });
     }
 
     private processClientConnectionClosed(args: ConnectionClosedEventArgs): void {
         this.logger.log('Device connection closed', args);
         // Check if we still have this connection before saving connection event - it might be already removed because of timeout
-        const clientData = this.getConnectedClientData(args.connectionId);
-        if (clientData) {
-            this.connectivityHelper.setDeviceDisconnected(clientData.certificateThumbprint);
-            if (clientData.deviceId) {
-                // TODO: Why we have second call here ?
-                this.connectivityHelper.setDeviceDisconnected(clientData.certificateThumbprint);
-                const note = `Code: ${args.code}, connection id: ${args.connectionId}`;
-                this.publishDeviceConnectionEventMessage(clientData.deviceId, clientData.ipAddress, DeviceConnectionEventType.disconnected, note);
+        const data = this.getConnectedClientData(args.connectionId);
+        if (data) {
+            const connectedAt = new Date(data.connectedAt).toISOString();
+            const lastMessageReceivedAt = new Date(data.lastMessageReceivedAt || 0).toISOString();
+            const lastMessageSentAt = new Date(data.lastMessageSentAt || 0).toISOString();
+            const reasonText = `Code: ${args.code}, Connection ${data.connectionId}/${data.connectionInstanceId}, Connected at ${connectedAt}, Last message received at ${lastMessageReceivedAt}, Received messages count ${data.receivedMessagesCount}, Last message sent at ${lastMessageSentAt}, Sent messages count ${data.sentMessagesCount}`;
+            this.connectivityHelper.setDeviceDisconnected(data.certificateThumbprint, data.connectionId, data.connectionInstanceId, DeviceConnectivityConnectionEventType.disconnected, reasonText);
+            if (data.deviceId) {
+                this.publishDeviceConnectionEventMessage(data.deviceId, data.ipAddress, DeviceConnectionEventType.disconnected, reasonText);
             }
         }
         this.removeClient(args.connectionId);
@@ -340,6 +344,9 @@ export class PcConnector {
         const type = message.header.type;
         // Process only notification messages. Reply message should be processed by the caller
         switch (type) {
+            case MessageType.busGetDeviceConnectivityDetailsRequest:
+                this.processBusGetDeviceConnectivityDetailsRequestMessage(message as BusGetDeviceConnectivityDetailsRequestMessage);
+                break;
             case MessageType.busRestartDevicesRequest:
                 this.processBusRestartDevicesRequestMessage(message as BusRestartDevicesRequestMessage);
                 break;
@@ -350,6 +357,40 @@ export class PcConnector {
                 this.processDeviceStatusesMessage(message as BusDeviceStatusesNotificationMessage);
                 break;
         }
+    }
+
+    processBusGetDeviceConnectivityDetailsRequestMessage(message: BusGetDeviceConnectivityDetailsRequestMessage): void {
+        const replyMsg = createBusGetDeviceConnectivityDetailsReplyMessage();
+        const connectivitySnapshot = this.connectivityHelper.getSnapshot();
+        const deviceConnectivity = connectivitySnapshot.find(x => x.deviceId === message.body.deviceId);
+        if (!deviceConnectivity) {
+            replyMsg.body.connectionEventItems = [];
+            replyMsg.body.connectionsCount = 0;
+            replyMsg.body.deviceId = message.body.deviceId;
+            replyMsg.body.isConnected = false;
+            replyMsg.body.receivedMessagesCount = 0;
+            replyMsg.body.sentMessagesCount = 0;
+            replyMsg.body.secondsSinceLastReceivedMessage = 0;
+            replyMsg.body.secondsSinceLastSentMessage = 0;
+            replyMsg.body.secondsSinceLastConnection = 0;
+            this.publishToDevicesChannel(replyMsg, message);
+            return;
+        }
+        const clientData = this.getAllConnectedClientsData().find(x => x.certificateThumbprint === deviceConnectivity.certificateThumbprint);
+        const now = this.getNowAsNumber();
+        replyMsg.body.connectionsCount = deviceConnectivity.connectionsCount;
+        replyMsg.body.deviceId = message.body.deviceId;
+        replyMsg.body.isConnected = deviceConnectivity.isConnected;
+        if (clientData) {
+            replyMsg.body.sentMessagesCount = clientData.sentMessagesCount;
+            replyMsg.body.receivedMessagesCount = clientData.receivedMessagesCount;
+            replyMsg.body.secondsSinceLastSentMessage = clientData.lastMessageSentAt ? this.getDiffInSeconds(now, clientData.lastMessageSentAt) : undefined;
+            replyMsg.body.secondsSinceLastReceivedMessage = clientData.lastMessageReceivedAt ? this.getDiffInSeconds(now, clientData.lastMessageReceivedAt) : undefined;
+        }
+        replyMsg.body.secondsSinceLastConnection = this.getDiffInSeconds(now, deviceConnectivity.lastConnectionSince);
+        replyMsg.body.connectionEventItems = deviceConnectivity.connectionEventItems;
+
+        this.publishToDevicesChannel(replyMsg, message);
     }
 
     processBusRestartDevicesRequestMessage(message: BusRestartDevicesRequestMessage): void {
@@ -368,11 +409,11 @@ export class PcConnector {
         }
         replyMsg.body.targetsCount = (new Set<number>(clientsToSendTo.map(x => x.deviceId!))).size;
         const restartNotificationMsg = createServerToDeviceRestartNoitificationMessage();
-        for (const client of clientsToSendTo) {
+        for (const clientData of clientsToSendTo) {
             try {
-                this.sendNotificationMessageToDevice(restartNotificationMsg, client.connectionId);
+                this.sendNotificationMessageToDevice(restartNotificationMsg, clientData);
             } catch (err) {
-                this.logger.warn(`Can't send to device connection id ${client.connectionId}`, restartNotificationMsg, err);
+                this.logger.warn(`Can't send to device connection id ${clientData.connectionId}`, restartNotificationMsg, err);
             }
         }
         this.publishToDevicesChannel(replyMsg, message);
@@ -393,11 +434,11 @@ export class PcConnector {
                     }
                     replyMsg.body.targetsCount = (new Set<number>(clientsToSendTo.map(x => x.deviceId!))).size;
                     const shutdownNotificationMsg = createServerToDeviceShutdownNoitificationMessage();
-                    for (const client of clientsToSendTo) {
+                    for (const clientData of clientsToSendTo) {
                         try {
-                            this.sendNotificationMessageToDevice(shutdownNotificationMsg, client.connectionId);
+                            this.sendNotificationMessageToDevice(shutdownNotificationMsg, clientData);
                         } catch (err) {
-                            this.logger.warn(`Can't send to device connection id ${client.connectionId}`, shutdownNotificationMsg, err);
+                            this.logger.warn(`Can't send to device connection id ${clientData.connectionId}`, shutdownNotificationMsg, err);
                         }
                     }
                 } else {
@@ -422,6 +463,7 @@ export class PcConnector {
             if (connections.length > 0) {
                 for (const connection of connections) {
                     const connectionId = connection[0];
+                    const clientData = connection[1];
                     const msg = createServerToDeviceCurrentStatusNotificationMessageMessage();
                     msg.body.started = status.started;
                     // TODO: ? Also return the tariff name ?
@@ -442,7 +484,7 @@ export class PcConnector {
                         }
                     }
                     try {
-                        this.sendNotificationMessageToDevice(msg, connectionId);
+                        this.sendNotificationMessageToDevice(msg, clientData);
                     } catch (err) {
                         this.logger.warn(`Can't send to device connection id ${connectionId}`, msg, err);
                     }
@@ -657,7 +699,8 @@ export class PcConnector {
             return;
         }
 
-        this.publishDeviceConnectionEventMessage(device.id, clientData.ipAddress, DeviceConnectionEventType.connected);
+        const note = `Connection ${clientData.connectionId}/${clientData.connectionInstanceId}`;
+        this.publishDeviceConnectionEventMessage(device.id, clientData.ipAddress, DeviceConnectionEventType.connected, note);
 
         // Attach websocket server to connection so we receive events
         const connectionExist = this.wssServer.attachToConnection(connectionId);
@@ -667,7 +710,7 @@ export class PcConnector {
         }
         clientData.deviceId = device.id;
         clientData.device = device;
-        this.sendDeviceMessageDeviceConfiguration(connectionId);
+        this.sendDeviceMessageDeviceConfiguration(clientData);
     }
 
     private publishDeviceConnectionEventMessage(deviceId: number, ipAddress: string, eventType: DeviceConnectionEventType, note?: string): void {
@@ -682,11 +725,11 @@ export class PcConnector {
         this.publishToDevicesChannel(deviceConnectionEventMsg);
     }
 
-    private sendDeviceMessageDeviceConfiguration(connectionId: number): void {
+    private sendDeviceMessageDeviceConfiguration(clientData: ConnectedClientData): void {
         const msg = createServerToDeviceDeviceConfigurationNotificationMessage();
         // TODO: Get configuration from the database
         msg.body = this.createServerToDeviceDeviceConfigurationNotificationMessageBody(this.state.systemSettings);
-        this.sendNotificationMessageToDevice(msg, connectionId);
+        this.sendNotificationMessageToDevice(msg, clientData);
     }
 
     private createServerToDeviceDeviceConfigurationNotificationMessageBody(systemSettings: SystemSetting[]): ServerToDeviceDeviceConfigurationNotificationMessageBody {
@@ -764,25 +807,26 @@ export class PcConnector {
         return json as Message<unknown>;
     }
 
-    // private sendToDevice<TBody>(message: Message<TBody>, connectionId: number): void {
-    //     this.logger.log('Sending message to device connection', connectionId, message);
-    //     this.wssServer.sendJSON(message, connectionId);
-    // }
-
-    private sendNotificationMessageToDevice<TBody>(message: ServerToDeviceNotificationMessage<TBody>, connectionId: number): void {
-        this.logger.log(`Sending notification message ${message.header.type} to device connection ${connectionId}`, message);
-        this.wssServer.sendJSON(message, connectionId);
+    private sendToDevice<TBody>(message: ServerToDeviceReplyMessage<TBody> | ServerToDeviceNotificationMessage<TBody>, clientData: ConnectedClientData): void {
+        clientData.sentMessagesCount++;
+        clientData.lastMessageSentAt = this.getNowAsNumber();
+        this.wssServer.sendJSON(message, clientData.connectionId);
     }
 
-    private sendReplyMessageToDevice<TBody>(message: ServerToDeviceReplyMessage<TBody>, requestMessage: DeviceToServerRequestMessage<unknown>, connectionId: number): void {
-        this.logger.log(`Sending reply message ${message.header.type} to device connection ${connectionId}`, message);
+    private sendNotificationMessageToDevice<TBody>(message: ServerToDeviceNotificationMessage<TBody>, clientData: ConnectedClientData): void {
+        this.logger.log(`Sending notification message ${message.header.type} to device connection ${clientData.connectionId}`, message);
+        this.sendToDevice(message, clientData);
+    }
+
+    private sendReplyMessageToDevice<TBody>(message: ServerToDeviceReplyMessage<TBody>, requestMessage: DeviceToServerRequestMessage<unknown>, clientData: ConnectedClientData): void {
+        this.logger.log(`Sending reply message ${message.header.type} to device connection ${clientData.connectionId}`, message);
         message.header.correlationId = requestMessage.header.correlationId;
         if (message.header.failure) {
             // Not sure what the requestType is
             // message.header.requestType = requestMessage?.header?.type;
         }
         message.header.correlationId = requestMessage.header.correlationId;
-        this.wssServer.sendJSON(message, connectionId);
+        this.sendToDevice(message, clientData);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -895,10 +939,46 @@ export class PcConnector {
     }
 
     private async joinMessageBus(): Promise<void> {
-        const redisHost = this.envVars.CCS3_REDIS_HOST.value;
-        const redisPort = this.envVars.CCS3_REDIS_PORT.value;
+        const redisHost = this.envVars.CCS3_REDIS_HOST.value!;
+        const redisPort = this.envVars.CCS3_REDIS_PORT.value!;
         this.logger.log(`Using redis host ${redisHost} and port ${redisPort}`);
 
+        await this.connectCacheClient(redisHost, redisPort);
+        await this.connectPubClient(redisHost, redisPort);
+        await this.connectSubClient(redisHost, redisPort);
+    }
+
+    async connectPubClient(redisHost: string, redisPort: number): Promise<void> {
+        const pubClientOptions: CreateConnectedRedisClientOptions = {
+            host: redisHost,
+            port: redisPort,
+            errorCallback: err => this.logger.error('PubClient error', err),
+            reconnectStrategyCallback: (retries: number, err: Error) => {
+                this.logger.error(`PubClient reconnect strategy error. Retries ${retries}`, err);
+                return 5000;
+            },
+        };
+        this.logger.log('PubClient connecting to Redis');
+        await this.pubClient.connect(pubClientOptions);
+        this.logger.log('PubClient connected to Redis');
+    }
+
+    async connectCacheClient(redisHost: string, redisPort: number): Promise<void> {
+        const redisCacheClientOptions: CreateConnectedRedisClientOptions = {
+            host: redisHost,
+            port: redisPort,
+            errorCallback: err => this.logger.error('CacheClient error', err),
+            reconnectStrategyCallback: (retries: number, err: Error) => {
+                this.logger.error(`CacheClient reconnect strategy error ${retries}`, err);
+                return 5000;
+            },
+        };
+        this.logger.log('CacheClient connecting');
+        await this.cacheClient.connect(redisCacheClientOptions);
+        this.logger.log('CacheClient connected');
+    }
+
+    private async connectSubClient(redisHost: string, redisPort: number): Promise<void> {
         const subClientOptions: CreateConnectedRedisClientOptions = {
             host: redisHost,
             port: redisPort,
@@ -923,36 +1003,6 @@ export class PcConnector {
         await this.subClient.subscribe(ChannelName.shared);
         await this.subClient.subscribe(ChannelName.devices);
         this.logger.log('SubClient subscribed to the channels');
-
-        const pubClientOptions: CreateConnectedRedisClientOptions = {
-            host: redisHost,
-            port: redisPort,
-            errorCallback: err => this.logger.error('PubClient error', err),
-            reconnectStrategyCallback: (retries: number, err: Error) => {
-                this.logger.error(`PubClient reconnect strategy error. Retries ${retries}`, err);
-                return 5000;
-            },
-        };
-        this.logger.log('PubClient connecting to Redis');
-        await this.pubClient.connect(pubClientOptions);
-        this.logger.log('PubClient connected to Redis');
-
-        await this.connectCacheClient(redisHost!, redisPort!);
-    }
-
-    async connectCacheClient(redisHost: string, redisPort: number): Promise<void> {
-        const redisCacheClientOptions: CreateConnectedRedisClientOptions = {
-            host: redisHost,
-            port: redisPort,
-            errorCallback: err => this.logger.error('CacheClient error', err),
-            reconnectStrategyCallback: (retries: number, err: Error) => {
-                this.logger.error(`CacheClient reconnect strategy error ${retries}`, err);
-                return 5000;
-            },
-        };
-        this.logger.log('CacheClient connecting');
-        await this.cacheClient.connect(redisCacheClientOptions);
-        this.logger.log('CacheClient connected');
     }
 
     private processSubClientError(error: unknown): void {
@@ -1057,17 +1107,11 @@ export class PcConnector {
     private cleanUpClientConnections(): void {
         const connectionIdsWithCleanUpReason = new Map<number, ConnectionCleanUpReason>();
         const now = this.getNowAsNumber();
-        // 20 seconds
-        // const maxNotAuthenticatedDuration = 20 * 1000;
-        const maxIdleTimeoutDuration = 20 * 1000;
+        // 60 seconds
+        const maxIdleTimeoutDuration = 60 * 1000;
         for (const entry of this.connectedClients.entries()) {
             const connectionId = entry[0];
             const data = entry[1];
-            // // Devices are authenticating with certificates
-            // if (!data.isAuthenticated && (now - data.connectedAt) > maxNotAuthenticatedDuration) {
-            //     connectionIdsWithCleanUpReason.set(connectionId, ConnectionCleanUpReason.authenticationTimeout);
-            // }
-            // Add other conditions
             if (data.lastMessageReceivedAt) {
                 if ((now - data.lastMessageReceivedAt) > maxIdleTimeoutDuration) {
                     connectionIdsWithCleanUpReason.set(connectionId, ConnectionCleanUpReason.idleTimeout);
@@ -1085,9 +1129,13 @@ export class PcConnector {
             const data = this.getConnectedClientData(connectionId);
             this.logger.warn(`Disconnecting client ${connectionId}`, entry[1], data);
             if (data) {
-                this.connectivityHelper.setDeviceDisconnected(data.certificateThumbprint);
+                const connectedAt = new Date(data.connectedAt).toISOString();
+                const lastMessageReceivedAt = new Date(data.lastMessageReceivedAt || 0).toISOString();
+                const lastMessageSentAt = new Date(data.lastMessageSentAt || 0).toISOString();
+                const reasonText = `${entry[1].toString()}, Connection ${data.connectionId}/${data.connectionInstanceId}, Connected at ${connectedAt}, Last message received at ${lastMessageReceivedAt}, Received messages count ${data.receivedMessagesCount}, Last message sent at ${lastMessageSentAt}, Sent messages count ${data.sentMessagesCount}`;
+                this.connectivityHelper.setDeviceDisconnected(data.certificateThumbprint, data.connectionId, data.connectionInstanceId, DeviceConnectivityConnectionEventType.idleTimeout, reasonText);
                 if (data.deviceId) {
-                    this.publishDeviceConnectionEventMessage(data.deviceId, data.ipAddress, DeviceConnectionEventType.idleTimeout, entry[1].toString());
+                    this.publishDeviceConnectionEventMessage(data.deviceId, data.ipAddress, DeviceConnectionEventType.idleTimeout, reasonText);
                 }
             }
             this.removeClient(connectionId);
@@ -1137,6 +1185,7 @@ export class PcConnector {
 
 interface ConnectedClientData {
     connectionId: number;
+    connectionInstanceId: string;
     connectedAt: number;
     /**
      * Device ID in the system
@@ -1157,6 +1206,8 @@ interface ConnectedClientData {
     ipAddress: string;
     lastMessageReceivedAt: number | null;
     receivedMessagesCount: number;
+    lastMessageSentAt: number | null;
+    sentMessagesCount: number;
     // /**
     //  * Whether the client is authenticated to use the system
     //  * While the system checks the client, it will not send messages to the client or process messages from it

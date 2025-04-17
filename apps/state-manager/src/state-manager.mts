@@ -3538,6 +3538,22 @@ export class StateManager {
         const redisPort = this.envVars.CCS3_REDIS_PORT.value;
         this.logger.log(`Using Redis host ${redisHost} and port ${redisPort}`);
 
+        await this.connectCacheClient(redisHost, redisPort);
+        await this.cacheStaticData();
+        await this.connectPubClient(redisHost, redisPort);
+        await this.connectSubClient(redisHost, redisPort);
+
+        const notificationMsg = createBusAllSystemSettingsNotificationMessage();
+        const systemSettings = storageSystemSettings.map(x => this.entityConverter.toSystemSetting(x));
+        notificationMsg.body.systemSettings = systemSettings;
+        this.publishToSharedChannel(notificationMsg, null);
+
+        this.state.mainTimerHandle = setInterval(() => this.mainTimerCallback(), 1000);
+
+        return true;
+    }
+
+    async connectCacheClient(redisHost: string, redisPort: number): Promise<void> {
         const redisCacheClientOptions: CreateConnectedRedisClientOptions = {
             host: redisHost,
             port: redisPort,
@@ -3550,9 +3566,24 @@ export class StateManager {
         this.logger.log('CacheClient connecting');
         await this.cacheClient.connect(redisCacheClientOptions);
         this.logger.log('CacheClient connected');
+    }
 
-        await this.cacheStaticData();
+    async connectPubClient(redisHost: string, redisPort: number): Promise<void> {
+        const pubClientOptions: CreateConnectedRedisClientOptions = {
+            host: redisHost,
+            port: redisPort,
+            errorCallback: err => this.logger.error('PubClient error', err),
+            reconnectStrategyCallback: (retries: number, err: Error) => {
+                this.logger.error(`PubClient reconnect strategy error. Retries ${retries}`, err);
+                return 5000;
+            },
+        };
+        this.logger.log('PubClient connecting');
+        await this.pubClient.connect(pubClientOptions);
+        this.logger.log('PubClient connected');
+    }
 
+    async connectSubClient(redisHost: string, redisPort: number): Promise<void> {
         const subClientOptions: CreateConnectedRedisClientOptions = {
             host: redisHost,
             port: redisPort,
@@ -3579,28 +3610,6 @@ export class StateManager {
         await this.subClient.subscribe(ChannelName.shared);
         await this.subClient.subscribe(ChannelName.devices);
         await this.subClient.subscribe(ChannelName.operators);
-
-        const pubClientOptions: CreateConnectedRedisClientOptions = {
-            host: redisHost,
-            port: redisPort,
-            errorCallback: err => this.logger.error('PubClient error', err),
-            reconnectStrategyCallback: (retries: number, err: Error) => {
-                this.logger.error(`PubClient reconnect strategy error. Retries ${retries}`, err);
-                return 5000;
-            },
-        };
-        this.logger.log('PubClient connecting');
-        await this.pubClient.connect(pubClientOptions);
-        this.logger.log('PubClient connected');
-
-        const notificationMsg = createBusAllSystemSettingsNotificationMessage();
-        const systemSettings = storageSystemSettings.map(x => this.entityConverter.toSystemSetting(x));
-        notificationMsg.body.systemSettings = systemSettings;
-        this.publishToSharedChannel(notificationMsg, null);
-
-        this.state.mainTimerHandle = setInterval(() => this.mainTimerCallback(), 1000);
-
-        return true;
     }
 
     applySystemSettingTimeZone(): void {
