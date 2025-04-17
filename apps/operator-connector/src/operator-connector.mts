@@ -225,6 +225,8 @@ import { createOperatorRestartDevicesReplyMessage, OperatorRestartDevicesRequest
 import { BusRestartDevicesReplyMessageBody, createBusRestartDevicesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-restart-devices.messages.mjs';
 import { createOperatorGetDeviceConnectivityDetailsReplyMessage, OperatorGetDeviceConnectivityDetailsReplyMessageBody, OperatorGetDeviceConnectivityDetailsRequestMessage } from '@computerclubsystem/types/messages/operators/operator-get-device-connectivity-details.messages.mjs';
 import { BusGetDeviceConnectivityDetailsReplyMessageBody, createBusGetDeviceConnectivityDetailsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-connectivity-details.messages.mjs';
+import { BusShutdownDevicesReplyMessageBody, createBusShutdownDevicesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-shutdown-devices.messages.mjs';
+import { createOperatorShutdownDevicesReplyMessage, OperatorShutdownDevicesRequestMessage } from '@computerclubsystem/types/messages/operators/operator-shutdown-devices.messages.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -297,6 +299,9 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorRequestMessageType.shutdownDevicesRequest:
+                this.processOperatorShutdownDevicesRequestMessage(clientData, message as OperatorShutdownDevicesRequestMessage);
+                break;
             case OperatorRequestMessageType.getDeviceConnectivityDetailsRequest:
                 this.processGetDeviceConnectivityDetailsRequestMessage(clientData, message as OperatorGetDeviceConnectivityDetailsRequestMessage);
                 break;
@@ -452,6 +457,18 @@ export class OperatorConnector {
                 // this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    processOperatorShutdownDevicesRequestMessage(clientData: ConnectedClientData, message: OperatorShutdownDevicesRequestMessage): void {
+        const busReqMsg = createBusShutdownDevicesRequestMessage();
+        busReqMsg.body.deviceIds = message.body.deviceIds;
+        this.publishToDevicesChannelAndWaitForReply<BusShutdownDevicesReplyMessageBody>(busReqMsg, clientData)
+            .subscribe(busReplyMsg => {
+                const operatorReplyMsg = createOperatorShutdownDevicesReplyMessage();
+                operatorReplyMsg.body.targetsCount = busReplyMsg.body.targetsCount;
+                this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
+                this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            });
     }
 
     processGetDeviceConnectivityDetailsRequestMessage(clientData: ConnectedClientData, message: OperatorGetDeviceConnectivityDetailsRequestMessage): void {

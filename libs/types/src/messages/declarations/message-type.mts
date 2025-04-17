@@ -9,6 +9,8 @@ export const enum MessageType {
 
     busRestartDevicesRequest = 'bus-restart-devices-request',
     busRestartDevicesReply = 'bus-restart-devices-reply',
+    busShutdownDevicesRequest = 'bus-shutdown-devices-request',
+    busShutdownDevicesReply = 'bus-shutdown-devices-reply',
     busShutdownStoppedRequest = 'bus-shutdown-stopped-request',
     busShutdownStoppedReply = 'bus-shutdown-stopped-reply',
 

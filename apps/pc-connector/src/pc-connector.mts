@@ -69,6 +69,7 @@ import { BusRestartDevicesRequestMessage, createBusRestartDevicesReplyMessage } 
 import { createServerToDeviceRestartNoitificationMessage } from '@computerclubsystem/types/messages/devices/server-to-device-restart-notification.message.mjs';
 import { DeviceConnectivityConnectionEventType } from '@computerclubsystem/types/messages/shared-declarations/device-connectivity-connection-event-type.mjs';
 import { BusGetDeviceConnectivityDetailsRequestMessage, createBusGetDeviceConnectivityDetailsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-connectivity-details.messages.mjs';
+import { BusShutdownDevicesRequestMessage, createBusShutdownDevicesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-shutdown-devices.messages.mjs';
 
 export class PcConnector {
     wssServer!: WssServer;
@@ -344,6 +345,9 @@ export class PcConnector {
         const type = message.header.type;
         // Process only notification messages. Reply message should be processed by the caller
         switch (type) {
+            case MessageType.busShutdownDevicesRequest:
+                this.processBusShutdownDevicesRequestMessage(message as BusShutdownDevicesRequestMessage);
+                break;
             case MessageType.busGetDeviceConnectivityDetailsRequest:
                 this.processBusGetDeviceConnectivityDetailsRequestMessage(message as BusGetDeviceConnectivityDetailsRequestMessage);
                 break;
@@ -357,6 +361,32 @@ export class PcConnector {
                 this.processDeviceStatusesMessage(message as BusDeviceStatusesNotificationMessage);
                 break;
         }
+    }
+
+    processBusShutdownDevicesRequestMessage(message: BusShutdownDevicesRequestMessage): void {
+        const replyMsg = createBusShutdownDevicesReplyMessage();
+        if (!(message.body.deviceIds?.length > 0)) {
+            replyMsg.body.targetsCount = 0;
+            this.publishToDevicesChannel(replyMsg, message);
+            return;
+        }
+        const deviceIdsSet = new Set<number>(Array.from(message.body.deviceIds));
+        const clientsToSendTo: ConnectedClientData[] = [];
+        for (const connectedClient of this.connectedClients.values()) {
+            if (connectedClient.deviceId && deviceIdsSet.has(connectedClient.deviceId)) {
+                clientsToSendTo.push(connectedClient);
+            }
+        }
+        replyMsg.body.targetsCount = (new Set<number>(clientsToSendTo.map(x => x.deviceId!))).size;
+        const shutdownNotificationMsg = createServerToDeviceShutdownNoitificationMessage();
+        for (const clientData of clientsToSendTo) {
+            try {
+                this.sendNotificationMessageToDevice(shutdownNotificationMsg, clientData);
+            } catch (err) {
+                this.logger.warn(`Can't send to device connection id ${clientData.connectionId}`, shutdownNotificationMsg, err);
+            }
+        }
+        this.publishToDevicesChannel(replyMsg, message);
     }
 
     processBusGetDeviceConnectivityDetailsRequestMessage(message: BusGetDeviceConnectivityDetailsRequestMessage): void {

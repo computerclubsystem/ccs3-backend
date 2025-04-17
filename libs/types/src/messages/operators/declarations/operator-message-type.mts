@@ -1,4 +1,5 @@
 export enum OperatorRequestMessageType {
+    shutdownDevicesRequest = 'shutdown-devices-request',
     getDeviceConnectivityDetailsRequest = 'get-device-connectivity-details-request',
     restartDevicesRequest = 'restart-devices-request',
     getTariffDeviceGroupsRequest = 'get-tariff-device-groups-request',
@@ -53,6 +54,7 @@ export enum OperatorRequestMessageType {
 }
 
 export enum OperatorReplyMessageType {
+    shutdownDevicesReply = 'shutdown-devices-reply',
     getDeviceConnectivityDetailsReply = 'get-device-connectivity-details-reply',
     restartDevicesReply = 'restart-devices-reply',
     getTariffDeviceGroupsReply = 'get-tariff-device-groups-reply',
