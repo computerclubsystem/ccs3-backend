@@ -62,6 +62,7 @@ export class AuthorizationHelper {
         ]);
         map.set(OperatorRequestMessageType.restartDevicesRequest, [PermissionName.devicesStop]);
         map.set(OperatorRequestMessageType.getDeviceConnectivityDetailsRequest, [PermissionName.devicesReadStatus]);
+        map.set(OperatorRequestMessageType.shutdownDevicesRequest, [PermissionName.devicesStop]);
         this.messageTypeToPermissionMap = map;
     }
 
