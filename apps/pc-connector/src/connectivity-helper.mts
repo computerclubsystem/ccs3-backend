@@ -31,7 +31,6 @@ export class ConnectivityHelper {
     setDeviceDisconnected(certificateThumbprint: string, connectionId: number, connectionInstanceId: string, eventType: DeviceConnectivityConnectionEventType, note: string | null): void {
         const connectionItem = this.connectionItemsMap.get(certificateThumbprint);
         if (connectionItem) {
-            connectionItem.isConnected = false;
             const now = this.getNow();
             const connectionEventItem: DeviceConnectivityConnectionEventItem = {
                 timestamp: now,
@@ -59,7 +58,6 @@ export class ConnectivityHelper {
                 timestamp: now,
                 certificateThumbprint: certificateThumbprint,
                 certificate: args.certificate,
-                isConnected: true,
                 connectionEventItems: [],
             };
             this.connectionItemsMap.set(certificateThumbprint, mapItem);
@@ -67,7 +65,6 @@ export class ConnectivityHelper {
             mapItem.timestamp = now;
             mapItem.connectionsCount++;
             mapItem.certificate = args.certificate;
-            mapItem.isConnected = true;
         }
         this.addItemToCappedArray(mapItem.connectionEventItems, connectedEventItem, this.maxCappedArrayItemsCount);
     }
@@ -88,7 +85,6 @@ export class ConnectivityHelper {
                     certificate: item.certificate,
                     connectionsCount: item.connectionsCount,
                     lastConnectionSince: item.timestamp,
-                    isConnected: item.isConnected,
                     connectionEventItems: item.connectionEventItems,
                 } as DeviceConnectivitySnapshotItem;
                 connectivityMap.set(thumbprint, connectivityItem);
@@ -131,7 +127,6 @@ export interface DeviceConnectivitySnapshotItem {
     messagesCount: number;
     lastMessageSince?: number | null;
     lastConnectionSince: number;
-    isConnected: boolean;
     connectionEventItems: DeviceConnectivityConnectionEventItem[];
 }
 
@@ -148,7 +143,6 @@ interface DeviceConnectivityConnectionItem {
     certificateThumbprint: string;
     certificate: DetailedPeerCertificate;
     connectionsCount: number;
-    isConnected: boolean;
     connectionEventItems: DeviceConnectivityConnectionEventItem[];
 }
 

@@ -410,7 +410,7 @@ export class PcConnector {
         const now = this.getNowAsNumber();
         replyMsg.body.connectionsCount = deviceConnectivity.connectionsCount;
         replyMsg.body.deviceId = message.body.deviceId;
-        replyMsg.body.isConnected = deviceConnectivity.isConnected;
+        replyMsg.body.isConnected = !!clientData;
         if (clientData) {
             replyMsg.body.sentMessagesCount = clientData.sentMessagesCount;
             replyMsg.body.receivedMessagesCount = clientData.receivedMessagesCount;
@@ -766,17 +766,17 @@ export class PcConnector {
         let result: ServerToDeviceDeviceConfigurationNotificationMessageBody = {} as ServerToDeviceDeviceConfigurationNotificationMessageBody;
         if (!(systemSettings?.length > 0)) {
             result = {
-                pingInterval: 10000,
-                secondsAfterStoppedBeforeRestart: 180,
+                pingInterval: this.state.defaultClientsToServerPingInterval,
+                secondsAfterStoppedBeforeRestart: this.state.defaultSecondsAfterStoppedBeforeRestart,
             };
             return result;
         }
 
         const secondsBeforeRestartingStoppedComputersValue = systemSettings.find(x => x.name === SystemSettingsName.seconds_before_restarting_stopped_computers)?.value;
         result = {
-            secondsAfterStoppedBeforeRestart: secondsBeforeRestartingStoppedComputersValue ? +secondsBeforeRestartingStoppedComputersValue : 180,
+            secondsAfterStoppedBeforeRestart: secondsBeforeRestartingStoppedComputersValue ? +secondsBeforeRestartingStoppedComputersValue : this.state.defaultSecondsAfterStoppedBeforeRestart,
             // TODO: Define pingInterval system setting
-            pingInterval: 10000,
+            pingInterval: this.state.defaultClientsToServerPingInterval,
         };
         return result;
     }
@@ -1081,7 +1081,7 @@ export class PcConnector {
     }
 
     private startClientConnectionsMonitor(): void {
-        this.state.clientConnectionsMonitorTimerHandle = setInterval(() => this.cleanUpClientConnections(), 10000);
+        this.state.clientConnectionsMonitorTimerHandle = setInterval(() => this.cleanUpClientConnections(), this.state.defaultCleanUpConnectionsInterval);
     }
 
     private startMainTimer(): void {
@@ -1113,12 +1113,13 @@ export class PcConnector {
         if (diff > this.state.connectivitySnapshotInterval) {
             this.state.lastConnectivitySnapshotTimestamp = now;
             const snapshot = this.connectivityHelper.getSnapshot();
+            const allConnectedClientsSet = new Set<string>(this.getAllConnectedClientsData().map(x => x.certificateThumbprint));
             if (snapshot.length > 0) {
                 const busConnectivityItems: BusDeviceConnectivityItem[] = [];
                 for (const snapshotItem of snapshot) {
                     const busItem: BusDeviceConnectivityItem = {
                         deviceId: snapshotItem.deviceId,
-                        isConnected: snapshotItem.isConnected,
+                        isConnected: allConnectedClientsSet.has(snapshotItem.certificateThumbprint),
                     };
                     busConnectivityItems.push(busItem);
                 }
@@ -1137,8 +1138,8 @@ export class PcConnector {
     private cleanUpClientConnections(): void {
         const connectionIdsWithCleanUpReason = new Map<number, ConnectionCleanUpReason>();
         const now = this.getNowAsNumber();
-        // 60 seconds
-        const maxIdleTimeoutDuration = 60 * 1000;
+        // Max idle time is 2.5 times the client to server ping interval
+        const maxIdleTimeoutDuration = this.state.defaultClientsToServerPingInterval * 2.5;
         for (const entry of this.connectedClients.entries()) {
             const connectionId = entry[0];
             const data = entry[1];
@@ -1190,6 +1191,9 @@ export class PcConnector {
             mainTimerHandle: undefined,
             lastConnectivitySnapshotTimestamp: this.getNowAsNumber(),
             connectivitySnapshotInterval: 10000,
+            defaultClientsToServerPingInterval: 10000,
+            defaultSecondsAfterStoppedBeforeRestart: 180,
+            defaultCleanUpConnectionsInterval: 10000,
             messageBusReplyTimeout: 5000,
             systemSettings: [],
         };
@@ -1277,4 +1281,8 @@ interface PcConnectorState {
 
     filterLogsItem?: FilterServerLogsItem | null;
     filterLogsRequestedAt?: number | null;
+
+    defaultClientsToServerPingInterval: number;
+    defaultSecondsAfterStoppedBeforeRestart: number;
+    defaultCleanUpConnectionsInterval: number;
 }
