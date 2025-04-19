@@ -167,6 +167,7 @@ export class PcConnector {
         msg.body.certificateThumbprint = clientData.certificateThumbprint;
         this.publishToDevicesChannelAndWaitForReply<BusDeviceGetByCertificateReplyMessageBody>(msg, clientData)
             .subscribe(busReplyMsg => this.processDeviceGetByCertificateReply(busReplyMsg, clientData));
+        this.processConnectivityData(true);
     }
 
     private processDeviceMessageReceived(args: MessageReceivedEventArgs): void {
@@ -280,6 +281,7 @@ export class PcConnector {
             }
         }
         this.removeClient(args.connectionId);
+        this.processConnectivityData(true);
     }
 
     private processClientConnectionError(args: ConnectionErrorEventArgs): void {
@@ -1089,7 +1091,7 @@ export class PcConnector {
     }
 
     processMainTimerTick(): void {
-        this.processConnectivityData();
+        this.processConnectivityData(false);
         this.manageLogFiltering();
     }
 
@@ -1107,10 +1109,10 @@ export class PcConnector {
         }
     }
 
-    private processConnectivityData(): void {
+    private processConnectivityData(force: boolean): void {
         const now = this.getNowAsNumber();
         const diff = now - this.state.lastConnectivitySnapshotTimestamp;
-        if (diff > this.state.connectivitySnapshotInterval) {
+        if (force || diff > this.state.connectivitySnapshotInterval) {
             this.state.lastConnectivitySnapshotTimestamp = now;
             const snapshot = this.connectivityHelper.getSnapshot();
             const allConnectedClientsSet = new Set<string>(this.getAllConnectedClientsData().map(x => x.certificateThumbprint));
@@ -1171,6 +1173,10 @@ export class PcConnector {
             }
             this.removeClient(connectionId);
             this.wssServer.closeConnection(connectionId);
+        }
+
+        if (connectionIdsWithCleanUpReason.size > 0) {
+            this.processConnectivityData(true);
         }
     }
 
