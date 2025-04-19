@@ -59,6 +59,26 @@ export class SystemSettingsValidator {
                     }
                     break;
                 }
+                case SystemSettingsName.seconds_before_notifying_customers_for_session_end: {
+                    // This setting can have two parts - number and path to a file separated with comma
+                    if (this.isNullOrWhiteSpace(item.value)) {
+                        result.failed = true;
+                        result.errorCode = ValidateNameWithValuesErrorCode.outOfRange;
+                        result.errorMessage = this.getOutOfRangeErrorMessage(item) + '. Valid values are >= 0';
+                        return result;
+                    }
+                    const parts = item.value!.split(',', 2).map(x => x.trim());
+                    const seconds = +parts[0];
+                    const isSecondsValueValid = seconds >= 0;
+                    if (!isSecondsValueValid) {
+                        result.failed = true;
+                        result.errorCode = ValidateNameWithValuesErrorCode.outOfRange;
+                        result.errorMessage = this.getOutOfRangeErrorMessage(item) + '. Valid values are >= 0';
+                        return result;
+                    }
+                    result.failed = false;
+                    break;
+                }
                 default:
                     result.failed = true;
                     result.errorCode = ValidateNameWithValuesErrorCode.unknownSettingName;

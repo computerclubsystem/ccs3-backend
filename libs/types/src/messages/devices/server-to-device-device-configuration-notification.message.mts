@@ -4,6 +4,8 @@ import { ServerToDeviceNotificationMessage } from './declarations/server-to-devi
 export interface ServerToDeviceDeviceConfigurationNotificationMessageBody {
     pingInterval: number;
     secondsAfterStoppedBeforeRestart?: number;
+    secondsBeforeNotifyingCustomerForSessionEnd: number;
+    sessionEndNotificationSoundFilePath?: string | null;
 }
 
 export type ServerToDeviceDeviceConfigurationNotificationMessage = ServerToDeviceNotificationMessage<ServerToDeviceDeviceConfigurationNotificationMessageBody>;

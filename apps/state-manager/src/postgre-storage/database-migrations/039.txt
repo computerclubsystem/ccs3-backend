@@ -1,0 +1,18 @@
+INSERT INTO system_setting
+(
+    name,
+    type,
+    description,
+    value
+)
+VALUES
+(
+    'seconds_before_notifying_customers_for_session_end',
+    'integer',
+    'How much time in seconds before the customer session ends to notify the customer. You can add comma and path to .wav file to play sound notification. If set to 0, the customer will not be notified. Example for notification 2 minutes before session ends with sound file: 120,C:\Windows\Media\Ring05.wav',
+    '0'
+);
+
+UPDATE db_metadata
+SET value = '39'
+WHERE name = 'database-version';

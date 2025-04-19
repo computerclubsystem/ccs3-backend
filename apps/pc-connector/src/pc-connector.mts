@@ -770,15 +770,28 @@ export class PcConnector {
             result = {
                 pingInterval: this.state.defaultClientsToServerPingInterval,
                 secondsAfterStoppedBeforeRestart: this.state.defaultSecondsAfterStoppedBeforeRestart,
+                secondsBeforeNotifyingCustomerForSessionEnd: 0,
+                sessionEndNotificationSoundFilePath: null,
             };
             return result;
         }
 
         const secondsBeforeRestartingStoppedComputersValue = systemSettings.find(x => x.name === SystemSettingsName.seconds_before_restarting_stopped_computers)?.value;
+
+        let secondsBeforeNotifyingCustomerForSessionEnd = 0;
+        let sessionEndNotificationSoundFilePath: string | null = null;
+        const secondsBeforeNotifyForSessionEndSetting = systemSettings.find(x => x.name === SystemSettingsName.seconds_before_notifying_customers_for_session_end);
+        if (secondsBeforeNotifyForSessionEndSetting?.value) {
+            const parts = secondsBeforeNotifyForSessionEndSetting.value.split(',').map(x => x.trim());
+            secondsBeforeNotifyingCustomerForSessionEnd = +parts[0] || 0;
+            sessionEndNotificationSoundFilePath = parts[1];
+        }
         result = {
             secondsAfterStoppedBeforeRestart: secondsBeforeRestartingStoppedComputersValue ? +secondsBeforeRestartingStoppedComputersValue : this.state.defaultSecondsAfterStoppedBeforeRestart,
             // TODO: Define pingInterval system setting
             pingInterval: this.state.defaultClientsToServerPingInterval,
+            secondsBeforeNotifyingCustomerForSessionEnd: secondsBeforeNotifyingCustomerForSessionEnd,
+            sessionEndNotificationSoundFilePath: sessionEndNotificationSoundFilePath,
         };
         return result;
     }

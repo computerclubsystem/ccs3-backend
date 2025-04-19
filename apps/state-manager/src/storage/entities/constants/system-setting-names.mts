@@ -4,4 +4,5 @@ export enum SystemSettingsName {
     timezone = 'timezone',
     free_seconds_at_start = 'free_seconds_at_start',
     seconds_before_restarting_stopped_computers = 'seconds_before_restarting_stopped_computers',
+    seconds_before_notifying_customers_for_session_end = 'seconds_before_notifying_customers_for_session_end',
 }
