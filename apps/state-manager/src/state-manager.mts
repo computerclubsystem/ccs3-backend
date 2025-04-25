@@ -102,6 +102,8 @@ import { FilterServerLogsItem } from '@computerclubsystem/types/messages/shared-
 import { BusFilterServerLogsNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-filter-server-logs-notification.message.mjs';
 import { BusGetDeviceStatusesRequestMessage, createBusGetDeviceStatusesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-statuses.messages.mjs';
 import { BusGetTariffDeviceGroupsRequestMessage, createBusGetTariffDeviceGroupsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-tariff-device-groups.messages.mjs';
+import { BusCreateLongLivedAccessTokenForUserRequestMessage, createBusCreateLongLivedAccessTokenForUserReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-long-lived-taccess-oken-for-user.messages.mjs';
+import { ILongLivedAccessToken } from './storage/entities/long-lived-access-token.mjs';
 
 export class StateManager {
     private readonly className = (this as object).constructor.name;
@@ -147,6 +149,9 @@ export class StateManager {
         const type: string = message.header?.type;
         // const notificationMessage = message as unknown as SharedNotificationMessage<TBody>;
         switch (type) {
+            case MessageType.busCreateLongLivedAccessTokenForUserRequest:
+                this.processBusCreateLongLivedAccessTokenForUserRequestMessage(message as BusCreateLongLivedAccessTokenForUserRequestMessage);
+                break;
             case MessageType.busFilterServerLogsNotification:
                 this.processBusFilterServerLogsNotificationMessage(message as BusFilterServerLogsNotificationMessage);
                 break;
@@ -161,6 +166,67 @@ export class StateManager {
                 break;
         }
     }
+
+    async processBusCreateLongLivedAccessTokenForUserRequestMessage(message: BusCreateLongLivedAccessTokenForUserRequestMessage): Promise<void> {
+        const replyMsg = createBusCreateLongLivedAccessTokenForUserReplyMessage();
+        try {
+            if (!message.body.username?.trim() || !message.body.passwordHash?.trim()) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.usernameIsRequired,
+                    description: 'Username is required',
+                }];
+                this.publishToSharedChannel(replyMsg, message);
+                return;
+            }
+            const username = message.body.username.trim();
+            const user = await this.storageProvider.getUserByUsernameAndPasswordHash(username, message.body.passwordHash);
+            if (!user) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userNotFound,
+                    description: `User with username ${username} not found`,
+                }];
+                this.publishToSharedChannel(replyMsg, message);
+                return;
+            }
+            if (!user.enabled) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userIsNotActive,
+                    description: `User '${user.username}' is not active`,
+                }];
+                this.publishToSharedChannel(replyMsg, message);
+                return;
+            }
+            const issuedAt = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
+            const sixMonthsSeconds = 180 * 24 * 60 * 60;
+            const validTo = this.dateTimeHelper.addSeconds(issuedAt, sixMonthsSeconds);
+            const token = this.createUUIDString();
+            const storageLongLivedAccessToken: ILongLivedAccessToken = {
+                issued_at: issuedAt,
+                valid_to: validTo,
+                token: token,
+                user_id: user.id,
+            } as ILongLivedAccessToken;
+            const createdStorageLongLivedAccessToken = await this.storageProvider.setLongLivedAccessToken(storageLongLivedAccessToken);
+            if (createdStorageLongLivedAccessToken) {
+                replyMsg.body.longLivedToken = this.entityConverter.toLongLivedAccessToken(createdStorageLongLivedAccessToken);
+                this.publishToSharedChannel(replyMsg, message);
+            } else {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.serverError,
+                    description: `Can't create long lived access token`,
+                }] as MessageError[];
+                this.publishToSharedChannel(replyMsg, message);
+            }
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToSharedChannel(replyMsg, message);
+        }
+    }
+
 
     processBusFilterServerLogsNotificationMessage(message: BusFilterServerLogsNotificationMessage): void {
         const pcConnectorItem = message.body.filterServerLogsItems.find(x => x.serviceName === this.messageBusIdentifier);
@@ -1514,7 +1580,7 @@ export class StateManager {
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [{
                     code: BusErrorCode.userIsNotActive,
-                    description: `User with Id ${deviceContinuation.userId} not found`,
+                    description: `User ${user.username} is not active`,
                 }];
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
@@ -3479,10 +3545,15 @@ export class StateManager {
                 [SystemSettingName.timezone]: '',
                 [SystemSettingName.free_seconds_at_start]: 180,
                 [SystemSettingName.seconds_before_restarting_stopped_computers]: 120,
+                [SystemSettingName.seconds_before_notifying_customers_for_session_end]: 0,
+                [SystemSettingName.feature_qrcode_sign_in_enabled]: false,
+                [SystemSettingName.feature_qrcode_sign_in_server_public_url]: '',
             },
             lastDeviceStatusRefreshAt: 0,
             deviceStatusRefreshInProgress: false,
             mainTimerHandle: undefined,
+            // 5 minutes
+            codeSignInDurationSeconds: 5 * 60,
         };
         return state;
     }
@@ -3492,12 +3563,16 @@ export class StateManager {
         const settingsMap = new Map<string, ISystemSetting>();
         allSystemSettings.forEach(x => settingsMap.set(x.name, x));
         const getAsNumber = (name: SystemSettingName) => +(settingsMap.get(name)?.value || 0);
+        const getAsBoolean = (name: SystemSettingName) => settingsMap.get(name)?.value?.trim()?.toLowerCase() === 'yes';
         this.state.systemSettings = {
             [SystemSettingName.device_status_refresh_interval]: 1000 * getAsNumber(SystemSettingName.device_status_refresh_interval),
             [SystemSettingName.token_duration]: 1000 * getAsNumber(SystemSettingName.token_duration),
             [SystemSettingName.free_seconds_at_start]: getAsNumber(SystemSettingName.free_seconds_at_start),
             [SystemSettingName.timezone]: settingsMap.get(SystemSettingName.timezone)?.value,
             [SystemSettingName.seconds_before_restarting_stopped_computers]: getAsNumber(SystemSettingName.seconds_before_restarting_stopped_computers),
+            [SystemSettingName.seconds_before_notifying_customers_for_session_end]: getAsNumber(SystemSettingName.seconds_before_notifying_customers_for_session_end),
+            [SystemSettingName.feature_qrcode_sign_in_enabled]: getAsBoolean(SystemSettingName.feature_qrcode_sign_in_enabled),
+            [SystemSettingName.feature_qrcode_sign_in_server_public_url]: settingsMap.get(SystemSettingName.feature_qrcode_sign_in_server_public_url)?.value,
         };
         return allSystemSettings;
     }
@@ -3669,6 +3744,7 @@ interface StateManagerState {
     mainTimerHandle?: NodeJS.Timeout;
     filterLogsItem?: FilterServerLogsItem | null;
     filterLogsRequestedAt?: number | null;
+    codeSignInDurationSeconds: number;
 }
 
 interface StateManagerStateSystemSettings {
@@ -3677,6 +3753,9 @@ interface StateManagerStateSystemSettings {
     [SystemSettingName.timezone]: string | undefined | null;
     [SystemSettingName.free_seconds_at_start]: number;
     [SystemSettingName.seconds_before_restarting_stopped_computers]: number;
+    [SystemSettingName.seconds_before_notifying_customers_for_session_end]: number;
+    [SystemSettingName.feature_qrcode_sign_in_enabled]: boolean;
+    [SystemSettingName.feature_qrcode_sign_in_server_public_url]: string | undefined | null;
 }
 
 // interface UserAuthDataCacheValue {

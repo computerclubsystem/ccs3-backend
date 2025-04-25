@@ -1,5 +1,6 @@
 import { RedisCacheClient } from '@computerclubsystem/redis-client';
 import { OperatorConnectionRoundTripData } from '@computerclubsystem/types/messages/operators/declarations/operator-connection-roundtrip-data.mjs';
+import { CodeSignIn } from './declarations.mjs';
 
 export class CacheHelper {
     private cacheClient!: RedisCacheClient;
@@ -8,7 +9,37 @@ export class CacheHelper {
     private prefixes = {
         userAuthToken: 'user-auth-token:',
         userAuthData: 'user-auth-data:',
+        codeSignIn: 'operator-connector:code-sign-in:',
     };
+
+    async getAllCodeSignInKeys(): Promise<string[]> {
+        const keyPattern = `${this.prefixes.codeSignIn}*`;
+        const allKeys = await this.cacheClient.scanForKeysByPattern(keyPattern);
+        return allKeys;
+    }
+
+    getCodeSignInKey(code: string): string {
+        const key = `${this.prefixes.codeSignIn}${code}`;
+        return key;
+    }
+
+    async setCodeSignIn(codeSignIn: CodeSignIn): Promise<unknown> {
+        const key = this.getCodeSignInKey(codeSignIn.code);
+        const result = await this.cacheClient.setValue(key, codeSignIn);
+        return result;
+    }
+
+    async getCodeSignIn(code: string): Promise<CodeSignIn | null> {
+        const key = this.getCodeSignInKey(code);
+        const result: CodeSignIn | null = await this.getValue(key);
+        return result;
+    }
+
+    async deleteCodeSignIn(code: string): Promise<number> {
+        const key = this.getCodeSignInKey(code);
+        const result = this.cacheClient.deleteItem(key);
+        return result;
+    }
 
     async getUserAllAuthDataKeys(userId: number): Promise<string[]> {
         const keyPattern = `${this.prefixes.userAuthData}${userId}:*`;

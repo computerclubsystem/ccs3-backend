@@ -90,6 +90,7 @@ export class AuthorizationHelper {
 
         switch (messageType) {
             case OperatorRequestMessageType.authRequest:
+            case OperatorRequestMessageType.createSignInCodeRequest:
                 result.authorized = true;
                 result.reason = IsAuthorizedResultReason.permissionIsNotRequired;
                 break;

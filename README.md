@@ -64,7 +64,7 @@ Certificate files creation in this document is based on Linux `openssl`.
 
 ### Create CA certificate which will be used later for signing other certificates
 It is better to create and keep all the certificates on another machine. If you have another machine with Windows, you can enable WSL 2 and install Ubuntu distribution:
-- Open commamd prompt and install wsl:
+- Open command prompt and install wsl:
 ```bash
 wsl --install
 ```
@@ -191,7 +191,6 @@ The dependencies specified in the individual project's `package.json` files are 
 ## Add new app
 - Create folder `apps/<new-app-name>`
 - Create folder `apps/<new-app-name>/src` which will be used to put the application files
-- Create `apps/<new-app-name>/index.mts` which will be used to only export all public types (like `export * from './src/.....mjs`)
 - Create `apps/<new-app-name>/package.json` specifying the `"name": "@computerclubsystem/<new-app-name>"`. Sample `package.json`:
 ```json
 {
@@ -222,7 +221,7 @@ npm -w apps/<new-app-name> install
 - Make sure its folder is created in `node_modules/@computerclubsystem`
 - Initialize TypeScript:
 ```bash
-npm -w apps/<new-app-name> tsc -- --init
+npm -w apps/<new-app-name> run tsc -- --init
 ```
 - The folder strucutre should look like this:
 ```
@@ -231,7 +230,6 @@ apps/
     src/
       index.mts (app startup file)
       <other app source files here>
-  index.mts
   package.json
   tsconfig.json
 ```
@@ -383,32 +381,7 @@ npm run build-images-rancher-nerdctl
 ```
 
 ## Kubernetes
-Before executing Kubernetes commands using `kubectl`, create namespaces for dev and staging environments:
-```bash
-kubectl create namespace ccs3-dev-namespace
-kubectl create namespace ccs3-staging-namespace
-```
-Then switch to the appropriate Kubernetes namespace with:
-
-### Development namespace
-```bash
-kubectl config set-context --current --namespace=ccs3-dev-namespace
-```
-
-For development environment, apply the file `devops/ccs3-dev.yaml` - this one exposes Redis through LoadBalancer service so it is available for local development and apps debugged locally will be able to access Redis which runs inside Kubernetes cluster:
-```bash
-kubectl apply -f ./devops/ccs3-dev.yaml
-```
-
-### Staging namespace
-```bash
-kubectl config set-context --current --namespace=ccs3-staging-namespace
-```
-
-For prod environment, apply the file `devops/ccs3-staging.yaml`:
-```bash
-kubectl apply -f ./devops/ccs3-staging.yaml
-```
+Look at `devops/README.md`
 
 ## Certificates
 Look at `certificates/README.md`

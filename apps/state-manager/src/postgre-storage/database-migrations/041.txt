@@ -1,0 +1,19 @@
+CREATE TABLE long_lived_access_token
+(
+    id serial NOT NULL,
+    token text NOT NULL,
+    issued_at timestamp without time zone NOT NULL,
+    valid_to timestamp without time zone NOT NULL,
+    user_id integer,
+    tariff_id integer,
+    PRIMARY KEY (id),
+    UNIQUE (token),
+    FOREIGN KEY (user_id)
+        REFERENCES "user" (id),
+    FOREIGN KEY (tariff_id)
+        REFERENCES tariff (id)
+);
+
+UPDATE db_metadata
+SET value = '41'
+WHERE name = 'database-version';

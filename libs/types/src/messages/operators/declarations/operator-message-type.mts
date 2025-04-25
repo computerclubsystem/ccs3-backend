@@ -1,4 +1,5 @@
 export enum OperatorRequestMessageType {
+    createSignInCodeRequest = 'create-sign-in-code-request',
     shutdownDevicesRequest = 'shutdown-devices-request',
     getDeviceConnectivityDetailsRequest = 'get-device-connectivity-details-request',
     restartDevicesRequest = 'restart-devices-request',
@@ -54,6 +55,7 @@ export enum OperatorRequestMessageType {
 }
 
 export enum OperatorReplyMessageType {
+    createSignInCodeReply = 'create-sign-in-code-reply',
     shutdownDevicesReply = 'shutdown-devices-reply',
     getDeviceConnectivityDetailsReply = 'get-device-connectivity-details-reply',
     restartDevicesReply = 'restart-devices-reply',
@@ -115,4 +117,5 @@ export enum OperatorNotificationMessageType {
     deviceStatusesNotification = 'device-statuses-notification',
     deviceConnectivitiesNotification = 'device-connectivities-notification',
     signedOutNotification = 'signed-out-notification',
+    publicConfigurationNotification = 'public-configuration-notification',
 }

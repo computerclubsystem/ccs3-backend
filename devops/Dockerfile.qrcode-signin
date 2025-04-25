@@ -1,0 +1,36 @@
+# Build for Rancher with containerd: nerdctl -n k8s.io build -t ccs3/qrcode-signin:latest -f Dockerfile.qrcode-signin ../
+FROM node:22.12.0-alpine3.21 AS build
+
+WORKDIR /app
+
+COPY libs/types ./libs/types
+COPY libs/redis-client ./libs/redis-client
+COPY apps/qrcode-signin ./apps/qrcode-signin
+COPY package-lock.json .
+COPY package.json .
+
+# TODO: Installation should also install dependencies in node_modules - this one uses symlinks causing the dependencies folders like libs/redis-client mandatory
+#       Need to investigate "npm install --install-links"
+RUN npm run apps/qrcode-signin:build-include-deps
+# Delete devDependencies from node_modules and install again without them
+RUN rm -rf node_modules
+RUN npm run apps/qrcode-signin:install-deps-omit-dev
+
+FROM ccs3/qrcode-signin-web-app-static-files:latest AS qrcode-signin-web-app
+
+FROM node:22.12.0-alpine3.21 AS final
+WORKDIR /app
+# TODO: Find out how can we install dependencies in node_modules and not use them as links so we can just copy node_modules
+# Because node_modules does not have the real code but just links to libs/.../dist
+# we need to copy app dependency folders (libs) with their package.json and dist folders
+# This will ensure import in apps will find the correct path (not in node_modules/@computerclubmanager but in libs/.../dist)
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/libs/types/package.json ./libs/types/package.json
+COPY --from=build /app/libs/types/dist ./libs/types/dist
+COPY --from=build /app/libs/redis-client/package.json ./libs/redis-client/package.json
+COPY --from=build /app/libs/redis-client/dist ./libs/redis-client/dist
+COPY --from=build /app/apps/qrcode-signin/dist ./dist
+COPY --from=qrcode-signin-web-app /app ./dist/qrcode-signin-web-app
+
+WORKDIR /app/dist
+CMD ["node", "index.mjs"]

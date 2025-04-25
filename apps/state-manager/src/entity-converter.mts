@@ -26,8 +26,22 @@ import { IDeviceGroup } from './storage/entities/device-group.mjs';
 import { DeviceGroup } from '@computerclubsystem/types/entities/device-group.mjs';
 import { IDeviceSession } from './storage/entities/device-session.mjs';
 import { DeviceSession } from '@computerclubsystem/types/entities/device-session.mjs';
+import { ILongLivedAccessToken } from './storage/entities/long-lived-access-token.mjs';
+import { LongLivedAccessToken } from '@computerclubsystem/types/entities/long-lived-access-token.mjs';
 
 export class EntityConverter {
+    toLongLivedAccessToken(storageLongLivedAccessToken: ILongLivedAccessToken): LongLivedAccessToken {
+        const longLivedAccessToken: LongLivedAccessToken = {
+            id: storageLongLivedAccessToken.id,
+            issuedAt: storageLongLivedAccessToken.issued_at,
+            token: storageLongLivedAccessToken.token,
+            validTo: storageLongLivedAccessToken.valid_to,
+            tariffId: storageLongLivedAccessToken.tariff_id,
+            userId: storageLongLivedAccessToken.user_id,
+        };
+        return longLivedAccessToken;
+    }
+
     toDeviceSession(storageDeviceSession: IDeviceSession): DeviceSession {
         const deviceSession: DeviceSession = {
             deviceId: storageDeviceSession.device_id,

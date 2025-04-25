@@ -1,0 +1,24 @@
+{
+    "name": "@computerclubsystem/qrcode-signin",
+    "version": "1.0.0",
+    "description": "",
+    "author": "",
+    "type": "module",
+    "scripts": {
+        "build": "tsc --project tsconfig.json --sourceMap",
+        "build:watch": "tsc --project tsconfig.json --sourceMap --watch",
+        "tsc": "tsc"
+    },
+    "license": "ISC",
+    "dependencies": {
+        "@computerclubsystem/redis-client": "*",
+        "@computerclubsystem/types": "*",
+        "express": "5.1.0",
+        "rxjs": "7.8.1"
+    },
+    "devDependencies": {
+        "@types/express": "^5.0.1",
+        "@types/node": "22.13.1",
+        "typescript": "5.3.3"
+    }
+}

@@ -1,4 +1,12 @@
 export const enum MessageType {
+    // QR code sign-in
+    busCreateLongLivedAccessTokenForUserRequest = 'bus-create-long-lived-access-token-for-user-request',
+    busCreateLongLivedAccessTokenForUserReply = 'bus-create-long-lived-access-token-for-user-reply',
+    busCreateLongLivedAccessTokenForCustomerCardRequest = 'bus-create-long-lived-access-token-for-customer-card-request',
+    busCreateLongLivedAccessTokenForCustomerCardReply = 'bus-create-long-lived-access-token-for-customer-card-reply',
+    busCodeSignInWithCredentialsRequest = 'bus-code-sign-in-with-credentials-request',
+    busCodeSignInWithCredentialsReply = 'bus-code-sign-in-with-credentials-reply',
+
     busGetDeviceConnectivityDetailsRequest = 'bus-get-device-connectivity-details-request',
     busGetDeviceConnectivityDetailsReply = 'bus-get-device-connectivity-details-reply',
 

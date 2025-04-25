@@ -74,6 +74,11 @@ export interface OperatorConnectorState {
     systemSettings: SystemSetting[];
     filterLogsItem?: FilterServerLogsItem | null;
     filterLogsRequestedAt?: number | null;
+    anonymousMessageTypesSet: Set<string>;
+    codeSignInDurationSeconds: number;
+    isQrCodeSignInFeatureEnabled: boolean;
+    cleanUpCodeSignInInterval: number;
+    lastCodeSignInCleanUpAt?: number | null;
 }
 
 export interface OperatorConnectorValidators {
@@ -140,4 +145,10 @@ export interface MessageStatItem {
     completedAt: number;
     error?: Error;
     operatorId?: number | null;
+}
+
+export interface CodeSignIn {
+    connectionInstanceId: string;
+    code: string;
+    createdAt: number;
 }

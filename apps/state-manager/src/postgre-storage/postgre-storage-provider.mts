@@ -32,6 +32,8 @@ import { IUserProfileSettingWithValue } from 'src/storage/entities/user-profile-
 import { IDeviceGroup } from 'src/storage/entities/device-group.mjs';
 import { ITariffInDeviceGroup } from 'src/storage/entities/tariff-in-device-group.mjs';
 import { IDeviceTransfer } from 'src/storage/entities/device-transfer.mjs';
+import { ILongLivedAccessToken } from 'src/storage/entities/long-lived-access-token.mjs';
+import { IQueryTextWithParamsResult } from './queries/query-with-params.mjs';
 
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
@@ -71,6 +73,38 @@ export class PostgreStorageProvider implements StorageProvider {
             return parseFloat(numericString);
         });
         return result;
+    }
+
+    async setLongLivedAccessToken(longLivedAccessToken: ILongLivedAccessToken): Promise<ILongLivedAccessToken | undefined> {
+        let transactionClient: pg.PoolClient | undefined;
+        try {
+            transactionClient = await this.getPoolClient();
+            await transactionClient.query('BEGIN');
+
+            if (longLivedAccessToken.user_id) {
+                const deleteTokensQueryData = this.queryUtils.deleteLongLivedAccessTokensByUserId(longLivedAccessToken.user_id);
+                await transactionClient.query(deleteTokensQueryData.text, deleteTokensQueryData.params);
+            } else if (longLivedAccessToken.tariff_id) {
+                const deleteTokensQueryData = this.queryUtils.deleteLongLivedAccessTokensByTariffId(longLivedAccessToken.tariff_id);
+                await transactionClient.query(deleteTokensQueryData.text, deleteTokensQueryData.params);
+            }
+
+            const setLongLivedAccessTokenQueryData = this.queryUtils.setLongLivedAccessToken(longLivedAccessToken);
+            const setLongLivedAccessTokenRes = await transactionClient.query(setLongLivedAccessTokenQueryData.text, setLongLivedAccessTokenQueryData.params);
+            const createdLongLivedAccessToken = setLongLivedAccessTokenRes.rows[0] as ILongLivedAccessToken;
+            if (!createdLongLivedAccessToken) {
+                await transactionClient?.query('ROLLBACK');
+                return undefined;
+            }
+
+            await transactionClient.query('COMMIT');
+            return createdLongLivedAccessToken;
+        } catch (err) {
+            await transactionClient?.query('ROLLBACK');
+            throw err;
+        } finally {
+            transactionClient?.release();
+        }
     }
 
     async getTariffDeviceGroups(tariffId: number): Promise<number[]> {

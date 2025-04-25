@@ -35,6 +35,8 @@ import { DeviceGroupQueryHelper } from './device-group-query-helper.mjs';
 import { TariffInDeviceGroupQueryHelper } from './tariff-in-device-group-query-helper.mjs';
 import { IDeviceGroup } from 'src/storage/entities/device-group.mjs';
 import { DeviceTransferQueryHelper } from './device-transfer-query-helper.mjs';
+import { LongLivedAccessTokenQueryHelper } from './long-lived-access-token-query-helper.mjs';
+import { ILongLivedAccessToken } from 'src/storage/entities/long-lived-access-token.mjs';
 
 export class QueryUtils {
     private readonly helpers = {
@@ -59,7 +61,20 @@ export class QueryUtils {
         deviceGroup: new DeviceGroupQueryHelper(),
         tariffInDeviceGroup: new TariffInDeviceGroupQueryHelper(),
         deviceTransfer: new DeviceTransferQueryHelper(),
+        longLivedAccessToken: new LongLivedAccessTokenQueryHelper(),
     };
+
+    setLongLivedAccessToken(longLivedAccessToken: ILongLivedAccessToken): IQueryTextWithParamsResult {
+        return this.helpers.longLivedAccessToken.setLongLivedAccessToken(longLivedAccessToken);
+    }
+
+    deleteLongLivedAccessTokensByUserId(userId: number): IQueryTextWithParamsResult {
+        return this.helpers.longLivedAccessToken.deleteLongLivedAccessTokensByUserId(userId);
+    }
+
+    deleteLongLivedAccessTokensByTariffId(tariffId: number): IQueryTextWithParamsResult {
+        return this.helpers.longLivedAccessToken.deleteLongLivedAccessTokensByTari9ffId(tariffId);
+    }
 
     addDeviceTransfer(
         sourceDeviceStatus: IDeviceStatus,

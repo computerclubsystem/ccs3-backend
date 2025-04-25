@@ -1,5 +1,6 @@
 import { SystemSettingNameWithValue } from '@computerclubsystem/types/entities/system-setting-name-with-value.mjs';
 import { SystemSettingsName } from '@computerclubsystem/types/entities/system-setting-name.mjs';
+import { URL } from 'node:url';
 
 export class SystemSettingsValidator {
     validateNameWithValues(systemSettingsNameWithValues: SystemSettingNameWithValue[]): ValidateNameWithValuesResult {
@@ -79,6 +80,30 @@ export class SystemSettingsValidator {
                     result.failed = false;
                     break;
                 }
+                case SystemSettingsName.feature_qrcode_sign_in_enabled: {
+                    // This is always valid ("yes" or anything else)
+                    result.failed = false;
+                    break;
+                }
+                case SystemSettingsName.feature_qrcode_sign_in_server_public_url: {
+                    // This must be URL
+                    const value = item.value || '';
+                    const canParseURL = URL.canParse(value || '');
+                    if (!canParseURL) {
+                        result.failed = true;
+                        result.errorCode = ValidateNameWithValuesErrorCode.invalidUrl;
+                        result.errorMessage = `Specified value '${value}' is not valid URL`;
+                        return result;
+                    }
+                    const url = URL.parse(value);
+                    if (url?.protocol.toLowerCase() !== 'https:') {
+                        result.failed = true;
+                        result.errorCode = ValidateNameWithValuesErrorCode.invalidUrl;
+                        result.errorMessage = `URL must start with https://`;
+                        return result;
+                    }
+                    break;
+                }
                 default:
                     result.failed = true;
                     result.errorCode = ValidateNameWithValuesErrorCode.unknownSettingName;
@@ -107,6 +132,7 @@ export class SystemSettingsValidator {
 export const enum ValidateNameWithValuesErrorCode {
     outOfRange = 'out-of-range',
     unknownSettingName = 'unknown-setting-name',
+    invalidUrl = 'invalid-url',
 }
 
 export interface ValidateNameWithValuesResult {

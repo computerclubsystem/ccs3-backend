@@ -42,6 +42,19 @@
             // "outFiles": [
             //     "${workspaceFolder}/apps/operator-connector/dist/**/*.mjs"
             // ]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "qrcode-signin",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${workspaceFolder}/apps/qrcode-signin/src/index.mts",
+            // TODO: Either do not use "outFiles" or specify build folder of every library that is used by this application
+            // "outFiles": [
+            //     "${workspaceFolder}/apps/qrcode-signin/dist/**/*.mjs"
+            // ]
         }
     ]
 }

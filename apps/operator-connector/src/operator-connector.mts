@@ -1,7 +1,8 @@
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { readFileSync, existsSync } from 'node:fs';
-import { catchError, filter, finalize, first, Observable, of, timeout } from 'rxjs';
+import { URL } from 'node:url';
+import { catchError, filter, finalize, first, firstValueFrom, Observable, of, timeout } from 'rxjs';
 
 import {
     CreateConnectedRedisClientOptions, RedisCacheClient, RedisClientMessageCallback, RedisPubClient, RedisSubClient,
@@ -29,7 +30,7 @@ import { createOperatorConfigurationNotificationMessage, OperatorConfigurationNo
 // import { OperatorPingRequestMessage } from '@computerclubsystem/types/messages/operators/operator-ping-request.message.mjs';
 import { CacheHelper, UserAuthDataCacheValue } from './cache-helper.mjs';
 import {
-    CanProcessOperatorMessageResult, CanProcessOperatorMessageResultErrorReason, ConnectedClientData,
+    CanProcessOperatorMessageResult, CanProcessOperatorMessageResultErrorReason, CodeSignIn, ConnectedClientData,
     ConnectionCleanUpReason, IsTokenActiveResult, MessageStatItem, OperatorConnectorState, OperatorConnectorValidators
 } from './declarations.mjs';
 import { OperatorRefreshTokenRequestMessage } from '@computerclubsystem/types/messages/operators/operator-refresh-token.messages.mjs';
@@ -227,6 +228,12 @@ import { createOperatorGetDeviceConnectivityDetailsReplyMessage, OperatorGetDevi
 import { BusGetDeviceConnectivityDetailsReplyMessageBody, createBusGetDeviceConnectivityDetailsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-connectivity-details.messages.mjs';
 import { BusShutdownDevicesReplyMessageBody, createBusShutdownDevicesRequestMessage } from '@computerclubsystem/types/messages/bus/bus-shutdown-devices.messages.mjs';
 import { createOperatorShutdownDevicesReplyMessage, OperatorShutdownDevicesRequestMessage } from '@computerclubsystem/types/messages/operators/operator-shutdown-devices.messages.mjs';
+import { createOperatorCreateSignInCodeReplyMessage, OperatorCreateSignInCodeRequestMessage } from '@computerclubsystem/types/messages/operators/operator-create-sign-in-code.messages.mjs';
+import { createOperatorPublicConfigurationNotificationMessage, OperatorPublicConfigurationNotificationMessage } from '@computerclubsystem/types/messages/operators/operator-public-configuration-notification.message.mjs';
+import { SystemSettingsName } from '@computerclubsystem/types/entities/system-setting-name.mjs';
+import { BusCodeSignInWithCredentialsReplyMessageBodyIdentifierType, BusCodeSignInWithCredentialsRequestMessage, createBusCodeSignInWithCredentialsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-code-sign-in-with-credentials.messages.mjs';
+import { BusCreateLongLivedAccessTokenForUserReplyMessageBody, createBusCreateLongLivedAccessTokenForUserRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-long-lived-taccess-oken-for-user.messages.mjs';
+import { LongLivedAccessToken } from '@computerclubsystem/types/entities/long-lived-access-token.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -299,6 +306,9 @@ export class OperatorConnector {
         clientData.receivedMessagesCount++;
         const type = message.header.type;
         switch (type) {
+            case OperatorRequestMessageType.createSignInCodeRequest:
+                this.processOperatorCreateSignInCodeRequestMessage(clientData, message as OperatorCreateSignInCodeRequestMessage);
+                break;
             case OperatorRequestMessageType.shutdownDevicesRequest:
                 this.processOperatorShutdownDevicesRequestMessage(clientData, message as OperatorShutdownDevicesRequestMessage);
                 break;
@@ -457,6 +467,54 @@ export class OperatorConnector {
                 // this.processOperatorPingRequestMessage(clientData, message as OperatorPingRequestMessage);
                 break;
         }
+    }
+
+    async processOperatorCreateSignInCodeRequestMessage(clientData: ConnectedClientData, message: OperatorCreateSignInCodeRequestMessage): Promise<void> {
+        const operatorReplyMsg = createOperatorCreateSignInCodeReplyMessage();
+        if (!this.state.isQrCodeSignInFeatureEnabled) {
+            operatorReplyMsg.header.failure = true;
+            operatorReplyMsg.header.errors = [{
+                code: OperatorReplyMessageErrorCode.qrCodeSignFeatureIsNotEnabled,
+                description: 'QR code sign in feature is not enabled',
+            }] as MessageError[];
+            this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            return;
+        }
+        const qrCodeServerUrl = this.state.systemSettings.find(x => x.name === SystemSettingsName.feature_qrcode_sign_in_server_public_url)?.value?.trim();
+        const canParseUrl = URL.canParse(qrCodeServerUrl!);
+        if (!canParseUrl) {
+            operatorReplyMsg.header.failure = true;
+            operatorReplyMsg.header.errors = [{
+                code: OperatorReplyMessageErrorCode.qrCodeSignFeatureUrlIsNotCorrect,
+                description: 'QR code sign in feature URL is not correct. It must start with https://',
+            }] as MessageError[];
+            this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
+            return;
+        }
+
+        const code = this.createUUIDString();
+        const createdAt = this.getNowAsNumber();
+        const codeSignIn: CodeSignIn = {
+            code: code,
+            connectionInstanceId: clientData.connectionInstanceId,
+            createdAt: createdAt,
+        };
+        try {
+            await this.cacheHelper.setCodeSignIn(codeSignIn);
+            operatorReplyMsg.body.code = codeSignIn.code;
+            operatorReplyMsg.body.validTo = createdAt + this.state.codeSignInDurationSeconds * 1000;
+            const url = URL.parse(qrCodeServerUrl!)!;
+            url.searchParams.append('sign-in-code', codeSignIn.code);
+            operatorReplyMsg.body.url = url.toString();
+        } catch (err) {
+            this.logger.error('Error at processOperatorCreateSignInCodeRequestMessage', err);
+            operatorReplyMsg.header.failure = true;
+            operatorReplyMsg.header.errors = [{
+                code: OperatorReplyMessageErrorCode.internalServerError,
+                description: 'Internal server error',
+            }] as MessageError[];
+        }
+        this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
     }
 
     processOperatorShutdownDevicesRequestMessage(clientData: ConnectedClientData, message: OperatorShutdownDevicesRequestMessage): void {
@@ -768,6 +826,9 @@ export class OperatorConnector {
             this.sendNotificationMessageToOperator(signedOutNotificationMsg, userConnectionData);
             this.removeClient(userConnectionData.connectionId);
             this.wssServer.closeConnection(userConnectionData.connectionId);
+            if (this.state.isQrCodeSignInFeatureEnabled) {
+                this.removeCodeSignInForConnectionInstanceId(userConnectionData.connectionInstanceId);
+            }
         }
         replyMsg.body.sessionsCount = allUserAuthData.length;
         this.sendReplyMessageToOperator(replyMsg, clientData, message);
@@ -1556,10 +1617,85 @@ export class OperatorConnector {
         // Process shared channel notifications messages - all reply messages should be processed by the requester
         const type = message.header.type;
         switch (type) {
+            case MessageType.busCodeSignInWithCredentialsRequest:
+                this.processBusCodeSignInWithCredentialsRequestMessage(message as BusCodeSignInWithCredentialsRequestMessage);
+                break;
             case MessageType.busAllSystemSettingsNotification:
                 this.processBusAllSystemSettingsNotificationMessage(message as BusAllSystemSettingsNotificationMessage);
                 break;
         }
+    }
+
+    async processBusCodeSignInWithCredentialsRequestMessage(message: BusCodeSignInWithCredentialsRequestMessage): Promise<void> {
+        if (!message.body.code || !message.body.identifier || !message.body.passwordHash) {
+            return;
+        }
+        const cacheItem = await this.cacheHelper.getCodeSignIn(message.body.code);
+        if (!cacheItem) {
+            return;
+        }
+        const now = this.getNowAsNumber();
+        if ((now - cacheItem.createdAt) > this.state.codeSignInDurationSeconds * 1000) {
+            // Code has expired
+            return;
+        }
+        const connectedClientsWithConnectionInstanceId = this.getConnectedClientsDataBy(x => x.connectionInstanceId === cacheItem.connectionInstanceId);
+        if (connectedClientsWithConnectionInstanceId.length === 0) {
+            return;
+        }
+
+        message.body.identifier = message.body.identifier.trim();
+        const replyMsg = createBusCodeSignInWithCredentialsReplyMessage();
+        replyMsg.header.correlationId = message.header.correlationId;
+        // We expect only one item with specified connectionInstanceId
+        const clientData = connectedClientsWithConnectionInstanceId[0];
+        try {
+            // Log in the user
+            const requestMsg = createBusUserAuthRequestMessage();
+            requestMsg.body.passwordHash = message.body.passwordHash;
+            requestMsg.body.username = message.body.identifier;
+            requestMsg.header.roundTripData = this.createRoundTripDataFromConnectedClientData(clientData);
+            const authReplyMsg = await firstValueFrom(this.publishToOperatorsChannelAndWaitForReply<BusUserAuthReplyMessageBody>(requestMsg, clientData));
+            if (authReplyMsg.header.failure || !authReplyMsg.body.success) {
+                replyMsg.body.success = false;
+                replyMsg.body.errorMessage = `Can't sign in with code`;
+            } else {
+                // Craft operatorMessage like the operator manually tried to authenticate but do not set credentials
+                const operatorMessage: OperatorAuthRequestMessage = {
+                    body: {},
+                    header: { type: OperatorRequestMessageType.authRequest },
+                };
+                await this.processBusOperatorAuthReplyMessage(clientData, authReplyMsg, operatorMessage, message.body.identifier);
+                const createLongLivedTokenReqMsg = createBusCreateLongLivedAccessTokenForUserRequestMessage();
+                createLongLivedTokenReqMsg.body.passwordHash = message.body.passwordHash;
+                createLongLivedTokenReqMsg.body.username = message.body.identifier;
+                const createLongLivedAccessTokenRes = await firstValueFrom(this.publishToSharedChannelAndWaitForReply<BusCreateLongLivedAccessTokenForUserReplyMessageBody>(createLongLivedTokenReqMsg, clientData));
+                if (!createLongLivedAccessTokenRes.header.failure) {
+                    const token: LongLivedAccessToken = createLongLivedAccessTokenRes.body.longLivedToken;
+                    replyMsg.body.success = true;
+                    replyMsg.body.token = token.token;
+                    replyMsg.body.identifier = message.body.identifier;
+                    replyMsg.body.identifierType = BusCodeSignInWithCredentialsReplyMessageBodyIdentifierType.user;
+                    await this.cacheHelper.deleteCodeSignIn(message.body.code);
+                } else {
+                    replyMsg.header.failure = true;
+                    replyMsg.header.errors = [{
+                        code: BusErrorCode.serverError,
+                        description: 'Server error',
+                    }] as MessageError[];
+                    replyMsg.body.success = false;
+                    replyMsg.body.errorMessage = `Can't create token`;
+                }
+            }
+        } catch (err) {
+            this.logger.error(`Error on code sign in with credentials`, err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: OperatorReplyMessageErrorCode.internalServerError,
+                description: 'Internal server error',
+            }] as MessageError[];
+        }
+        this.publishToSharedChannel(replyMsg);
     }
 
     processBusAllSystemSettingsNotificationMessage(message: BusAllSystemSettingsNotificationMessage): void {
@@ -1578,9 +1714,9 @@ export class OperatorConnector {
 
     async processBusOperatorAuthReplyMessage(
         clientData: ConnectedClientData,
-        message: BusUserAuthReplyMessage,
+        busUserAuthReplyMsg: BusUserAuthReplyMessage,
         operatorMessage: OperatorRequestMessage<unknown>,
-        username: string
+        username: string,
     ): Promise<void> {
         const replyMsg = createOperatorAuthReplyMessage();
         if (!clientData) {
@@ -1592,18 +1728,18 @@ export class OperatorConnector {
             this.sendReplyMessageToOperator(replyMsg, clientData, operatorMessage);
             return;
         }
-        const rtData = message.header.roundTripData! as OperatorConnectionRoundTripData;
-        clientData.isAuthenticated = message.body.success;
-        clientData.permissions = new Set<string>(message.body.permissions);
-        clientData.userId = message.body.userId;
-        replyMsg.body.permissions = message.body.permissions;
-        replyMsg.body.success = message.body.success;
+        const rtData = busUserAuthReplyMsg.header.roundTripData! as OperatorConnectionRoundTripData;
+        clientData.isAuthenticated = busUserAuthReplyMsg.body.success;
+        clientData.permissions = new Set<string>(busUserAuthReplyMsg.body.permissions);
+        clientData.userId = busUserAuthReplyMsg.body.userId;
+        replyMsg.body.permissions = busUserAuthReplyMsg.body.permissions;
+        replyMsg.body.success = busUserAuthReplyMsg.body.success;
         if (replyMsg.body.success) {
             replyMsg.body.token = this.createUUIDString();
             replyMsg.body.tokenExpiresAt = this.getNowAsNumber() + this.getTokenExpirationMilliseconds();
             await this.maintainUserAuthDataTokenCacheItem(clientData.userId!, clientData.connectedAt, replyMsg.body.permissions!, replyMsg.body.token, rtData, username);
         }
-        if (!message.body.success) {
+        if (!busUserAuthReplyMsg.body.success) {
             replyMsg.body.success = false;
             replyMsg.header.failure = true;
             replyMsg.header.errors = [{
@@ -1611,14 +1747,14 @@ export class OperatorConnector {
             }] as MessageError[];
         }
         this.sendReplyMessageToOperator(replyMsg, clientData, operatorMessage);
-        if (message.body.success) {
+        if (busUserAuthReplyMsg.body.success) {
             // Send configuration message
             // TODO: Get configuration from the database
             const configurationMsg = this.createOperatorConfigurationMessage();
             this.sendNotificationMessageToOperator(configurationMsg, clientData);
 
             const note = JSON.stringify({
-                messageBody: message.body,
+                messageBody: busUserAuthReplyMsg.body,
                 clientData: clientData,
             });
             this.publishOperatorConnectionEventMessage(clientData.userId!, clientData.ipAddress, OperatorConnectionEventType.passwordAuthSuccess, note);
@@ -1649,7 +1785,7 @@ export class OperatorConnector {
         }
 
         // Check if the message can be send anonymously
-        const isAnonymousMessage = msgType === OperatorRequestMessageType.authRequest;
+        const isAnonymousMessage = this.state.anonymousMessageTypesSet.has(msgType);
         if (!isAnonymousMessage && !clientData.isAuthenticated) {
             // The message can't be processed anonymously and the client is not authenticated
             result.canProcess = false;
@@ -1820,6 +1956,9 @@ export class OperatorConnector {
             this.publishOperatorConnectionEventMessage(clientData.userId!, clientData.ipAddress!, OperatorConnectionEventType.disconnected, note);
         }
         this.removeClient(args.connectionId);
+        if (this.state.isQrCodeSignInFeatureEnabled && clientData) {
+            this.removeCodeSignInForConnectionInstanceId(clientData.connectionInstanceId);
+        }
     }
 
     processOperatorConnectionError(args: ConnectionErrorEventArgs): void {
@@ -1868,6 +2007,17 @@ export class OperatorConnector {
         return this.subjectsService.getOperatorsChannelBusMessageReceived();
     }
 
+    getConnectedClientsDataBy(predicate: (clientData: ConnectedClientData) => boolean): ConnectedClientData[] {
+        const result: ConnectedClientData[] = [];
+        for (const item of this.getAllConnectedClientsData()) {
+            const data = item[1];
+            if (predicate(data)) {
+                result.push(data);
+            }
+        }
+        return result;
+    }
+
     getConnectedClientsDataByOperatorId(operatorId: number): [number, ConnectedClientData][] {
         const result: [number, ConnectedClientData][] = [];
         for (const item of this.getAllConnectedClientsData()) {
@@ -1899,6 +2049,16 @@ export class OperatorConnector {
             return '';
         }
         return certificateFingerprint.replaceAll(':', '').toLowerCase();
+    }
+
+    createOperatorPublicConfigurationNotificationMessage(): OperatorPublicConfigurationNotificationMessage {
+        const qrCodeSignInSetting = this.state.systemSettings.find(x => x.name === SystemSettingsName.feature_qrcode_sign_in_enabled);
+        const msg = createOperatorPublicConfigurationNotificationMessage();
+        msg.body.featureFlags = {
+            codeSignIn: qrCodeSignInSetting?.value?.trim()?.toLowerCase() === 'yes',
+        };
+        msg.body.authenticationTimeoutSeconds = this.state.authenticationTimeout / 1000;
+        return msg;
     }
 
     createOperatorConfigurationMessage(): OperatorConfigurationNotificationMessage {
@@ -1961,6 +2121,18 @@ export class OperatorConnector {
         this.wssServer.sendJSON(message, clientData.connectionId);
     }
 
+    sendNotificationMessageToAllAuthenticatedOperators<TBody>(message: OperatorNotificationMessage<TBody>): void {
+        const allConnectedClientsData = this.getAllConnectedClientsData();
+        for (const item of allConnectedClientsData) {
+            const clientData = item[1];
+            if (clientData.isAuthenticated) {
+                clientData.sentMessagesCount++;
+                this.logger.log('Sending notification message to operator', clientData, message.header.type, message);
+                this.wssServer.sendJSON(message, clientData.connectionId);
+            }
+        }
+    }
+
     sendNotificationMessageToAllOperators<TBody>(message: OperatorNotificationMessage<TBody>): void {
         const allConnectedClientsData = this.getAllConnectedClientsData();
         for (const item of allConnectedClientsData) {
@@ -1981,6 +2153,39 @@ export class OperatorConnector {
 
     mainTimerCallback(): void {
         this.manageLogFiltering();
+        this.cleanUpCodeSignInCacheItems();
+    }
+
+    async cleanUpCodeSignInCacheItems(): Promise<void> {
+        if (!this.state.isQrCodeSignInFeatureEnabled) {
+            return;
+        }
+        const now = this.getNowAsNumber();
+        const diff = now - (this.state.lastCodeSignInCleanUpAt || 0);
+        if (diff > this.state.cleanUpCodeSignInInterval) {
+            this.state.lastCodeSignInCleanUpAt = now;
+            const codeSignInDurationMs = this.state.codeSignInDurationSeconds * 1000;
+            const keys = await this.cacheHelper.getAllCodeSignInKeys();
+            for (const key of keys) {
+                const cacheItem: CodeSignIn | null = await this.cacheHelper.getValue(key);
+                if (cacheItem && ((now - cacheItem.createdAt) > codeSignInDurationMs)) {
+                    await this.cacheHelper.deleteKey(key);
+                }
+            }
+        }
+    }
+
+    async removeCodeSignInForConnectionInstanceId(connectionInstanceId: string): Promise<void> {
+        if (!connectionInstanceId) {
+            return;
+        }
+        const keys = await this.cacheHelper.getAllCodeSignInKeys();
+        for (const key of keys) {
+            const cacheItem: CodeSignIn | null = await this.cacheHelper.getValue(key);
+            if (cacheItem && cacheItem.connectionInstanceId === connectionInstanceId) {
+                await this.cacheHelper.deleteKey(key);
+            }
+        }
     }
 
     manageLogFiltering(): void {
@@ -2054,11 +2259,12 @@ export class OperatorConnector {
     }
 
     createState(): OperatorConnectorState {
+        // Operator apps must authenticate within 3 minutes after connected or will be disconnected
+        const authenticationTimeout = 3 * 60 * 1000;
         const state: OperatorConnectorState = {
-            // Operator apps must send at least one message each 2 minutes or will be disconnected
-            idleTimeout: 120 * 1000,
-            // Operator apps must authenticate within 20 seconds after connected or will be disconnected
-            authenticationTimeout: 30 * 1000,
+            // Operator apps must send at least one message each 3 minutes or will be disconnected
+            idleTimeout: 3 * 60 * 1000,
+            authenticationTimeout: authenticationTimeout,
             // Operator apps must ping the server each 10 seconds
             pingInterval: 10 * 1000,
             // Each 10 seconds the operator-connector will check operator connections and will close timed-out
@@ -2070,6 +2276,15 @@ export class OperatorConnector {
             clientConnectionsMonitorTimerHandle: undefined,
             mainTimerHandle: undefined,
             systemSettings: [],
+            anonymousMessageTypesSet: new Set<string>([
+                OperatorRequestMessageType.authRequest,
+                OperatorRequestMessageType.createSignInCodeRequest,
+            ]),
+            // Equal to the authentication timeout + 10 seconds but not less than 3 minutes
+            codeSignInDurationSeconds: Math.max(authenticationTimeout / 1000 + 10, 3 * 60),
+            isQrCodeSignInFeatureEnabled: false,
+            // 1 minute
+            cleanUpCodeSignInInterval: 1 * 60 * 1000,
         };
         return state;
     }
@@ -2112,11 +2327,13 @@ export class OperatorConnector {
         this.serveStaticFiles();
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     applySystemSettings(systemSettings: SystemSetting[]): void {
         // TODO: Set this.state values according to systemSettings
+        this.state.isQrCodeSignInFeatureEnabled = systemSettings.find(x => x.name === SystemSettingsName.feature_qrcode_sign_in_enabled)?.value?.trim() === 'yes';
         const configurationMsg = this.createOperatorConfigurationMessage();
-        this.sendNotificationMessageToAllOperators(configurationMsg);
+        this.sendNotificationMessageToAllAuthenticatedOperators(configurationMsg);
+        const publicConfig = this.createOperatorPublicConfigurationNotificationMessage();
+        this.sendNotificationMessageToAllOperators(publicConfig);
     }
 
     requestAllSystemSettings(): void {
@@ -2178,7 +2395,7 @@ export class OperatorConnector {
 
     processOperatorConnected(args: ClientConnectedEventArgs): void {
         this.logger.log('Operator connected', args);
-        const data: ConnectedClientData = {
+        const clientData: ConnectedClientData = {
             connectionId: args.connectionId,
             connectionInstanceId: this.createUUIDString(),
             connectedAt: this.getNowAsNumber(),
@@ -2195,8 +2412,10 @@ export class OperatorConnector {
             permissions: new Set<string>(),
             unauthorizedMessageRequestsCount: 0,
         };
-        this.setConnectedClientData(data);
+        this.setConnectedClientData(clientData);
         this.wssServer.attachToConnection(args.connectionId);
+        const publicConfigMsg = this.createOperatorPublicConfigurationNotificationMessage();
+        this.sendNotificationMessageToOperator(publicConfigMsg, clientData);
     }
 
     startWebSocketServer(): void {
@@ -2228,13 +2447,14 @@ export class OperatorConnector {
         for (const entry of this.connectedClients.entries()) {
             const connectionId = entry[0];
             const data = entry[1];
-            // If not authenticated for a long time
-            if (!data.isAuthenticated && (now - data.connectedAt) > this.state.authenticationTimeout) {
-                connectionIdsWithCleanUpReason.set(connectionId, ConnectionCleanUpReason.authenticationTimeout);
-            }
-            // Add other conditions
-            if (data.lastMessageReceivedAt) {
+            if (!data.isAuthenticated) {
+                if ((now - data.connectedAt) > this.state.authenticationTimeout) {
+                    // Not authenticated for a long time since connected
+                    connectionIdsWithCleanUpReason.set(connectionId, ConnectionCleanUpReason.authenticationTimeout);
+                }
+            } else if (data.lastMessageReceivedAt) {
                 if ((now - data.lastMessageReceivedAt) > this.state.idleTimeout) {
+                    // No message has been received for a long time since the last one
                     connectionIdsWithCleanUpReason.set(connectionId, ConnectionCleanUpReason.idleTimeout);
                 }
             } else {
@@ -2259,6 +2479,9 @@ export class OperatorConnector {
             }
             this.removeClient(connectionId);
             this.wssServer.closeConnection(connectionId);
+            if (this.state.isQrCodeSignInFeatureEnabled && clientData) {
+                this.removeCodeSignInForConnectionInstanceId(clientData.connectionInstanceId);
+            }
         }
     }
 

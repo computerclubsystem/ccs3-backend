@@ -62,7 +62,7 @@ spec:
     spec:
       containers:
       - name: ccs3-valkey-container
-        image: valkey/valkey:8.0.1-alpine3.20
+        image: valkey/valkey:8.1.1-alpine3.21
         resources:
           limits:
             memory: 128Mi
@@ -235,6 +235,67 @@ spec:
   selector:
    app: ccs3
    pod: operator-connector
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ccs3-qrcode-signin-deployment
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ccs3
+  template:
+    metadata:
+      labels:
+        app: ccs3
+        pod: qrcode-signin
+    spec:
+      containers:
+      - name: ccs3-qrcode-signin-container
+        image: ccs3/qrcode-signin:latest
+        imagePullPolicy: Never
+        volumeMounts:
+        - name: qrcode-signin-certs-volume
+          mountPath: /app/dist/certificates
+        env:
+        - name: CCS3_REDIS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: redis-host
+              key: host
+        resources:
+          limits:
+            memory: 128Mi
+            cpu: "0.1"
+      volumes:
+      - name: qrcode-signin-certs-volume
+        secret:
+          secretName: qrcode-signin-certs
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ccs3-qrcode-signin-load-balancer
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  type: LoadBalancer
+  ports:
+  - name: ccs3-qrcode-signin-port
+    protocol: TCP
+    port: 65503
+  selector:
+   app: ccs3
+   pod: qrcode-signin
 
 ---
 

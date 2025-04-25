@@ -2,6 +2,12 @@ import { DateTime, Duration, Settings } from 'luxon';
 import { Valid } from 'luxon/src/_util.js';
 
 export class DateTimeHelper {
+    addSeconds(date: string, seconds: number): string {
+        const dt = DateTime.fromISO(date);
+        const result = dt.plus({ seconds: seconds }).toUTC().toISO()!;
+        return result;
+    }
+
     /**
      * Checks if current date passed specified day minute by using startDate and checking if current date has passed the toMinute
      * @param utcStartDate Start date in milliseconds at which to start calculation

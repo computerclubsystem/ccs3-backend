@@ -1,0 +1,33 @@
+INSERT INTO system_setting
+(
+    name,
+    type,
+    description,
+    value
+)
+VALUES
+(
+    'feature_qrcode_sign_in_enabled',
+    'string',
+    'Whether "QR code sign in" feature is enabled. If set to "yes", the feature will be enabled. Any other value will disable the feature. Default value is "no"',
+    'no'
+);
+
+INSERT INTO system_setting
+(
+    name,
+    type,
+    description,
+    value
+)
+VALUES
+(
+    'feature_qrcode_sign_in_server_public_url',
+    'string',
+    'If "QR code sign in" feature is enabled (setting "feature_qrcode_sign_in_enabled"), this must contain the URL pointing to the server that processes QR code sign ins. Example: https://150.35.12.208:65503',
+    ''
+);
+
+UPDATE db_metadata
+SET value = '40'
+WHERE name = 'database-version';
