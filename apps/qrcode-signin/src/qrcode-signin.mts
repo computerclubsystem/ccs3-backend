@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import * as https from 'node:https';
 import { randomUUID } from 'node:crypto';
 import express from 'express';
+import { Request } from 'express-serve-static-core';
+
 import { catchError, filter, finalize, first, firstValueFrom, Observable, throwError, timeout } from 'rxjs';
 
 import { CreateConnectedRedisClientOptions, RedisClientMessageCallback, RedisPubClient, RedisSubClient } from '@computerclubsystem/redis-client';
@@ -10,8 +12,11 @@ import { ChannelName } from '@computerclubsystem/types/channels/channel-name.mjs
 import { Logger } from './logger.mjs';
 import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
 import { SubjectsService } from './subjects.service.mjs';
-import { ApiCredentialsSignInRequestBody, ApiCredentialsSignInResponseBody, ApiCredentialsSignInResponseBodyIdentifierType, MessageStatItem } from './declarations.mjs';
+import { MessageStatItem } from './declarations.mjs';
 import { BusCodeSignInWithCredentialsReplyMessageBody, createBusCodeSignInWithCredentialsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-code-sign-in-with-credentials.messages.mjs';
+import { ApiCredentialsSignInRequestBody, ApiCredentialsSignInResponseBody, ApiCodeSignInIdentifierType, ApiTokenSignInRequestBody, ApiTokenSignInResponseBody } from './api-declarations.mjs';
+import { BusCodeSignInWithLongLivedAccessTokenReplyMessageBody, createBusCodeSignInWithLongLivedAccessTokenRequestMessage } from '@computerclubsystem/types/messages/bus/bus-code-sign-in-with-long-lived-access-token.messages.mjs';
+import { BusCodeSignInIdentifierType } from '@computerclubsystem/types/messages/bus/declarations/bus-code-sign-in-identifier-type.mjs';
 
 export class QRCodeSignIn {
     private readonly subClient = new RedisSubClient();
@@ -90,10 +95,17 @@ export class QRCodeSignIn {
     startWebAPI(): void {
         const app = express();
         app.use(express.json());
+
         app.post('/api/credentials-sign-in', async (req, res) => {
-            const result = await this.processApiCredentialsSignIn(req.body as ApiCredentialsSignInRequestBody, req.ip);
+            const result = await this.processApiCredentialsSignIn(req.body as ApiCredentialsSignInRequestBody, this.getIpAddressFromRequest(req));
             res.json(result);
         });
+
+        app.post('/api/token-sign-in', async (req, res) => {
+            const result = await this.processApiTokenSignIn(req.body as ApiTokenSignInRequestBody, this.getIpAddressFromRequest(req));
+            res.json(result);
+        });
+
         const noStaticFilesServing = this.envVars.CCS3_QRCODE_SIGNIN_NO_STATIC_FILES_SERVING.value;
         if (!noStaticFilesServing) {
             const staticFilesPath = this.envVars.CCS3_QRCODE_SIGNIN_STATIC_FILES_PATH.value!;
@@ -118,6 +130,37 @@ export class QRCodeSignIn {
         });
     }
 
+    async processApiTokenSignIn(reqBody: ApiTokenSignInRequestBody, ipAddress?: string | null): Promise<ApiTokenSignInResponseBody> {
+        const result: ApiTokenSignInResponseBody = {
+            success: false,
+        };
+        const busRequestMsg = createBusCodeSignInWithLongLivedAccessTokenRequestMessage();
+        busRequestMsg.body.code = reqBody.code;
+        busRequestMsg.body.token = reqBody.token;
+        busRequestMsg.body.ipAddress = ipAddress;
+        busRequestMsg.body.identifierType = this.apiSignInIdentifierTypeToBusCodeSignInIdentifierTo(reqBody.identifierType)!;
+        try {
+            const res = await this.publishToSharedChannelAsync<BusCodeSignInWithLongLivedAccessTokenReplyMessageBody>(busRequestMsg);
+            if (res.header.failure || !res.body.success) {
+                result.success = false;
+                const errCode = res.body.errorCode || res.header.errors?.[0].code || '';
+                const errMessage = res.body.errorMessage || res.header.errors?.[0].description || '';
+                result.errorMessage = `Error: ${errMessage} (${errCode})`;
+            } else {
+                result.success = res.body.success;
+                result.errorMessage = res.body.errorMessage;
+                result.remainingSeconds = res.body.remainingSeconds;
+                result.identifier = res.body.identifier;
+                result.identifierType = this.busCodeSignInIdentifierToApiSignInIdentifierType(res.body.identifierType);
+            }
+        } catch (err) {
+            this.logger.error('Error in processApiTokenSignIn', err);
+            result.success = false;
+            result.errorMessage = `Can't sign in`;
+        }
+        return result;
+    }
+
     async processApiCredentialsSignIn(reqBody: ApiCredentialsSignInRequestBody, ipAddress?: string | null): Promise<ApiCredentialsSignInResponseBody> {
         const result: ApiCredentialsSignInResponseBody = {
             success: false,
@@ -127,6 +170,7 @@ export class QRCodeSignIn {
         busRequestMsg.body.passwordHash = reqBody.passwordHash;
         busRequestMsg.body.code = reqBody.code;
         busRequestMsg.body.ipAddress = ipAddress;
+        busRequestMsg.body.identifierType = this.apiSignInIdentifierTypeToBusCodeSignInIdentifierTo(reqBody.identifierType)!;
         try {
             const res = await this.publishToSharedChannelAsync<BusCodeSignInWithCredentialsReplyMessageBody>(busRequestMsg);
             if (res.header.failure) {
@@ -138,7 +182,7 @@ export class QRCodeSignIn {
                 result.remainingSeconds = res.body.remainingSeconds;
                 result.token = res.body.token;
                 result.identifier = res.body.identifier;
-                result.identifierType = res.body.identifierType as unknown as ApiCredentialsSignInResponseBodyIdentifierType ;
+                result.identifierType = this.busCodeSignInIdentifierToApiSignInIdentifierType(res.body.identifierType);
             }
         } catch (err) {
             this.logger.error('Error in processApiCredentialsSignIn', err);
@@ -190,6 +234,31 @@ export class QRCodeSignIn {
         this.logger.log('Publishing message', ChannelName.shared, message.header.type, message);
         this.pubClient.publish(ChannelName.shared, JSON.stringify(message));
         return this.subjectsService.getSharedChannelBusMessageReceived();
+    }
+
+    busCodeSignInIdentifierToApiSignInIdentifierType(busIdentifierType: BusCodeSignInIdentifierType | undefined | null): ApiCodeSignInIdentifierType | undefined | null {
+        if (!busIdentifierType) {
+            return busIdentifierType;
+        }
+        const map = new Map<BusCodeSignInIdentifierType, ApiCodeSignInIdentifierType>();
+        map.set(BusCodeSignInIdentifierType.customerCard, ApiCodeSignInIdentifierType.customerCard);
+        map.set(BusCodeSignInIdentifierType.user, ApiCodeSignInIdentifierType.user);
+        return map.get(busIdentifierType) || busIdentifierType as unknown as ApiCodeSignInIdentifierType;
+    }
+
+    apiSignInIdentifierTypeToBusCodeSignInIdentifierTo(apiIdentifierType: ApiCodeSignInIdentifierType | undefined | null): BusCodeSignInIdentifierType | undefined | null {
+        if (!apiIdentifierType) {
+            return apiIdentifierType;
+        }
+        const map = new Map<ApiCodeSignInIdentifierType, BusCodeSignInIdentifierType>();
+        map.set(ApiCodeSignInIdentifierType.customerCard, BusCodeSignInIdentifierType.customerCard);
+        map.set(ApiCodeSignInIdentifierType.user, BusCodeSignInIdentifierType.user);
+        return map.get(apiIdentifierType) || apiIdentifierType as unknown as BusCodeSignInIdentifierType;
+    }
+
+    getIpAddressFromRequest(req: Request<unknown, unknown, unknown, unknown>): string {
+        // TODO: Check if we have proxy that will send the client IP address in header like X-Forwarded-For (req.ip might already do this)
+        return req.ip || req.socket.remoteAddress || '';
     }
 
     getNowAsNumber(): number {

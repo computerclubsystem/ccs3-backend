@@ -17,7 +17,7 @@ import {
     ServerErrorEventArgs,
 } from '@computerclubsystem/websocket-server';
 import { OperatorAuthRequestMessage } from '@computerclubsystem/types/messages/operators/operator-auth.messages.mjs';
-import { BusUserAuthReplyMessage, BusUserAuthReplyMessageBody, createBusUserAuthRequestMessage } from '@computerclubsystem/types/messages/bus/bus-operator-auth.messages.mjs';
+import { BusUserAuthReplyMessage, BusUserAuthReplyMessageBody, createBusUserAuthReplyMessage, createBusUserAuthRequestMessage } from '@computerclubsystem/types/messages/bus/bus-operator-auth.messages.mjs';
 import { createBusOperatorConnectionEventNotificatinMessage } from '@computerclubsystem/types/messages/bus/bus-operator-connection-event-notification.message.mjs';
 import { createOperatorAuthReplyMessage } from '@computerclubsystem/types/messages/operators/operator-auth.messages.mjs';
 import { Logger } from './logger.mjs';
@@ -231,9 +231,13 @@ import { createOperatorShutdownDevicesReplyMessage, OperatorShutdownDevicesReque
 import { createOperatorCreateSignInCodeReplyMessage, OperatorCreateSignInCodeRequestMessage } from '@computerclubsystem/types/messages/operators/operator-create-sign-in-code.messages.mjs';
 import { createOperatorPublicConfigurationNotificationMessage, OperatorPublicConfigurationNotificationMessage } from '@computerclubsystem/types/messages/operators/operator-public-configuration-notification.message.mjs';
 import { SystemSettingsName } from '@computerclubsystem/types/entities/system-setting-name.mjs';
-import { BusCodeSignInWithCredentialsReplyMessageBodyIdentifierType, BusCodeSignInWithCredentialsRequestMessage, createBusCodeSignInWithCredentialsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-code-sign-in-with-credentials.messages.mjs';
+import { BusCodeSignInWithCredentialsRequestMessage, createBusCodeSignInWithCredentialsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-code-sign-in-with-credentials.messages.mjs';
 import { BusCreateLongLivedAccessTokenForUserReplyMessageBody, createBusCreateLongLivedAccessTokenForUserRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-long-lived-taccess-oken-for-user.messages.mjs';
 import { LongLivedAccessToken } from '@computerclubsystem/types/entities/long-lived-access-token.mjs';
+import { BusCodeSignInWithLongLivedAccessTokenRequestMessage, createBusCodeSignInWithLongLivedAccessTokenReplyMessage } from '@computerclubsystem/types/messages/bus/bus-code-sign-in-with-long-lived-access-token.messages.mjs';
+import { BusCodeSignInIdentifierType } from '@computerclubsystem/types/messages/bus/declarations/bus-code-sign-in-identifier-type.mjs';
+import { BusCodeSignInErrorCode } from '@computerclubsystem/types/messages/bus/declarations/bus-code-sign-in-error-code.mjs';
+import { BusUserAuthWithLongLivedAccessTokenReplyMessageBody, createBusUserAuthWithLongLivedAccessTokenRequestMessage } from '@computerclubsystem/types/messages/bus/bus-user-auth-with-long-lived-access-token.messages.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -505,7 +509,10 @@ export class OperatorConnector {
             operatorReplyMsg.body.validTo = createdAt + this.state.codeSignInDurationSeconds * 1000;
             const url = URL.parse(qrCodeServerUrl!)!;
             url.searchParams.append('sign-in-code', codeSignIn.code);
+            url.searchParams.append('identifier-type', BusCodeSignInIdentifierType.user);
+            url.searchParams.append('valid-to', `${operatorReplyMsg.body.validTo}`);
             operatorReplyMsg.body.url = url.toString();
+            operatorReplyMsg.body.identifierType = BusCodeSignInIdentifierType.user;
         } catch (err) {
             this.logger.error('Error at processOperatorCreateSignInCodeRequestMessage', err);
             operatorReplyMsg.header.failure = true;
@@ -1603,6 +1610,7 @@ export class OperatorConnector {
         switch (channelName) {
             case ChannelName.operators:
                 this.processOperatorsBusMessage(message);
+                break;
             case ChannelName.devices:
                 this.processDevicesBusMessage(message);
                 break;
@@ -1617,6 +1625,9 @@ export class OperatorConnector {
         // Process shared channel notifications messages - all reply messages should be processed by the requester
         const type = message.header.type;
         switch (type) {
+            case MessageType.busCodeSignInWithLongLivedAccessTokenRequest:
+                this.processBusCodeSignInWithLongLivedAccessTokenRequestMessage(message as BusCodeSignInWithLongLivedAccessTokenRequestMessage);
+                break;
             case MessageType.busCodeSignInWithCredentialsRequest:
                 this.processBusCodeSignInWithCredentialsRequestMessage(message as BusCodeSignInWithCredentialsRequestMessage);
                 break;
@@ -1626,27 +1637,123 @@ export class OperatorConnector {
         }
     }
 
-    async processBusCodeSignInWithCredentialsRequestMessage(message: BusCodeSignInWithCredentialsRequestMessage): Promise<void> {
-        if (!message.body.code || !message.body.identifier || !message.body.passwordHash) {
+    async processBusCodeSignInWithLongLivedAccessTokenRequestMessage(message: BusCodeSignInWithLongLivedAccessTokenRequestMessage): Promise<void> {
+        // TODO: This function logic will not work if we have multiple service instances, because the message is sent to all of them
+        if (!message.body.code || !message.body.token || message.body.identifierType !== BusCodeSignInIdentifierType.user) {
             return;
         }
+        const replyMsg = createBusCodeSignInWithLongLivedAccessTokenReplyMessage();
+        replyMsg.header.correlationId = message.header.correlationId;
         const cacheItem = await this.cacheHelper.getCodeSignIn(message.body.code);
         if (!cacheItem) {
+            replyMsg.body.success = false;
+            replyMsg.body.errorMessage = 'Code not found';
+            replyMsg.body.errorCode = BusCodeSignInErrorCode.codeNotFound;
+            replyMsg.header.failure = true;
+            this.publishToSharedChannel(replyMsg);
             return;
         }
         const now = this.getNowAsNumber();
         if ((now - cacheItem.createdAt) > this.state.codeSignInDurationSeconds * 1000) {
-            // Code has expired
+            replyMsg.body.success = false;
+            replyMsg.body.errorMessage = 'Code has expired';
+            replyMsg.body.errorCode = BusCodeSignInErrorCode.codeHasExpired;
+            replyMsg.header.failure = true;
+            this.publishToSharedChannel(replyMsg);
             return;
         }
+
         const connectedClientsWithConnectionInstanceId = this.getConnectedClientsDataBy(x => x.connectionInstanceId === cacheItem.connectionInstanceId);
         if (connectedClientsWithConnectionInstanceId.length === 0) {
+            // TODO: This will not work if we have multiple instances of operator-connector
+            //       It might be that another instance owns the connectionInstanceId
+            replyMsg.body.success = false;
+            replyMsg.body.errorMessage = 'Connection has expired';
+            replyMsg.body.errorCode = BusCodeSignInErrorCode.connectionExpired;
+            replyMsg.header.failure = true;
+            this.publishToSharedChannel(replyMsg);
+            return;
+        }
+        // We expect only one item with specified connectionInstanceId
+        const clientData = connectedClientsWithConnectionInstanceId[0];
+        try {
+            // Auth the user with long lived access token
+            const busUserAuthWithLongLivedAccessTokenReq = createBusUserAuthWithLongLivedAccessTokenRequestMessage();
+            busUserAuthWithLongLivedAccessTokenReq.body.token = message.body.token;
+            const busRes = await firstValueFrom(this.publishToOperatorsChannelAndWaitForReply<BusUserAuthWithLongLivedAccessTokenReplyMessageBody>(busUserAuthWithLongLivedAccessTokenReq, clientData));
+            if (busRes.header.failure || !busRes.body.success) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = busRes.header.errors;
+                replyMsg.body.success = false;
+                this.publishToSharedChannel(replyMsg);
+                return;
+            }
+            const operatorMessage: OperatorAuthRequestMessage = {
+                body: {},
+                header: { type: OperatorRequestMessageType.authRequest },
+            };
+            const authReplyMsg = createBusUserAuthReplyMessage();
+            authReplyMsg.header.roundTripData = this.createRoundTripDataFromConnectedClientData(clientData);
+            authReplyMsg.body.permissions = busRes.body.permissions;
+            authReplyMsg.body.success = busRes.body.success;
+            authReplyMsg.body.userId = busRes.body.userId;
+            authReplyMsg.body.username = busRes.body.username;
+            await this.processBusOperatorAuthReplyMessage(clientData, authReplyMsg, operatorMessage, busRes.body.username!);
+            replyMsg.body.success = true;
+            replyMsg.body.identifier = busRes.body.username;
+            replyMsg.body.identifierType = BusCodeSignInIdentifierType.user;
+            await this.cacheHelper.deleteCodeSignIn(message.body.code);
+            this.publishToSharedChannel(replyMsg);
+        } catch (err) {
+            this.logger.error(`Can't get long lived access token`, err);
+            replyMsg.body.success = false;
+            replyMsg.body.errorCode = BusCodeSignInErrorCode.serverError;
+            replyMsg.body.errorMessage = 'Server error';
+            replyMsg.header.failure = true;
+            this.publishToSharedChannel(replyMsg);
+            return;
+        }
+    }
+
+    async processBusCodeSignInWithCredentialsRequestMessage(message: BusCodeSignInWithCredentialsRequestMessage): Promise<void> {
+        // TODO: This function logic will not work if we have multiple service instances, because the message is sent to all of them
+        if (!message.body.code || !message.body.identifier || !message.body.passwordHash || message.body.identifierType !== BusCodeSignInIdentifierType.user) {
+            return;
+        }
+        const replyMsg = createBusCodeSignInWithCredentialsReplyMessage();
+        replyMsg.header.correlationId = message.header.correlationId;
+        const cacheItem = await this.cacheHelper.getCodeSignIn(message.body.code);
+        if (!cacheItem) {
+            replyMsg.body.success = false;
+            replyMsg.body.errorMessage = 'Code not found';
+            replyMsg.body.errorCode = BusCodeSignInErrorCode.codeNotFound;
+            replyMsg.header.failure = true;
+            this.publishToSharedChannel(replyMsg);
+            return;
+        }
+        const now = this.getNowAsNumber();
+        if ((now - cacheItem.createdAt) > this.state.codeSignInDurationSeconds * 1000) {
+            replyMsg.body.success = false;
+            replyMsg.body.errorMessage = 'Code has expired';
+            replyMsg.body.errorCode = BusCodeSignInErrorCode.codeHasExpired;
+            replyMsg.header.failure = true;
+            this.publishToSharedChannel(replyMsg);
+            return;
+        }
+
+        const connectedClientsWithConnectionInstanceId = this.getConnectedClientsDataBy(x => x.connectionInstanceId === cacheItem.connectionInstanceId);
+        if (connectedClientsWithConnectionInstanceId.length === 0) {
+            // TODO: This will not work if we have multiple instances of operator-connector
+            //       It might be that another instance owns the connectionInstanceId
+            replyMsg.body.success = false;
+            replyMsg.body.errorMessage = 'Connection has expired';
+            replyMsg.body.errorCode = BusCodeSignInErrorCode.connectionExpired;
+            replyMsg.header.failure = true;
+            this.publishToSharedChannel(replyMsg);
             return;
         }
 
         message.body.identifier = message.body.identifier.trim();
-        const replyMsg = createBusCodeSignInWithCredentialsReplyMessage();
-        replyMsg.header.correlationId = message.header.correlationId;
         // We expect only one item with specified connectionInstanceId
         const clientData = connectedClientsWithConnectionInstanceId[0];
         try {
@@ -1675,7 +1782,7 @@ export class OperatorConnector {
                     replyMsg.body.success = true;
                     replyMsg.body.token = token.token;
                     replyMsg.body.identifier = message.body.identifier;
-                    replyMsg.body.identifierType = BusCodeSignInWithCredentialsReplyMessageBodyIdentifierType.user;
+                    replyMsg.body.identifierType = BusCodeSignInIdentifierType.user;
                     await this.cacheHelper.deleteCodeSignIn(message.body.code);
                 } else {
                     replyMsg.header.failure = true;

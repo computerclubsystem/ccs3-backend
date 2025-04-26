@@ -1,4 +1,6 @@
 export enum BusErrorCode {
+    tokenNotFound = 'token-not-found',
+    tokenIsRequired = 'token-is-required',
     fromAndToDatesAreRequired = 'from-and-to-dates-are-required',
     cantCreateDeviceGroup = 'cant-create-device-group',
     deviceGroupIsRequired = 'device-group-is-required',

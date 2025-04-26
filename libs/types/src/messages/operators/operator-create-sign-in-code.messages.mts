@@ -1,3 +1,4 @@
+import { BusCodeSignInIdentifierType } from '../bus/declarations/bus-code-sign-in-identifier-type.mjs';
 import { OperatorReplyMessageType } from './declarations/operator-message-type.mjs';
 import { OperatorReplyMessage, OperatorRequestMessage } from './declarations/operator.message.mjs';
 
@@ -9,6 +10,7 @@ export type OperatorCreateSignInCodeRequestMessage = OperatorRequestMessage<Oper
 export interface OperatorCreateSignInCodeReplyMessageBody {
     code: string;
     url: string;
+    identifierType: BusCodeSignInIdentifierType;
     validTo: number;
 }
 

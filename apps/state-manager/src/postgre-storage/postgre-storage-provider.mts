@@ -33,7 +33,6 @@ import { IDeviceGroup } from 'src/storage/entities/device-group.mjs';
 import { ITariffInDeviceGroup } from 'src/storage/entities/tariff-in-device-group.mjs';
 import { IDeviceTransfer } from 'src/storage/entities/device-transfer.mjs';
 import { ILongLivedAccessToken } from 'src/storage/entities/long-lived-access-token.mjs';
-import { IQueryTextWithParamsResult } from './queries/query-with-params.mjs';
 
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
@@ -75,7 +74,13 @@ export class PostgreStorageProvider implements StorageProvider {
         return result;
     }
 
-    async setLongLivedAccessToken(longLivedAccessToken: ILongLivedAccessToken): Promise<ILongLivedAccessToken | undefined> {
+    async getLongLivedAccessToken(token: string): Promise<ILongLivedAccessToken | undefined> {
+        const queryData = this.queryUtils.getLongLivedAccessToken(token);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows[0] as ILongLivedAccessToken | undefined;
+    }
+
+    async setLongLivedAccessTokenForUser(longLivedAccessToken: ILongLivedAccessToken): Promise<ILongLivedAccessToken | undefined> {
         let transactionClient: pg.PoolClient | undefined;
         try {
             transactionClient = await this.getPoolClient();

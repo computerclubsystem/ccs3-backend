@@ -23,6 +23,7 @@ export interface BusUserAuthReplyMessageBody {
     permissions?: string[];
     // token?: string;
     userId?: number;
+    username?: string | null;
 }
 
 export type BusUserAuthReplyMessage = Message<BusUserAuthReplyMessageBody>;

@@ -1,9 +1,12 @@
 import { MessageType } from '../declarations/message-type.mjs';
 import { Message } from '../declarations/message.mjs';
+import { BusCodeSignInErrorCode } from './declarations/bus-code-sign-in-error-code.mjs';
+import { BusCodeSignInIdentifierType } from './declarations/bus-code-sign-in-identifier-type.mjs';
 
 export interface BusCodeSignInWithCredentialsRequestMessageBody {
     identifier: string;
     passwordHash: string;
+    identifierType: BusCodeSignInIdentifierType;
     code?: string | null;
     ipAddress?: string | null;
 }
@@ -19,17 +22,13 @@ export function createBusCodeSignInWithCredentialsRequestMessage(): BusCodeSignI
 }
 
 
-export const enum BusCodeSignInWithCredentialsReplyMessageBodyIdentifierType {
-    user = 'user',
-    customerCard = 'customer-card',
-}
-
 export interface BusCodeSignInWithCredentialsReplyMessageBody {
     success: boolean;
     errorMessage?: string | null;
+    errorCode?: BusCodeSignInErrorCode | null;
     token?: string | null;
     identifier?: string | null;
-    identifierType?: BusCodeSignInWithCredentialsReplyMessageBodyIdentifierType | null;
+    identifierType?: BusCodeSignInIdentifierType | null;
     remainingSeconds?: number | null;
 }
 

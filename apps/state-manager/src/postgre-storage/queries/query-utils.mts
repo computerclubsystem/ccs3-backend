@@ -64,6 +64,10 @@ export class QueryUtils {
         longLivedAccessToken: new LongLivedAccessTokenQueryHelper(),
     };
 
+    getLongLivedAccessToken(token: string): IQueryTextWithParamsResult {
+        return this.helpers.longLivedAccessToken.getLongLivedAccessToken(token);
+    }
+
     setLongLivedAccessToken(longLivedAccessToken: ILongLivedAccessToken): IQueryTextWithParamsResult {
         return this.helpers.longLivedAccessToken.setLongLivedAccessToken(longLivedAccessToken);
     }

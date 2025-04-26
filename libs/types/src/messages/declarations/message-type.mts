@@ -1,11 +1,17 @@
 export const enum MessageType {
     // QR code sign-in
+    busUserAuthWithLongLivedAccessTokenRequest = 'bus-user-auth-with-long-lived-access-token-request',
+    busUserAuthWithLongLivedAccessTokenReply = 'bus-user-auth-with-long-lived-access-token-reply',
+    busGetLongLivedAccessTokenRequest = 'bus-get-long-lived-access-token-request',
+    busGetLongLivedAccessTokenReply = 'bus-get-long-lived-access-token-reply',
     busCreateLongLivedAccessTokenForUserRequest = 'bus-create-long-lived-access-token-for-user-request',
     busCreateLongLivedAccessTokenForUserReply = 'bus-create-long-lived-access-token-for-user-reply',
     busCreateLongLivedAccessTokenForCustomerCardRequest = 'bus-create-long-lived-access-token-for-customer-card-request',
     busCreateLongLivedAccessTokenForCustomerCardReply = 'bus-create-long-lived-access-token-for-customer-card-reply',
     busCodeSignInWithCredentialsRequest = 'bus-code-sign-in-with-credentials-request',
     busCodeSignInWithCredentialsReply = 'bus-code-sign-in-with-credentials-reply',
+    busCodeSignInWithLongLivedAccessTokenRequest = 'bus-code-sign-in-with-long-lived-access-token-request',
+    busCodeSignInWithLongLivedAccessTokenReply = 'bus-code-sign-in-with-long-lived-access-stoken-reply',
 
     busGetDeviceConnectivityDetailsRequest = 'bus-get-device-connectivity-details-request',
     busGetDeviceConnectivityDetailsReply = 'bus-get-device-connectivity-details-reply',

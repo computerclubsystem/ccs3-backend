@@ -104,6 +104,8 @@ import { BusGetDeviceStatusesRequestMessage, createBusGetDeviceStatusesReplyMess
 import { BusGetTariffDeviceGroupsRequestMessage, createBusGetTariffDeviceGroupsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-tariff-device-groups.messages.mjs';
 import { BusCreateLongLivedAccessTokenForUserRequestMessage, createBusCreateLongLivedAccessTokenForUserReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-long-lived-taccess-oken-for-user.messages.mjs';
 import { ILongLivedAccessToken } from './storage/entities/long-lived-access-token.mjs';
+import { BusGetLongLivedAccessTokenRequestMessage, createBusGetLongLivedAccessTokenReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-long-lived-access-token.messages.mjs';
+import { BusUserAuthWithLongLivedAccessTokenRequestMessage, createBusUserAuthWithLongLivedAccessTokenReplyMessage } from '@computerclubsystem/types/messages/bus/bus-user-auth-with-long-lived-access-token.messages.mjs';
 
 export class StateManager {
     private readonly className = (this as object).constructor.name;
@@ -149,6 +151,9 @@ export class StateManager {
         const type: string = message.header?.type;
         // const notificationMessage = message as unknown as SharedNotificationMessage<TBody>;
         switch (type) {
+            case MessageType.busGetLongLivedAccessTokenRequest:
+                this.processBusGetLongLivedAccessTokenRequestMessage(message as BusGetLongLivedAccessTokenRequestMessage);
+                break;
             case MessageType.busCreateLongLivedAccessTokenForUserRequest:
                 this.processBusCreateLongLivedAccessTokenForUserRequestMessage(message as BusCreateLongLivedAccessTokenForUserRequestMessage);
                 break;
@@ -164,6 +169,31 @@ export class StateManager {
             case MessageType.busGetAllSystemSettingsRequest:
                 this.processSharedMessageBusGetAllSystemSettings(message as BusGetAllSystemSettingsRequestMessage);
                 break;
+        }
+    }
+
+    async processBusGetLongLivedAccessTokenRequestMessage(message: BusGetLongLivedAccessTokenRequestMessage): Promise<void> {
+        const replyMsg = createBusGetLongLivedAccessTokenReplyMessage();
+        if (!message.body.token) {
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: BusErrorCode.tokenIsRequired,
+                description: 'Token is required',
+            }];
+            this.publishToSharedChannel(replyMsg, message);
+            return;
+        }
+
+        try {
+            const storageLongLivedToken = await this.storageProvider.getLongLivedAccessToken(message.body.token);
+            if (storageLongLivedToken) {
+                replyMsg.body.longLivedAccessToken = this.entityConverter.toLongLivedAccessToken(storageLongLivedToken);
+                replyMsg.body.hasExpired = Date.now() > new Date(storageLongLivedToken.valid_to).getTime();
+            }
+            this.publishToSharedChannel(replyMsg, message);
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToSharedChannel(replyMsg, message);
         }
     }
 
@@ -209,7 +239,7 @@ export class StateManager {
                 token: token,
                 user_id: user.id,
             } as ILongLivedAccessToken;
-            const createdStorageLongLivedAccessToken = await this.storageProvider.setLongLivedAccessToken(storageLongLivedAccessToken);
+            const createdStorageLongLivedAccessToken = await this.storageProvider.setLongLivedAccessTokenForUser(storageLongLivedAccessToken);
             if (createdStorageLongLivedAccessToken) {
                 replyMsg.body.longLivedToken = this.entityConverter.toLongLivedAccessToken(createdStorageLongLivedAccessToken);
                 this.publishToSharedChannel(replyMsg, message);
@@ -298,6 +328,9 @@ export class StateManager {
     processOperatorsChannelMessage<TBody>(message: Message<TBody>): void {
         const type = message.header?.type;
         switch (type) {
+            case MessageType.busUserAuthWithLongLivedAccessTokenRequest:
+                this.processBusUserAuthWithLongLivedAccessTokenRequestMessage(message as BusUserAuthWithLongLivedAccessTokenRequestMessage);
+                break;
             case MessageType.busGetTariffDeviceGroupsRequest:
                 this.processBusGetTariffDeviceGroupsRequestMessage(message as BusGetTariffDeviceGroupsRequestMessage);
                 break;
@@ -485,6 +518,32 @@ export class StateManager {
         } catch (err) {
             this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToDevicesChannel(replyMsg, message);
+        }
+    }
+
+    async processBusUserAuthWithLongLivedAccessTokenRequestMessage(message: BusUserAuthWithLongLivedAccessTokenRequestMessage): Promise<void> {
+        const replyMsg = createBusUserAuthWithLongLivedAccessTokenReplyMessage();
+        if (!message.body.token) {
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: BusErrorCode.tokenIsRequired,
+                description: 'Token is required',
+            }];
+            this.publishToOperatorsChannel(replyMsg, message);
+            return;
+        }
+
+        try {
+            const authReplyMsg = await this.getBusUserAuthReplyMessageForLongLivedAccessToken(message.body.token);
+            replyMsg.body.success = authReplyMsg.body.success;
+            replyMsg.body.permissions = authReplyMsg.body.permissions;
+            replyMsg.body.userId = authReplyMsg.body.userId;
+            replyMsg.body.username = authReplyMsg.body.username;
+            replyMsg.header.errors = authReplyMsg.header.errors;
+            this.publishToOperatorsChannel(replyMsg, message);
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToOperatorsChannel(replyMsg, message);
         }
     }
 
@@ -2893,7 +2952,7 @@ export class StateManager {
                 this.logger.warn('Username or password not provided', message);
                 return;
             }
-            const replyMsg = await this.getBusOperatorReplyMessageForUsernameAndPasswordHash(body.username!, body.passwordHash!);
+            const replyMsg = await this.getBusUserAuthReplyMessageForUsernameAndPasswordHash(body.username!, body.passwordHash!);
             // if (replyMsg.body.success) {
             //     await this.maintainUserAuthDataTokenCacheItem(replyMsg.body.userId!, replyMsg.body.permissions!, replyMsg.body.token!, rtData);
             // }
@@ -2935,7 +2994,43 @@ export class StateManager {
         }
     }
 
-    async getBusOperatorReplyMessageForUsernameAndPasswordHash(username: string, passwordHash: string): Promise<BusUserAuthReplyMessage> {
+    async getBusUserAuthReplyMessageForLongLivedAccessToken(token: string): Promise<BusUserAuthReplyMessage> {
+        const replyMsg = createBusUserAuthReplyMessage();
+        try {
+            const storageLongLivedToken = await this.storageProvider.getLongLivedAccessToken(token);
+            if (!storageLongLivedToken || !storageLongLivedToken.user_id) {
+                replyMsg.body.success = false;
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.tokenNotFound,
+                    description: 'Token not found',
+                }] as MessageError[];
+                return replyMsg;
+            }
+            const hasExpired = Date.now() > new Date(storageLongLivedToken.valid_to).getTime();
+            if (hasExpired) {
+                replyMsg.body.success = false;
+                return replyMsg;
+            }
+            const user = await this.storageProvider.getUserById(storageLongLivedToken.user_id!);
+            if (!user || !user.enabled) {
+                replyMsg.body.success = false;
+                return replyMsg;
+            }
+
+            replyMsg.body.success = true;
+            replyMsg.body.userId = storageLongLivedToken.user_id;
+            replyMsg.body.permissions = await this.storageProvider.getUserPermissions(user.id);
+            replyMsg.body.username = user.username;
+            return replyMsg;
+        } catch (err) {
+            this.logger.warn(`Can't process getBusUserAuthReplyMessageForLongLivedToken message`, err);
+            replyMsg.body.success = false;
+            return replyMsg;
+        }
+    }
+
+    async getBusUserAuthReplyMessageForUsernameAndPasswordHash(username: string, passwordHash: string): Promise<BusUserAuthReplyMessage> {
         const replyMsg = createBusUserAuthReplyMessage();
         const user = await this.storageProvider.getUserByUsernameAndPasswordHash(username, passwordHash);
         if (!user) {
@@ -2945,6 +3040,7 @@ export class StateManager {
             // TODO: Send "User not enabled"
             const replyMsg = createBusUserAuthReplyMessage();
             replyMsg.body.success = false;
+            replyMsg.body.username = user.username;
             replyMsg.body.userId = user.id;
         } else {
             // User with such username and password is found and is enabled
@@ -2952,6 +3048,7 @@ export class StateManager {
             replyMsg.body.success = true;
             replyMsg.body.userId = user.id;
             replyMsg.body.permissions = permissions;
+            replyMsg.body.username = user.username;
         }
         return replyMsg;
     }
