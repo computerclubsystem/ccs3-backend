@@ -238,6 +238,7 @@ import { BusCodeSignInWithLongLivedAccessTokenRequestMessage, createBusCodeSignI
 import { BusCodeSignInIdentifierType } from '@computerclubsystem/types/messages/bus/declarations/bus-code-sign-in-identifier-type.mjs';
 import { BusCodeSignInErrorCode } from '@computerclubsystem/types/messages/bus/declarations/bus-code-sign-in-error-code.mjs';
 import { BusUserAuthWithLongLivedAccessTokenReplyMessageBody, createBusUserAuthWithLongLivedAccessTokenRequestMessage } from '@computerclubsystem/types/messages/bus/bus-user-auth-with-long-lived-access-token.messages.mjs';
+import { BusGetSignInCodeInfoRequestMessage, createBusGetSignInCodeInfoReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-sign-in-code-info.messages.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -510,7 +511,6 @@ export class OperatorConnector {
             const url = URL.parse(qrCodeServerUrl!)!;
             url.searchParams.append('sign-in-code', codeSignIn.code);
             url.searchParams.append('identifier-type', BusCodeSignInIdentifierType.user);
-            url.searchParams.append('valid-to', `${operatorReplyMsg.body.validTo}`);
             operatorReplyMsg.body.url = url.toString();
             operatorReplyMsg.body.identifierType = BusCodeSignInIdentifierType.user;
         } catch (err) {
@@ -1625,6 +1625,9 @@ export class OperatorConnector {
         // Process shared channel notifications messages - all reply messages should be processed by the requester
         const type = message.header.type;
         switch (type) {
+            case MessageType.busGetSignInCodeInfoRequest:
+                this.processBusGetSignInCodeInfoRequestMessage(message as BusGetSignInCodeInfoRequestMessage);
+                break;
             case MessageType.busCodeSignInWithLongLivedAccessTokenRequest:
                 this.processBusCodeSignInWithLongLivedAccessTokenRequestMessage(message as BusCodeSignInWithLongLivedAccessTokenRequestMessage);
                 break;
@@ -1636,6 +1639,66 @@ export class OperatorConnector {
                 break;
         }
     }
+
+    async processBusGetSignInCodeInfoRequestMessage(message: BusGetSignInCodeInfoRequestMessage): Promise<void> {
+        // TODO: This function logic will not work if we have multiple service instances, because the message is sent to all of them
+        if (!message.body.code || message.body.identifierType !== BusCodeSignInIdentifierType.user) {
+            return;
+        }
+
+        const replyMsg = createBusGetSignInCodeInfoReplyMessage();
+        replyMsg.body.code = message.body.code;
+        replyMsg.body.identifierType = message.body.identifierType;
+        replyMsg.header.correlationId = message.header.correlationId;
+        try {
+            const cacheItem = await this.cacheHelper.getCodeSignIn(message.body.code);
+            if (!cacheItem) {
+                replyMsg.body.isValid = false;
+                this.publishToSharedChannel(replyMsg);
+                return;
+            }
+            // Find the connection data for this sign in code
+            const clientData = this.getAllConnectedClientsData().find(x => x[1].connectionInstanceId === cacheItem.connectionInstanceId)?.[1];
+            if (!clientData) {
+                replyMsg.body.isValid = false;
+                this.publishToSharedChannel(replyMsg);
+                return;
+            }
+            const now = this.getNowAsNumber();
+            const diff = now - cacheItem.createdAt;
+            if (diff > this.state.codeSignInDurationSeconds * 1000) {
+                replyMsg.body.isValid = false;
+                this.publishToSharedChannel(replyMsg);
+                return;
+            }
+            const validTo = cacheItem.createdAt + this.state.codeSignInDurationSeconds * 1000;
+            if (now > validTo) {
+                replyMsg.body.isValid = false;
+                this.publishToSharedChannel(replyMsg);
+                return;
+            }
+            // Get how many seconds are remaining for the sign in code and how much time is left for the connection
+            // before it is disconnected (because of authentication timeout) and use the smaller value of the two
+            const signInCodeRemainingSeconds = Math.floor((validTo - now) / 1000);
+            const connectionConnectedAtDiff = now - clientData.connectedAt;
+            const connectionRemainingSeconds = Math.floor((this.state.authenticationTimeout - connectionConnectedAtDiff) / 1000);
+            let remainingSeconds = Math.min(signInCodeRemainingSeconds, connectionRemainingSeconds);
+            if (remainingSeconds <= 0) {
+                remainingSeconds = 0;
+            }
+            replyMsg.body.expiresInSeconds = remainingSeconds;
+            replyMsg.body.isValid = remainingSeconds > 0;
+            this.publishToSharedChannel(replyMsg);
+            return;
+        } catch (err) {
+            this.logger.error(`Can't get sign in code`, err);
+            replyMsg.body.isValid = false;
+            replyMsg.header.failure = true;
+            this.publishToSharedChannel(replyMsg);
+            return;
+        }
+    }
+
 
     async processBusCodeSignInWithLongLivedAccessTokenRequestMessage(message: BusCodeSignInWithLongLivedAccessTokenRequestMessage): Promise<void> {
         // TODO: This function logic will not work if we have multiple service instances, because the message is sent to all of them

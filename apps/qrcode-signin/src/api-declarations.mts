@@ -3,6 +3,20 @@ export const enum ApiCodeSignInIdentifierType {
     customerCard = 'customer-card',
 }
 
+// Sign in code
+export interface ApiGetSignInCodeInfoRequestBody {
+    code: string;
+    identifierType: ApiCodeSignInIdentifierType;
+}
+
+export interface ApiGetSignInCodeInfoResponseBody {
+    code: string;
+    identifierType: ApiCodeSignInIdentifierType;
+    isValid: boolean;
+    expiresInSeconds?: number | null;
+}
+
+
 // Token sign in
 export interface ApiTokenSignInRequestBody {
     token: string;

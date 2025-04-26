@@ -14,9 +14,10 @@ import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
 import { SubjectsService } from './subjects.service.mjs';
 import { MessageStatItem } from './declarations.mjs';
 import { BusCodeSignInWithCredentialsReplyMessageBody, createBusCodeSignInWithCredentialsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-code-sign-in-with-credentials.messages.mjs';
-import { ApiCredentialsSignInRequestBody, ApiCredentialsSignInResponseBody, ApiCodeSignInIdentifierType, ApiTokenSignInRequestBody, ApiTokenSignInResponseBody } from './api-declarations.mjs';
+import { ApiCredentialsSignInRequestBody, ApiCredentialsSignInResponseBody, ApiCodeSignInIdentifierType, ApiTokenSignInRequestBody, ApiTokenSignInResponseBody, ApiGetSignInCodeInfoRequestBody, ApiGetSignInCodeInfoResponseBody } from './api-declarations.mjs';
 import { BusCodeSignInWithLongLivedAccessTokenReplyMessageBody, createBusCodeSignInWithLongLivedAccessTokenRequestMessage } from '@computerclubsystem/types/messages/bus/bus-code-sign-in-with-long-lived-access-token.messages.mjs';
 import { BusCodeSignInIdentifierType } from '@computerclubsystem/types/messages/bus/declarations/bus-code-sign-in-identifier-type.mjs';
+import { BusGetSignInCodeInfoReplyMessageBody, createBusGetSignInCodeInfoRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-sign-in-code-info.messages.mjs';
 
 export class QRCodeSignIn {
     private readonly subClient = new RedisSubClient();
@@ -25,11 +26,6 @@ export class QRCodeSignIn {
     private logger = new Logger();
     private readonly envVars = new EnvironmentVariablesHelper().createEnvironmentVars();
     private readonly state = this.createState();
-    // private readonly validators = this.createValidators();
-    // private readonly cacheClient = new RedisCacheClient();
-    // private readonly cacheHelper = new CacheHelper();
-    // private readonly authorizationHelper = new AuthorizationHelper();
-    // private readonly errorReplyHelper = new ErrorReplyHelper();
     private readonly subjectsService = new SubjectsService();
 
     processBusMessageReceived(channelName: string, message: Message<unknown>): void {
@@ -40,6 +36,7 @@ export class QRCodeSignIn {
         switch (channelName) {
             case ChannelName.operators:
                 this.processOperatorsBusMessage(message);
+                break;
             case ChannelName.devices:
                 this.processDevicesBusMessage(message);
                 break;
@@ -106,6 +103,11 @@ export class QRCodeSignIn {
             res.json(result);
         });
 
+        app.post('/api/sign-in-code-info', async (req, res) => {
+            const result = await this.processApiSignInCodeInfo(req.body as ApiGetSignInCodeInfoRequestBody);
+            res.json(result);
+        });
+
         const noStaticFilesServing = this.envVars.CCS3_QRCODE_SIGNIN_NO_STATIC_FILES_SERVING.value;
         if (!noStaticFilesServing) {
             const staticFilesPath = this.envVars.CCS3_QRCODE_SIGNIN_STATIC_FILES_PATH.value!;
@@ -128,6 +130,31 @@ export class QRCodeSignIn {
         httpsServer.listen(webAPIPort, () => {
             this.logger.log(`Listening at port ${webAPIPort}`);
         });
+    }
+
+    async processApiSignInCodeInfo(reqBody: ApiGetSignInCodeInfoRequestBody): Promise<ApiGetSignInCodeInfoResponseBody> {
+        const result: ApiGetSignInCodeInfoResponseBody = {
+            code: reqBody.code,
+            identifierType: reqBody.identifierType,
+            isValid: false,
+            expiresInSeconds: null,
+        };
+        const busRequestMsg = createBusGetSignInCodeInfoRequestMessage();
+        busRequestMsg.body.code = reqBody.code;
+        busRequestMsg.body.identifierType = this.apiSignInIdentifierTypeToBusCodeSignInIdentifierTo(reqBody.identifierType)!;
+        try {
+            const busRes = await this.publishToSharedChannelAsync<BusGetSignInCodeInfoReplyMessageBody>(busRequestMsg);
+            if (busRes.header.failure) {
+                result.isValid = false;
+            } else {
+                result.isValid = busRes.body.isValid;
+                result.expiresInSeconds = busRes.body.expiresInSeconds;
+            }
+        } catch (err) {
+            this.logger.error('Error in processApiSignInCodeInfo', err);
+            result.isValid = false;
+        }
+        return result;
     }
 
     async processApiTokenSignIn(reqBody: ApiTokenSignInRequestBody, ipAddress?: string | null): Promise<ApiTokenSignInResponseBody> {
