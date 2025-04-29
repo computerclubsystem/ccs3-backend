@@ -1,6 +1,6 @@
 export const enum OperatorReplyMessageErrorCode {
     internalServerError = 'internal-server-error',
-    qrCodeSignFeatureUrlIsNotCorrect = 'qrcode-sign-in-feature-url-is-not-correct',
+    qrCodeSignInFeatureUrlIsNotCorrect = 'qrcode-sign-in-feature-url-is-not-correct',
     qrCodeSignFeatureIsNotEnabled = 'qrcode-sign-in-feature-is-not-enabled',
     tariffNotProvided = 'tariff-not-provided',
     tariffPriceIsZeroOrLess = 'tariff-price-is-zero-or-less',

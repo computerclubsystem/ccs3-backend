@@ -137,7 +137,7 @@ export class QRCodeSignIn {
             code: reqBody.code,
             identifierType: reqBody.identifierType,
             isValid: false,
-            expiresInSeconds: null,
+            remainingSeconds: null,
         };
         const busRequestMsg = createBusGetSignInCodeInfoRequestMessage();
         busRequestMsg.body.code = reqBody.code;
@@ -148,7 +148,7 @@ export class QRCodeSignIn {
                 result.isValid = false;
             } else {
                 result.isValid = busRes.body.isValid;
-                result.expiresInSeconds = busRes.body.expiresInSeconds;
+                result.remainingSeconds = busRes.body.remainingSeconds;
             }
         } catch (err) {
             this.logger.error('Error in processApiSignInCodeInfo', err);

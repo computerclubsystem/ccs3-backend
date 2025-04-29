@@ -232,7 +232,7 @@ import { createOperatorCreateSignInCodeReplyMessage, OperatorCreateSignInCodeReq
 import { createOperatorPublicConfigurationNotificationMessage, OperatorPublicConfigurationNotificationMessage } from '@computerclubsystem/types/messages/operators/operator-public-configuration-notification.message.mjs';
 import { SystemSettingsName } from '@computerclubsystem/types/entities/system-setting-name.mjs';
 import { BusCodeSignInWithCredentialsRequestMessage, createBusCodeSignInWithCredentialsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-code-sign-in-with-credentials.messages.mjs';
-import { BusCreateLongLivedAccessTokenForUserReplyMessageBody, createBusCreateLongLivedAccessTokenForUserRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-long-lived-taccess-oken-for-user.messages.mjs';
+import { BusCreateLongLivedAccessTokenForUserReplyMessageBody, createBusCreateLongLivedAccessTokenForUserRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-long-lived-access-token-for-user.messages.mjs';
 import { LongLivedAccessToken } from '@computerclubsystem/types/entities/long-lived-access-token.mjs';
 import { BusCodeSignInWithLongLivedAccessTokenRequestMessage, createBusCodeSignInWithLongLivedAccessTokenReplyMessage } from '@computerclubsystem/types/messages/bus/bus-code-sign-in-with-long-lived-access-token.messages.mjs';
 import { BusCodeSignInIdentifierType } from '@computerclubsystem/types/messages/bus/declarations/bus-code-sign-in-identifier-type.mjs';
@@ -490,7 +490,7 @@ export class OperatorConnector {
         if (!canParseUrl) {
             operatorReplyMsg.header.failure = true;
             operatorReplyMsg.header.errors = [{
-                code: OperatorReplyMessageErrorCode.qrCodeSignFeatureUrlIsNotCorrect,
+                code: OperatorReplyMessageErrorCode.qrCodeSignInFeatureUrlIsNotCorrect,
                 description: 'QR code sign in feature URL is not correct. It must start with https://',
             }] as MessageError[];
             this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
@@ -507,7 +507,7 @@ export class OperatorConnector {
         try {
             await this.cacheHelper.setCodeSignIn(codeSignIn);
             operatorReplyMsg.body.code = codeSignIn.code;
-            operatorReplyMsg.body.validTo = createdAt + this.state.codeSignInDurationSeconds * 1000;
+            operatorReplyMsg.body.remainingSeconds = this.state.codeSignInDurationSeconds;
             const url = URL.parse(qrCodeServerUrl!)!;
             url.searchParams.append('sign-in-code', codeSignIn.code);
             url.searchParams.append('identifier-type', BusCodeSignInIdentifierType.user);
@@ -1648,7 +1648,7 @@ export class OperatorConnector {
 
         const replyMsg = createBusGetSignInCodeInfoReplyMessage();
         replyMsg.body.code = message.body.code;
-        replyMsg.body.identifierType = message.body.identifierType;
+        replyMsg.body.identifierType = BusCodeSignInIdentifierType.user;
         replyMsg.header.correlationId = message.header.correlationId;
         try {
             const cacheItem = await this.cacheHelper.getCodeSignIn(message.body.code);
@@ -1686,7 +1686,7 @@ export class OperatorConnector {
             if (remainingSeconds <= 0) {
                 remainingSeconds = 0;
             }
-            replyMsg.body.expiresInSeconds = remainingSeconds;
+            replyMsg.body.remainingSeconds = remainingSeconds;
             replyMsg.body.isValid = remainingSeconds > 0;
             this.publishToSharedChannel(replyMsg);
             return;
@@ -1698,7 +1698,6 @@ export class OperatorConnector {
             return;
         }
     }
-
 
     async processBusCodeSignInWithLongLivedAccessTokenRequestMessage(message: BusCodeSignInWithLongLivedAccessTokenRequestMessage): Promise<void> {
         // TODO: This function logic will not work if we have multiple service instances, because the message is sent to all of them

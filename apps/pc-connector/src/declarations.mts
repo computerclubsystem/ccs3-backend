@@ -9,3 +9,9 @@ export interface MessageStatItem {
     error?: Error;
     deviceId?: number | null;
 }
+
+export interface CodeSignIn {
+    connectionInstanceId: string;
+    code: string;
+    createdAt: number;
+}

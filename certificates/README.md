@@ -73,4 +73,4 @@ Change `192.168.1.20` with the real IP address of the server computer where the 
 ## Using operator browser
 Note: This will soon be deprecated after implementing web application static files serving and WebSocket connection are combined in a single HTTP server:
 
-The certificate of `ccs3.operator-connector.local` is considered "not safe" by the browser. The operator must accept the certificate before connecting to the server. If you see certificate-related error in Chrome, click on "Advanced" button and then `Proceed to localhost (unsafe)` link. Open new tab and navigate to `https://ccs3.operator-connector.local:65444/` - this will cause Chrome to accept the certificate for the WebSocket connection. Now you can close this tab and refresh the previous tab `https://ccs3.operator-connector.local:65502/` - the browser should connect now without warnings or errors. 
+The certificate of `ccs3.operator-connector.local` is considered "not safe" by the browser. The operator must accept the certificate before connecting to the server. If you see certificate-related error in Chrome, click on "Advanced" button and then `Proceed to localhost (unsafe)` link. 

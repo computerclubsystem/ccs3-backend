@@ -27,7 +27,7 @@ import { ILongLivedAccessToken } from './entities/long-lived-access-token.mjs';
 
 export interface StorageProvider {
     getLongLivedAccessToken(token: string): Promise<ILongLivedAccessToken | undefined>;
-    setLongLivedAccessTokenForUser(longLivedToken: ILongLivedAccessToken): Promise<ILongLivedAccessToken | undefined>;
+    setLongLivedAccessToken(longLivedToken: ILongLivedAccessToken): Promise<ILongLivedAccessToken | undefined>;
     getTariffDeviceGroups(tariffId: number): Promise<number[]>;
     // setTariffDeviceGroups(tariffId: number, deviceGroupIds: number[]): Promise<void>;
     getAllTariffsInDeviceGroups(): Promise<ITariffInDeviceGroup[]>;

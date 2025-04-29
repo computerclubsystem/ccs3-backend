@@ -80,7 +80,7 @@ export class PostgreStorageProvider implements StorageProvider {
         return res.rows[0] as ILongLivedAccessToken | undefined;
     }
 
-    async setLongLivedAccessTokenForUser(longLivedAccessToken: ILongLivedAccessToken): Promise<ILongLivedAccessToken | undefined> {
+    async setLongLivedAccessToken(longLivedAccessToken: ILongLivedAccessToken): Promise<ILongLivedAccessToken | undefined> {
         let transactionClient: pg.PoolClient | undefined;
         try {
             transactionClient = await this.getPoolClient();
@@ -88,9 +88,6 @@ export class PostgreStorageProvider implements StorageProvider {
 
             if (longLivedAccessToken.user_id) {
                 const deleteTokensQueryData = this.queryUtils.deleteLongLivedAccessTokensByUserId(longLivedAccessToken.user_id);
-                await transactionClient.query(deleteTokensQueryData.text, deleteTokensQueryData.params);
-            } else if (longLivedAccessToken.tariff_id) {
-                const deleteTokensQueryData = this.queryUtils.deleteLongLivedAccessTokensByTariffId(longLivedAccessToken.tariff_id);
                 await transactionClient.query(deleteTokensQueryData.text, deleteTokensQueryData.params);
             }
 

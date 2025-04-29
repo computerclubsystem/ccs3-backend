@@ -1,11 +1,16 @@
 import { ServerToDeviceNotificationMessageType } from './declarations/server-to-device-notification-message-type.mjs';
 import { ServerToDeviceNotificationMessage } from './declarations/server-to-device-notification-message.mjs';
 
+export interface ServerToDeviceDeviceConfigurationNotificationMessageFeatureFlags {
+    codeSignIn: boolean;
+}
+
 export interface ServerToDeviceDeviceConfigurationNotificationMessageBody {
     pingInterval: number;
     secondsAfterStoppedBeforeRestart?: number;
     secondsBeforeNotifyingCustomerForSessionEnd: number;
     sessionEndNotificationSoundFilePath?: string | null;
+    featureFlags: ServerToDeviceDeviceConfigurationNotificationMessageFeatureFlags;
 }
 
 export type ServerToDeviceDeviceConfigurationNotificationMessage = ServerToDeviceNotificationMessage<ServerToDeviceDeviceConfigurationNotificationMessageBody>;

@@ -21,7 +21,7 @@ export interface BusGetSignInCodeInfoReplyMessageBody {
     isValid: boolean;
     code: string;
     identifierType: BusCodeSignInIdentifierType;
-    expiresInSeconds?: number | null;
+    remainingSeconds?: number | null;
 }
 
 export type BusGetSignInCodeInfoReplyMessage = Message<BusGetSignInCodeInfoReplyMessageBody>;

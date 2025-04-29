@@ -3,8 +3,11 @@ import { Message } from '../declarations/message.mjs';
 
 export interface BusStartDeviceOnPrepaidTariffByCustomerRequestMessageBody {
     deviceId: number;
-    tariffId: number;
-    passwordHash: string;
+    // Do not provide tariffId if token is provided
+    tariffId?: number | null;
+    // Do not provide passwordHash if token is provided
+    passwordHash?: string | null;
+    token?: string | null;
 }
 
 export type BusStartDeviceOnPrepaidTariffByCustomerRequestMessage = Message<BusStartDeviceOnPrepaidTariffByCustomerRequestMessageBody>;
@@ -26,6 +29,7 @@ export interface BusStartDeviceOnPrepaidTariffByCustomerReplyMessageBody {
     notAvailableForThisDeviceGroup?: boolean | null;
     remainingSeconds?: number | null;
     success: boolean;
+    tariffId: number;
 }
 
 export type BusStartDeviceOnPrepaidTariffByCustomerReplyMessage = Message<BusStartDeviceOnPrepaidTariffByCustomerReplyMessageBody>;

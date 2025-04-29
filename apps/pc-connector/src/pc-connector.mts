@@ -1,8 +1,9 @@
 import { DetailedPeerCertificate } from 'node:tls';
 import { EventEmitter } from 'node:events';
 import * as fs from 'node:fs';
+import { URL } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { catchError, filter, finalize, first, Observable, of, timeout } from 'rxjs';
+import { catchError, filter, finalize, first, firstValueFrom, Observable, of, timeout } from 'rxjs';
 
 import { Message } from '@computerclubsystem/types/messages/declarations/message.mjs';
 import { Device } from '@computerclubsystem/types/entities/device.mjs';
@@ -32,11 +33,11 @@ import { createServerToDeviceCurrentStatusNotificationMessageMessage } from '@co
 import { ServerToDeviceNotificationMessage } from '@computerclubsystem/types/messages/devices/declarations/server-to-device-notification-message.mjs';
 import { createServerToDeviceDeviceConfigurationNotificationMessage, ServerToDeviceDeviceConfigurationNotificationMessageBody } from '@computerclubsystem/types/messages/devices/server-to-device-device-configuration-notification.message.mjs';
 import { SubjectsService } from './subjects-service.mjs';
-import { MessageStatItem } from './declarations.mjs';
+import { CodeSignIn, MessageStatItem } from './declarations.mjs';
 import { DevicePartialMessage } from '@computerclubsystem/types/messages/devices/declarations/device-partial-message.mjs';
 import { DeviceToServerNotificationMessageType } from '@computerclubsystem/types/messages/devices/declarations/device-to-server-notification-message-type.mjs';
 import { DeviceToServerRequestMessageType } from '@computerclubsystem/types/messages/devices/declarations/device-to-server-request-message-type.mjs';
-import { DeviceToServerStartOnPrepaidTariffRequestMessage } from '@computerclubsystem/types/messages/devices/device-to-server-start-on-prepaid-tariff-request.message.mjs';
+import { DeviceToServerStartOnPrepaidTariffRequestMessage, DeviceToServerStartOnPrepaidTariffRequestMessageBody } from '@computerclubsystem/types/messages/devices/device-to-server-start-on-prepaid-tariff-request.message.mjs';
 import { createServerToDeviceStartOnPrepaidTariffReplyMessage } from '@computerclubsystem/types/messages/devices/server-to-device-start-on-prepaid-tariff-reply.message.mjs';
 import { BusStartDeviceOnPrepaidTariffByCustomerReplyMessageBody } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer.messages.mjs';
 import { createBusStartDeviceOnPrepaidTariffByCustomerRequestMessage } from '@computerclubsystem/types/messages/bus/bus-start-device-on-prepaid-tariff-by-customer.messages.mjs';
@@ -70,6 +71,20 @@ import { createServerToDeviceRestartNoitificationMessage } from '@computerclubsy
 import { BusGetDeviceConnectivityDetailsRequestMessage, createBusGetDeviceConnectivityDetailsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-connectivity-details.messages.mjs';
 import { BusShutdownDevicesRequestMessage, createBusShutdownDevicesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-shutdown-devices.messages.mjs';
 import { DeviceConnectivityConnectionEventType } from '@computerclubsystem/types/messages/shared-declarations/device-connectivity-types.mjs';
+import { DeviceToServerCreateSignInCodeRequestMessage } from '@computerclubsystem/types/messages/devices/device-to-server-create-sign-in-code-request.message.mjs';
+import { createServerToDeviceCreateSignInCodeReplyMessage } from '@computerclubsystem/types/messages/devices/server-to-device-create-sign-in-code-reply.message.mjs';
+import { DeviceMessageError } from '@computerclubsystem/types/messages/devices/declarations/device-message-error.mjs';
+import { DeviceMessageErrorCode } from '@computerclubsystem/types/messages/devices/declarations/device-message-error-code.mjs';
+import { BusCodeSignInIdentifierType } from '@computerclubsystem/types/messages/bus/declarations/bus-code-sign-in-identifier-type.mjs';
+import { BusGetSignInCodeInfoRequestMessage, createBusGetSignInCodeInfoReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-sign-in-code-info.messages.mjs';
+import { BusCodeSignInWithCredentialsRequestMessage, createBusCodeSignInWithCredentialsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-code-sign-in-with-credentials.messages.mjs';
+import { BusCodeSignInErrorCode } from '@computerclubsystem/types/messages/bus/declarations/bus-code-sign-in-error-code.mjs';
+import { DeviceToServerRequestMessageHeader } from '@computerclubsystem/types/messages/devices/declarations/device-to-server-request-message-header.mjs';
+import { LongLivedAccessToken } from '@computerclubsystem/types/entities/long-lived-access-token.mjs';
+import { BusErrorCode } from '@computerclubsystem/types/messages/bus/declarations/bus-error-code.mjs';
+import { MessageError } from '@computerclubsystem/types/messages/declarations/message-error.mjs';
+import { BusCreateLongLivedAccessTokenForTariffReplyMessageBody, createBusCreateLongLivedAccessTokenForTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-long-lived-access-token-for-tariff.messages.mjs';
+import { BusCodeSignInWithLongLivedAccessTokenRequestMessage, createBusCodeSignInWithLongLivedAccessTokenReplyMessage } from '@computerclubsystem/types/messages/bus/bus-code-sign-in-with-long-lived-access-token.messages.mjs';
 
 export class PcConnector {
     wssServer!: WssServer;
@@ -104,6 +119,7 @@ export class PcConnector {
 
     applySystemSettings(systemSettings: SystemSetting[]): void {
         // TODO: Generate objects based on provided system settings
+        this.state.isQrCodeSignInFeatureEnabled = systemSettings.find(x => x.name === SystemSettingsName.feature_qrcode_sign_in_enabled)?.value?.trim() === 'yes';
         const allConnectedClientsData = this.getAllConnectedClientsData();
         const msg = createServerToDeviceDeviceConfigurationNotificationMessage();
         msg.body = this.createServerToDeviceDeviceConfigurationNotificationMessageBody(systemSettings);
@@ -204,6 +220,10 @@ export class PcConnector {
     processDeviceMessage(message: DevicePartialMessage<unknown>, clientData: ConnectedClientData): void {
         const type = message.header.type;
         switch (type) {
+            case DeviceToServerRequestMessageType.createSignInCode: {
+                this.processDeviceToServerCreateSignInCodeRequestMessage(message as DeviceToServerCreateSignInCodeRequestMessage, clientData);
+                break;
+            }
             case DeviceToServerRequestMessageType.changePrepaidTariffPasswordByCustomer: {
                 this.processDeviceToServerChangePrepaidTariffPasswordByCustomerRequestMessage(message as DeviceToServerChangePrepaidTariffPasswordByCustomerRequestMessage, clientData);
                 break;
@@ -220,6 +240,56 @@ export class PcConnector {
                 break;
             }
         }
+    }
+
+    async processDeviceToServerCreateSignInCodeRequestMessage(message: DeviceToServerCreateSignInCodeRequestMessage, clientData: ConnectedClientData): Promise<void> {
+        const replyMsg = createServerToDeviceCreateSignInCodeReplyMessage();
+        if (!this.state.isQrCodeSignInFeatureEnabled) {
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: DeviceMessageErrorCode.qrCodeSignFeatureIsNotEnabled,
+                description: 'QR code sign in feature is not enabled',
+            }] as DeviceMessageError[];
+            this.sendReplyMessageToDevice(replyMsg, message, clientData);
+            return;
+        }
+        const qrCodeServerUrl = this.state.systemSettings.find(x => x.name === SystemSettingsName.feature_qrcode_sign_in_server_public_url)?.value?.trim();
+        const canParseUrl = URL.canParse(qrCodeServerUrl!);
+        if (!canParseUrl) {
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: DeviceMessageErrorCode.qrCodeSignInFeatureUrlIsNotCorrect,
+                description: 'QR code sign in feature URL is not correct. It must start with https://',
+            }];
+            this.sendReplyMessageToDevice(replyMsg, message, clientData);
+            return;
+        }
+
+        const code = this.createUUIDString();
+        const createdAt = this.getNowAsNumber();
+        const codeSignIn: CodeSignIn = {
+            code: code,
+            connectionInstanceId: clientData.connectionInstanceId,
+            createdAt: createdAt,
+        };
+        try {
+            await this.cacheHelper.setCodeSignIn(codeSignIn);
+            replyMsg.body.code = codeSignIn.code;
+            replyMsg.body.remainingSeconds = this.state.codeSignInDurationSeconds;
+            const url = URL.parse(qrCodeServerUrl!)!;
+            url.searchParams.append('sign-in-code', codeSignIn.code);
+            url.searchParams.append('identifier-type', BusCodeSignInIdentifierType.customerCard);
+            replyMsg.body.url = url.toString();
+            replyMsg.body.identifierType = BusCodeSignInIdentifierType.customerCard;
+        } catch (err) {
+            this.logger.error('Error at processOperatorCreateSignInCodeRequestMessage', err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: DeviceMessageErrorCode.internalServerError,
+                description: 'Internal server error',
+            }];
+        }
+        this.sendReplyMessageToDevice(replyMsg, message, clientData);
     }
 
     processDeviceToServerChangePrepaidTariffPasswordByCustomerRequestMessage(message: DeviceToServerChangePrepaidTariffPasswordByCustomerRequestMessage, clientData: ConnectedClientData): void {
@@ -317,12 +387,246 @@ export class PcConnector {
         this.subjectsService.setSharedChannelBusMessageReceived(message);
         const type = message.header.type;
         switch (type) {
+            case MessageType.busCodeSignInWithLongLivedAccessTokenRequest:
+                this.processBusCodeSignInWithLongLivedAccessTokenRequestMessage(message as BusCodeSignInWithLongLivedAccessTokenRequestMessage);
+                break;
+            case MessageType.busCodeSignInWithCredentialsRequest:
+                this.processBusCodeSignInWithCredentialsRequestMessage(message as BusCodeSignInWithCredentialsRequestMessage);
+                break;
+            case MessageType.busGetSignInCodeInfoRequest:
+                this.processBusGetSignInCodeInfoRequestMessage(message as BusGetSignInCodeInfoRequestMessage);
+                break;
             case MessageType.busFilterServerLogsNotification:
                 this.processBusFilterServerLogsNotificationMessage(message as BusFilterServerLogsNotificationMessage);
                 break;
             case MessageType.busAllSystemSettingsNotification:
                 this.processBusAllSystemSettingsNotificationMessage(message as BusAllSystemSettingsNotificationMessage);
                 break;
+        }
+    }
+
+    async processBusCodeSignInWithLongLivedAccessTokenRequestMessage(message: BusCodeSignInWithLongLivedAccessTokenRequestMessage): Promise<void> {
+        // TODO: This function logic will not work if we have multiple service instances, because the message is sent to all of them
+        if (!message.body.code || !message.body.token || message.body.identifierType !== BusCodeSignInIdentifierType.customerCard) {
+            return;
+        }
+        const replyMsg = createBusCodeSignInWithLongLivedAccessTokenReplyMessage();
+        replyMsg.header.correlationId = message.header.correlationId;
+        const cacheItem = await this.cacheHelper.getCodeSignIn(message.body.code);
+        if (!cacheItem) {
+            replyMsg.body.success = false;
+            replyMsg.body.errorMessage = 'Code not found';
+            replyMsg.body.errorCode = BusCodeSignInErrorCode.codeNotFound;
+            replyMsg.header.failure = true;
+            this.publishToSharedChannel(replyMsg);
+            return;
+        }
+        const now = this.getNowAsNumber();
+        if ((now - cacheItem.createdAt) > this.state.codeSignInDurationSeconds * 1000) {
+            replyMsg.body.success = false;
+            replyMsg.body.errorMessage = 'Code has expired';
+            replyMsg.body.errorCode = BusCodeSignInErrorCode.codeHasExpired;
+            replyMsg.header.failure = true;
+            this.publishToSharedChannel(replyMsg);
+            return;
+        }
+
+        const connectedClientsWithConnectionInstanceId = this.getConnectedClientsDataBy(x => x.connectionInstanceId === cacheItem.connectionInstanceId);
+        if (connectedClientsWithConnectionInstanceId.length === 0) {
+            // TODO: This will not work if we have multiple instances of pc-connector
+            //       It might be that another instance owns the connectionInstanceId
+            replyMsg.body.success = false;
+            replyMsg.body.errorMessage = 'Connection has expired';
+            replyMsg.body.errorCode = BusCodeSignInErrorCode.connectionExpired;
+            replyMsg.header.failure = true;
+            this.publishToSharedChannel(replyMsg);
+            return;
+        }
+        // We expect only one item with specified connectionInstanceId
+        const clientData = connectedClientsWithConnectionInstanceId[0];
+        try {
+            // Auth the user with long lived access token
+            const busUserAuthWithLongLivedAccessTokenReq = createBusStartDeviceOnPrepaidTariffByCustomerRequestMessage();
+            busUserAuthWithLongLivedAccessTokenReq.body.token = message.body.token;
+            busUserAuthWithLongLivedAccessTokenReq.body.deviceId = clientData.deviceId!;
+            const busRes = await firstValueFrom(this.publishToDevicesChannelAndWaitForReply<BusStartDeviceOnPrepaidTariffByCustomerReplyMessageBody>(busUserAuthWithLongLivedAccessTokenReq, clientData));
+            if (busRes.header.failure || !busRes.body.success) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = busRes.header.errors;
+                replyMsg.body.success = false;
+                this.publishToSharedChannel(replyMsg);
+                return;
+            }
+            replyMsg.body.success = true;
+            replyMsg.body.identifier = `${busRes.body.tariffId}`;
+            replyMsg.body.remainingSeconds = busRes.body.remainingSeconds;
+            replyMsg.body.identifierType = BusCodeSignInIdentifierType.customerCard;
+            await this.cacheHelper.deleteCodeSignIn(message.body.code);
+            this.publishToSharedChannel(replyMsg);
+        } catch (err) {
+            this.logger.error(`Can't get long lived access token`, err);
+            replyMsg.body.success = false;
+            replyMsg.body.errorCode = BusCodeSignInErrorCode.serverError;
+            replyMsg.body.errorMessage = 'Server error';
+            replyMsg.header.failure = true;
+            this.publishToSharedChannel(replyMsg);
+            return;
+        }
+    }
+
+    async processBusCodeSignInWithCredentialsRequestMessage(message: BusCodeSignInWithCredentialsRequestMessage): Promise<void> {
+        // TODO: This function logic will not work if we have multiple service instances, because the message is sent to all of them
+        if (!message.body.code || !message.body.identifier || !message.body.passwordHash || message.body.identifierType !== BusCodeSignInIdentifierType.customerCard) {
+            return;
+        }
+        const replyMsg = createBusCodeSignInWithCredentialsReplyMessage();
+        replyMsg.header.correlationId = message.header.correlationId;
+        const cacheItem = await this.cacheHelper.getCodeSignIn(message.body.code);
+        if (!cacheItem) {
+            replyMsg.body.success = false;
+            replyMsg.body.errorMessage = 'Code not found';
+            replyMsg.body.errorCode = BusCodeSignInErrorCode.codeNotFound;
+            replyMsg.header.failure = true;
+            this.publishToSharedChannel(replyMsg);
+            return;
+        }
+        const now = this.getNowAsNumber();
+        if ((now - cacheItem.createdAt) > this.state.codeSignInDurationSeconds * 1000) {
+            replyMsg.body.success = false;
+            replyMsg.body.errorMessage = 'Code has expired';
+            replyMsg.body.errorCode = BusCodeSignInErrorCode.codeHasExpired;
+            replyMsg.header.failure = true;
+            this.publishToSharedChannel(replyMsg);
+            return;
+        }
+
+        const connectedClientsWithConnectionInstanceId = this.getConnectedClientsDataBy(x => x.connectionInstanceId === cacheItem.connectionInstanceId);
+        if (connectedClientsWithConnectionInstanceId.length === 0) {
+            // TODO: This will not work if we have multiple instances of pc-connector
+            //       It might be that another instance owns the connectionInstanceId
+            replyMsg.body.success = false;
+            replyMsg.body.errorMessage = 'Connection has expired';
+            replyMsg.body.errorCode = BusCodeSignInErrorCode.connectionExpired;
+            replyMsg.header.failure = true;
+            this.publishToSharedChannel(replyMsg);
+            return;
+        }
+
+        message.body.identifier = message.body.identifier.trim();
+        // We expect only one item with specified connectionInstanceId
+        const clientData = connectedClientsWithConnectionInstanceId[0];
+        try {
+            // Log in the customer card
+            const logInBusReqMsg = createBusStartDeviceOnPrepaidTariffByCustomerRequestMessage();
+            logInBusReqMsg.body.deviceId = clientData.deviceId!;
+            logInBusReqMsg.body.passwordHash = message.body.passwordHash;
+            logInBusReqMsg.body.tariffId = +message.body.identifier;
+            const logInBusRes = await firstValueFrom(this.publishToDevicesChannelAndWaitForReply<BusStartDeviceOnPrepaidTariffByCustomerReplyMessageBody>(logInBusReqMsg, clientData));
+            if (logInBusRes.header.failure || !logInBusRes.body.success) {
+                replyMsg.body.success = false;
+                replyMsg.body.errorMessage = `Can't sign in with code`;
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = logInBusRes.header.errors;
+                // Respond with the error
+                const serverToDeviceReplyMsg = createServerToDeviceStartOnPrepaidTariffReplyMessage();
+                serverToDeviceReplyMsg.body.alreadyInUse = logInBusRes.body.alreadyInUse;
+                serverToDeviceReplyMsg.body.notAllowed = logInBusRes.body.notAllowed;
+                serverToDeviceReplyMsg.body.passwordDoesNotMatch = logInBusRes.body.passwordDoesNotMatch;
+                serverToDeviceReplyMsg.body.remainingSeconds = logInBusRes.body.remainingSeconds;
+                serverToDeviceReplyMsg.body.noRemainingTime = logInBusRes.body.noRemainingTime;
+                serverToDeviceReplyMsg.body.notAvailableForThisDeviceGroup = logInBusRes.body.notAvailableForThisDeviceGroup;
+                serverToDeviceReplyMsg.body.success = logInBusRes.body.success;
+                serverToDeviceReplyMsg.header.failure = logInBusRes.header.failure;
+                const fakeDeviceToServerStartOnPrepaidTariffReqMsg: DeviceToServerStartOnPrepaidTariffRequestMessage = {
+                    header: { type: DeviceToServerRequestMessageType.startOnPrepaidTariff } as DeviceToServerRequestMessageHeader,
+                    body: {} as DeviceToServerStartOnPrepaidTariffRequestMessageBody,
+                };
+                this.sendReplyMessageToDevice(serverToDeviceReplyMsg, fakeDeviceToServerStartOnPrepaidTariffReqMsg, clientData);
+            } else {
+                // Customer card log in succeeded - create long lived token
+                const createLongLivedTokenReqMsg = createBusCreateLongLivedAccessTokenForTariffRequestMessage();
+                createLongLivedTokenReqMsg.body.passwordHash = message.body.passwordHash;
+                createLongLivedTokenReqMsg.body.tariffId = +message.body.identifier;
+                const createLongLivedAccessTokenRes = await firstValueFrom(this.publishToSharedChannelAndWaitForReply<BusCreateLongLivedAccessTokenForTariffReplyMessageBody>(createLongLivedTokenReqMsg, clientData));
+                if (!createLongLivedAccessTokenRes.header.failure) {
+                    const token: LongLivedAccessToken = createLongLivedAccessTokenRes.body.longLivedToken;
+                    replyMsg.body.success = true;
+                    replyMsg.body.token = token.token;
+                    replyMsg.body.identifier = message.body.identifier;
+                    replyMsg.body.identifierType = BusCodeSignInIdentifierType.customerCard;
+                    await this.cacheHelper.deleteCodeSignIn(message.body.code);
+                } else {
+                    replyMsg.header.failure = true;
+                    replyMsg.header.errors = [{
+                        code: BusErrorCode.serverError,
+                        description: 'Server error',
+                    }] as MessageError[];
+                    replyMsg.body.success = false;
+                    replyMsg.body.errorMessage = `Can't create token`;
+                }
+            }
+        } catch (err) {
+            this.logger.error(`Error on code sign in with credentials`, err);
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: DeviceMessageErrorCode.internalServerError,
+                description: 'Internal server error',
+            }];
+        }
+        this.publishToSharedChannel(replyMsg);
+    }
+
+    async processBusGetSignInCodeInfoRequestMessage(message: BusGetSignInCodeInfoRequestMessage): Promise<void> {
+        // TODO: This function logic will not work if we have multiple service instances, because the message is sent to all of them
+        if (!message.body.code || message.body.identifierType !== BusCodeSignInIdentifierType.customerCard) {
+            return;
+        }
+
+        const replyMsg = createBusGetSignInCodeInfoReplyMessage();
+        replyMsg.body.code = message.body.code;
+        replyMsg.body.identifierType = BusCodeSignInIdentifierType.customerCard;
+        replyMsg.header.correlationId = message.header.correlationId;
+        try {
+            const cacheItem = await this.cacheHelper.getCodeSignIn(message.body.code);
+            if (!cacheItem) {
+                replyMsg.body.isValid = false;
+                this.publishToSharedChannel(replyMsg);
+                return;
+            }
+            // Find the connection data for this sign in code
+            const clientData = this.getAllConnectedClientsData().find(x => x.connectionInstanceId === cacheItem.connectionInstanceId);
+            if (!clientData) {
+                replyMsg.body.isValid = false;
+                this.publishToSharedChannel(replyMsg);
+                return;
+            }
+            const now = this.getNowAsNumber();
+            const diff = now - cacheItem.createdAt;
+            if (diff > this.state.codeSignInDurationSeconds * 1000) {
+                replyMsg.body.isValid = false;
+                this.publishToSharedChannel(replyMsg);
+                return;
+            }
+            const validTo = cacheItem.createdAt + this.state.codeSignInDurationSeconds * 1000;
+            if (now > validTo) {
+                replyMsg.body.isValid = false;
+                this.publishToSharedChannel(replyMsg);
+                return;
+            }
+            let remainingSeconds = Math.floor((validTo - now) / 1000);
+            if (remainingSeconds <= 0) {
+                remainingSeconds = 0;
+            }
+            replyMsg.body.remainingSeconds = remainingSeconds;
+            replyMsg.body.isValid = remainingSeconds > 0;
+            this.publishToSharedChannel(replyMsg);
+            return;
+        } catch (err) {
+            this.logger.error(`Can't get sign in code`, err);
+            replyMsg.body.isValid = false;
+            replyMsg.header.failure = true;
+            this.publishToSharedChannel(replyMsg);
+            return;
         }
     }
 
@@ -772,6 +1076,9 @@ export class PcConnector {
                 secondsAfterStoppedBeforeRestart: this.state.defaultSecondsAfterStoppedBeforeRestart,
                 secondsBeforeNotifyingCustomerForSessionEnd: 0,
                 sessionEndNotificationSoundFilePath: null,
+                featureFlags: {
+                    codeSignIn: false,
+                },
             };
             return result;
         }
@@ -792,6 +1099,9 @@ export class PcConnector {
             pingInterval: this.state.defaultClientsToServerPingInterval,
             secondsBeforeNotifyingCustomerForSessionEnd: secondsBeforeNotifyingCustomerForSessionEnd,
             sessionEndNotificationSoundFilePath: sessionEndNotificationSoundFilePath,
+            featureFlags: {
+                codeSignIn: this.state.systemSettings.find(x => x.name === SystemSettingsName.feature_qrcode_sign_in_enabled)?.value?.toLowerCase() == "yes",
+            },
         };
         return result;
     }
@@ -1106,6 +1416,26 @@ export class PcConnector {
     processMainTimerTick(): void {
         this.processConnectivityData(false);
         this.manageLogFiltering();
+        this.cleanUpCodeSignInCacheItems();
+    }
+
+    async cleanUpCodeSignInCacheItems(): Promise<void> {
+        if (!this.state.isQrCodeSignInFeatureEnabled) {
+            return;
+        }
+        const now = this.getNowAsNumber();
+        const diff = now - (this.state.lastCodeSignInCleanUpAt || 0);
+        if (diff > this.state.cleanUpCodeSignInInterval) {
+            this.state.lastCodeSignInCleanUpAt = now;
+            const codeSignInDurationMs = this.state.codeSignInDurationSeconds * 1000;
+            const keys = await this.cacheHelper.getAllCodeSignInKeys();
+            for (const key of keys) {
+                const cacheItem: CodeSignIn | null = await this.cacheHelper.getValue(key);
+                if (cacheItem && ((now - cacheItem.createdAt) > codeSignInDurationMs)) {
+                    await this.cacheHelper.deleteKey(key);
+                }
+            }
+        }
     }
 
     manageLogFiltering(): void {
@@ -1193,6 +1523,16 @@ export class PcConnector {
         }
     }
 
+    getConnectedClientsDataBy(predicate: (clientData: ConnectedClientData) => boolean): ConnectedClientData[] {
+        const result: ConnectedClientData[] = [];
+        for (const item of this.getAllConnectedClientsData()) {
+            if (predicate(item)) {
+                result.push(item);
+            }
+        }
+        return result;
+    }
+
     private createDefaultState(): PcConnectorState {
         // TODO: Get values from environment
         const state: PcConnectorState = {
@@ -1215,6 +1555,10 @@ export class PcConnector {
             defaultCleanUpConnectionsInterval: 10000,
             messageBusReplyTimeout: 5000,
             systemSettings: [],
+            isQrCodeSignInFeatureEnabled: false,
+            codeSignInDurationSeconds: 3 * 60,
+            // 1 minute
+            cleanUpCodeSignInInterval: 1 * 60 * 1000,
         };
         return state;
     }
@@ -1304,4 +1648,9 @@ interface PcConnectorState {
     defaultClientsToServerPingInterval: number;
     defaultSecondsAfterStoppedBeforeRestart: number;
     defaultCleanUpConnectionsInterval: number;
+
+    isQrCodeSignInFeatureEnabled: boolean;
+    codeSignInDurationSeconds: number;
+    cleanUpCodeSignInInterval: number;
+    lastCodeSignInCleanUpAt?: number | null;
 }

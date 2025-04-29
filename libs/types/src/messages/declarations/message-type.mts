@@ -1,5 +1,7 @@
 export const enum MessageType {
     // QR code sign-in
+    busCreateLongLivedAccessTokenForTariffRequest = 'bus-create-long-lived-access-token-for-tariff-request',
+    busCreateLongLivedAccessTokenForTariffReply = 'bus-create-long-lived-access-token-for-tariff-reply',
     busGetSignInCodeInfoRequest = 'bus-get-sign-in-code-info-request',
     busGetSignInCodeInfoReply = 'bus-get-sign-in-code-info-reply',
     busUserAuthWithLongLivedAccessTokenRequest = 'bus-user-auth-with-long-lived-access-token-request',

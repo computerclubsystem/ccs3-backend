@@ -1,4 +1,5 @@
 export enum BusErrorCode {
+    specifyEitherPasswordOrTokenButNotBoth = 'specify-either-password-or-token-but-not-both',
     tokenNotFound = 'token-not-found',
     tokenIsRequired = 'token-is-required',
     fromAndToDatesAreRequired = 'from-and-to-dates-are-required',

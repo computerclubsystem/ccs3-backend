@@ -102,10 +102,11 @@ import { FilterServerLogsItem } from '@computerclubsystem/types/messages/shared-
 import { BusFilterServerLogsNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-filter-server-logs-notification.message.mjs';
 import { BusGetDeviceStatusesRequestMessage, createBusGetDeviceStatusesReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-device-statuses.messages.mjs';
 import { BusGetTariffDeviceGroupsRequestMessage, createBusGetTariffDeviceGroupsReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-tariff-device-groups.messages.mjs';
-import { BusCreateLongLivedAccessTokenForUserRequestMessage, createBusCreateLongLivedAccessTokenForUserReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-long-lived-taccess-oken-for-user.messages.mjs';
+import { BusCreateLongLivedAccessTokenForUserRequestMessage, createBusCreateLongLivedAccessTokenForUserReplyMessage } from '@computerclubsystem/types/messages/bus/bus-create-long-lived-access-token-for-user.messages.mjs';
 import { ILongLivedAccessToken } from './storage/entities/long-lived-access-token.mjs';
 import { BusGetLongLivedAccessTokenRequestMessage, createBusGetLongLivedAccessTokenReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-long-lived-access-token.messages.mjs';
 import { BusUserAuthWithLongLivedAccessTokenRequestMessage, createBusUserAuthWithLongLivedAccessTokenReplyMessage } from '@computerclubsystem/types/messages/bus/bus-user-auth-with-long-lived-access-token.messages.mjs';
+import { BusCreateLongLivedAccessTokenForTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-long-lived-access-token-for-tariff.messages.mjs';
 
 export class StateManager {
     private readonly className = (this as object).constructor.name;
@@ -151,6 +152,9 @@ export class StateManager {
         const type: string = message.header?.type;
         // const notificationMessage = message as unknown as SharedNotificationMessage<TBody>;
         switch (type) {
+            case MessageType.busCreateLongLivedAccessTokenForTariffRequest:
+                this.processBusCreateLongLivedAccessTokenForTariffRequestMessage(message as BusCreateLongLivedAccessTokenForTariffRequestMessage);
+                break;
             case MessageType.busGetLongLivedAccessTokenRequest:
                 this.processBusGetLongLivedAccessTokenRequestMessage(message as BusGetLongLivedAccessTokenRequestMessage);
                 break;
@@ -197,6 +201,64 @@ export class StateManager {
         }
     }
 
+    async processBusCreateLongLivedAccessTokenForTariffRequestMessage(message: BusCreateLongLivedAccessTokenForTariffRequestMessage): Promise<void> {
+        const replyMsg = createBusCreateLongLivedAccessTokenForUserReplyMessage();
+        try {
+            if (!message.body.tariffId || !message.body.passwordHash?.trim()) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.tariffIdIsRequired,
+                    description: 'Tariff id is required',
+                }];
+                this.publishToSharedChannel(replyMsg, message);
+                return;
+            }
+            const tariff = await this.storageProvider.getTariffById(message.body.tariffId);
+            if (!tariff) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userNotFound,
+                    description: `Tariff with Id ${message.body.tariffId} not found`,
+                }];
+                this.publishToSharedChannel(replyMsg, message);
+                return;
+            }
+            if (!tariff.enabled) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userIsNotActive,
+                    description: `Tariff '${tariff.name}' is not active`,
+                }];
+                this.publishToSharedChannel(replyMsg, message);
+                return;
+            }
+            const issuedAt = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
+            const validTo = this.dateTimeHelper.addSeconds(issuedAt, this.state.longLivedTokenDurationSeconds);
+            const token = this.createUUIDString();
+            const storageLongLivedAccessToken: ILongLivedAccessToken = {
+                issued_at: issuedAt,
+                valid_to: validTo,
+                token: token,
+                tariff_id: tariff.id,
+            } as ILongLivedAccessToken;
+            const createdStorageLongLivedAccessToken = await this.storageProvider.setLongLivedAccessToken(storageLongLivedAccessToken);
+            if (createdStorageLongLivedAccessToken) {
+                replyMsg.body.longLivedToken = this.entityConverter.toLongLivedAccessToken(createdStorageLongLivedAccessToken);
+                this.publishToSharedChannel(replyMsg, message);
+            } else {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.serverError,
+                    description: `Can't create long lived access token`,
+                }] as MessageError[];
+                this.publishToSharedChannel(replyMsg, message);
+            }
+        } catch (err) {
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToSharedChannel(replyMsg, message);
+        }
+    }
+
     async processBusCreateLongLivedAccessTokenForUserRequestMessage(message: BusCreateLongLivedAccessTokenForUserRequestMessage): Promise<void> {
         const replyMsg = createBusCreateLongLivedAccessTokenForUserReplyMessage();
         try {
@@ -230,8 +292,7 @@ export class StateManager {
                 return;
             }
             const issuedAt = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
-            const sixMonthsSeconds = 180 * 24 * 60 * 60;
-            const validTo = this.dateTimeHelper.addSeconds(issuedAt, sixMonthsSeconds);
+            const validTo = this.dateTimeHelper.addSeconds(issuedAt, this.state.longLivedTokenDurationSeconds);
             const token = this.createUUIDString();
             const storageLongLivedAccessToken: ILongLivedAccessToken = {
                 issued_at: issuedAt,
@@ -239,7 +300,7 @@ export class StateManager {
                 token: token,
                 user_id: user.id,
             } as ILongLivedAccessToken;
-            const createdStorageLongLivedAccessToken = await this.storageProvider.setLongLivedAccessTokenForUser(storageLongLivedAccessToken);
+            const createdStorageLongLivedAccessToken = await this.storageProvider.setLongLivedAccessToken(storageLongLivedAccessToken);
             if (createdStorageLongLivedAccessToken) {
                 replyMsg.body.longLivedToken = this.entityConverter.toLongLivedAccessToken(createdStorageLongLivedAccessToken);
                 this.publishToSharedChannel(replyMsg, message);
@@ -540,6 +601,7 @@ export class StateManager {
             replyMsg.body.userId = authReplyMsg.body.userId;
             replyMsg.body.username = authReplyMsg.body.username;
             replyMsg.header.errors = authReplyMsg.header.errors;
+            replyMsg.header.failure = authReplyMsg.header.failure;
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.setErrorToReplyMessage(err, message, replyMsg);
@@ -2339,53 +2401,95 @@ export class StateManager {
     async processBusStartDeviceOnPrepaidTariffByCustomerRequestMessage(message: BusStartDeviceOnPrepaidTariffByCustomerRequestMessage): Promise<void> {
         const replyMsg = createBusStartDeviceOnPrepaidTariffByCustomerReplyMessage();
         try {
-            if (!message.body.deviceId) {
+            if (message.body.passwordHash && !message.body.deviceId) {
                 replyMsg.header.failure = true;
-                replyMsg.header.errors = [
-                    { code: BusErrorCode.deviceIdIsRequired, description: 'Device Id is required' },
-                ];
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceIdIsRequired,
+                    description: 'Device Id is required',
+                }];
+                replyMsg.body.notAllowed = true;
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+            if (message.body.passwordHash && !message.body.tariffId) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.tariffIdIsRequired,
+                    description: 'Tariff Id is required',
+                }];
+                replyMsg.body.notAllowed = true;
+                this.publishToDevicesChannel(replyMsg, message);
+                return;
+            }
+            if (message.body.passwordHash && message.body.token) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.specifyEitherPasswordOrTokenButNotBoth,
+                    description: 'Specify either password or token but not both',
+                }];
                 replyMsg.body.notAllowed = true;
                 this.publishToDevicesChannel(replyMsg, message);
                 return;
             }
 
-            const passwordMatches = await this.storageProvider.checkTariffPasswordHash(message.body.tariffId, message.body.passwordHash);
-            if (!passwordMatches) {
-                replyMsg.header.failure = true;
-                replyMsg.header.errors = [
-                    { code: BusErrorCode.tariffIsNotActive, description: 'Password does not match' },
-                ]
-                replyMsg.body.passwordDoesNotMatch = true;
-                this.publishToDevicesChannel(replyMsg, message);
-                return;
+            if (message.body.passwordHash) {
+                const passwordMatches = await this.storageProvider.checkTariffPasswordHash(message.body.tariffId!, message.body.passwordHash);
+                if (!passwordMatches) {
+                    replyMsg.header.failure = true;
+                    replyMsg.header.errors = [{
+                        code: BusErrorCode.tariffIsNotActive,
+                        description: 'Password does not match',
+                    }];
+                    replyMsg.body.passwordDoesNotMatch = true;
+                    this.publishToDevicesChannel(replyMsg, message);
+                    return;
+                }
+            }
+            let storageLongLivedAccessToken: ILongLivedAccessToken | undefined;
+            if (message.body.token) {
+                storageLongLivedAccessToken = await this.storageProvider.getLongLivedAccessToken(message.body.token);
+                if (!storageLongLivedAccessToken || new Date() > new Date(storageLongLivedAccessToken.valid_to)) {
+                    replyMsg.header.failure = true;
+                    replyMsg.header.errors = [{
+                        code: BusErrorCode.tokenNotFound,
+                        description: 'Token is not found or is expired',
+                    }];
+                    replyMsg.body.passwordDoesNotMatch = true;
+                    this.publishToDevicesChannel(replyMsg, message);
+                    return;
+                }
             }
 
-            const currentStorageDeviceStatus = (await this.storageProvider.getDeviceStatus(message.body.deviceId))!;
-            if (currentStorageDeviceStatus.started) {
+            const currentStorageDeviceStatus = await this.storageProvider.getDeviceStatus(message.body.deviceId);
+            if (!currentStorageDeviceStatus || currentStorageDeviceStatus.started) {
                 replyMsg.header.failure = true;
-                replyMsg.header.errors = [
-                    { code: BusErrorCode.deviceAlreadyStarted, description: 'Selected device is already started' },
-                ];
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.deviceAlreadyStarted,
+                    description: 'Selected device is already started',
+                }];
                 replyMsg.body.alreadyInUse = true;
                 this.publishToDevicesChannel(replyMsg, message);
                 return;
             }
+            const tariffId = storageLongLivedAccessToken ? storageLongLivedAccessToken.tariff_id! : message.body.tariffId;
             const allTariffs = await this.getOrCacheAllTariffs();
-            const tariff = allTariffs.find(x => x.id === message.body.tariffId)!;
+            const tariff = allTariffs.find(x => x.id === tariffId)!;
             if (!tariff) {
                 replyMsg.header.failure = true;
-                replyMsg.header.errors = [
-                    { code: BusErrorCode.tariffNotFound, description: 'Selected tariff is not found' },
-                ]
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.tariffNotFound,
+                    description: 'Selected tariff is not found',
+                }];
                 replyMsg.body.notAllowed = true;
                 this.publishToDevicesChannel(replyMsg, message);
                 return;
             }
             if (!this.isPrepaidType(tariff.type)) {
                 replyMsg.header.failure = true;
-                replyMsg.header.errors = [
-                    { code: BusErrorCode.prepaidTariffIsRequired, description: 'Selected tariff is not of prepaid type' },
-                ]
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.prepaidTariffIsRequired,
+                    description: 'Selected tariff is not of prepaid type',
+                }];
                 replyMsg.body.notAllowed = true;
                 this.publishToDevicesChannel(replyMsg, message);
                 return;
@@ -2393,9 +2497,10 @@ export class StateManager {
 
             if (!tariff.enabled) {
                 replyMsg.header.failure = true;
-                replyMsg.header.errors = [
-                    { code: BusErrorCode.tariffIsNotActive, description: 'Selected tariff is not active' },
-                ]
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.tariffIsNotActive,
+                    description: 'Selected tariff is not active',
+                }];
                 replyMsg.body.notAllowed = true;
                 this.publishToDevicesChannel(replyMsg, message);
                 return;
@@ -2404,9 +2509,10 @@ export class StateManager {
             const hasRemainingSeconds = !!(tariff.remainingSeconds! > 0);
             if (!hasRemainingSeconds) {
                 replyMsg.header.failure = true;
-                replyMsg.header.errors = [
-                    { code: BusErrorCode.noRemainingTimeLeft, description: `The tariff '${tariff.name}' has no time remaining` },
-                ]
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.noRemainingTimeLeft,
+                    description: `The tariff '${tariff.name}' has no time remaining`,
+                }];
                 replyMsg.body.noRemainingTime = true;
                 replyMsg.body.remainingSeconds = 0;
                 this.publishToDevicesChannel(replyMsg, message);
@@ -2420,20 +2526,17 @@ export class StateManager {
                 const allDevices = await this.getOrCacheAllDevices();
                 const device = allDevices.find(x => x.id === firstDeviceStartedForTariff.device_id);
                 replyMsg.header.failure = true;
-                replyMsg.header.errors = [
-                    {
-                        code: BusErrorCode.prepaidTariffAlreadyInUse,
-                        description: `The tariff Id ${tariff.id} ('${tariff.name}') is already in use by device Id ${firstDeviceStartedForTariff.device_id} '(${device?.name})'`,
-                    },
-                ];
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.prepaidTariffAlreadyInUse,
+                    description: `The tariff Id ${tariff.id} ('${tariff.name}') is already in use by device Id ${firstDeviceStartedForTariff.device_id} '(${device?.name})'`,
+                }];
                 replyMsg.body.alreadyInUse = true;
                 this.publishToDevicesChannel(replyMsg, message);
                 return;
             }
             const isTariffAvailable = await this.isTariffAvailableForDevice(
-
                 message.body.deviceId,
-                message.body.tariffId,
+                tariff.id,
                 allTariffs,
             );
             if (!isTariffAvailable) {
@@ -2448,7 +2551,7 @@ export class StateManager {
             }
 
             currentStorageDeviceStatus.enabled = true;
-            currentStorageDeviceStatus.start_reason = message.body.tariffId;
+            currentStorageDeviceStatus.start_reason = tariff.id;
             currentStorageDeviceStatus.started = true;
             currentStorageDeviceStatus.started_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
             currentStorageDeviceStatus.stopped_at = null;
@@ -2459,7 +2562,9 @@ export class StateManager {
             await this.refreshDeviceStatuses();
             replyMsg.body.remainingSeconds = tariff.remainingSeconds!;
             replyMsg.body.success = true;
+            replyMsg.body.tariffId = tariff.id;
             this.publishToDevicesChannel(replyMsg, message);
+            // TODO: If token is used, save usage history
         } catch (err) {
             this.logger.warn(`Can't process BusStartDeviceRequestMessage message`, message, err);
             this.setErrorToReplyMessage(err, message, replyMsg);
@@ -3014,6 +3119,11 @@ export class StateManager {
             }
             const user = await this.storageProvider.getUserById(storageLongLivedToken.user_id!);
             if (!user || !user.enabled) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userIsNotActive,
+                    description: 'The specified user is not active',
+                }]
                 replyMsg.body.success = false;
                 return replyMsg;
             }
@@ -3651,6 +3761,8 @@ export class StateManager {
             mainTimerHandle: undefined,
             // 5 minutes
             codeSignInDurationSeconds: 5 * 60,
+            // 180 days
+            longLivedTokenDurationSeconds: 180 * 24 * 60 * 60,
         };
         return state;
     }
@@ -3842,6 +3954,7 @@ interface StateManagerState {
     filterLogsItem?: FilterServerLogsItem | null;
     filterLogsRequestedAt?: number | null;
     codeSignInDurationSeconds: number;
+    longLivedTokenDurationSeconds: number;
 }
 
 interface StateManagerStateSystemSettings {

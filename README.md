@@ -1,14 +1,23 @@
 # Computer Club System 3
 
+Software for managing computer club
+
+# Requirements
+Use dedicated computer for server with:
+- CPU with virtualization support switched on in the BIOS
+- 8GB RAM
+- Windows 11 (or Windows Server 2022) fully updated with WSL2 support.
+- 10GB disk space - may require more space if the database gets large
+
 ## Prerequisites
 - Git - https://git-scm.com/downloads
-- NodeJS >= 20.11.0 - https://nodejs.org/
+- NodeJS >= 22 - https://nodejs.org/
 - NPM >= 10.2.4 (this will be automatically installed with NodeJS)
 - Kubernetes cluster - Look at `Kubernetes cluster installation` in this document
 
 ## Downloading sources
 Sources are required to be able to build applications and create images. Sources must be downloaded on the computer, where the Kubernetes cluster will run (the "server" computer):
-- Create a folder for the CCS3 application (ex. `C:\ccs3-app`)
+- Create a folder for the CCS3 application (like `C:\ccs3-app`)
 - Open command prompt and navigate to this folder
 - Clone the Git repositories:
 ```bash
@@ -20,13 +29,16 @@ git clone https://github.com/computerclubsystem/ccs3-windows-apps.git
 ```bash
 git clone https://github.com/computerclubsystem/ccs3-operator.git
 ```
-- Three folders will be created - `ccs3-backend`, `ccs3-windows-apps` and `ccs3-operator`
+```bash
+git clone https://github.com/computerclubsystem/qrcode-signin.git
+```
+- Four folders will be created - `ccs3-backend`, `ccs3-windows-apps`, `ccs3-operator` and `qrcode-signin`
 
 
 ## Kubernetes cluster installation
-You can use existing Kubernetes cluster or install one on Windows 11 computer. The Kubernetes cluster installation and usage in this document are based on Windows 11 computer, `Rancher Desktop`, `WSL 2`, and `containerd`. Most of the operations on the server require administrative rights:
-- Use Windows 11 22H2 or newer and log in as administrator user
-- Open command prompt and install wsl:
+The Kubernetes cluster installation and usage in this document are based on Windows 11 computer, `Rancher Desktop`, `WSL 2`, and `containerd`. Most of the operations on the server require administrative rights:
+- Log in to the server computer as administrator user
+- Open command prompt as administrator and install wsl:
 ```bash
 wsl --install --no-distribution
 ```
@@ -51,18 +63,22 @@ kubectl config set-context --current --namespace=ccs3
 - Configure your Windows user to log in automatically - https://learn.microsoft.com/en-us/troubleshoot/windows-server/user-profiles-and-logon/turn-on-automatic-logon
 - Configure your Windows to never sleep / hibernate / power off etc.
 - Restart Windows and make sure it auto logs in and Rancher Desktop opens automatically
-- Open command prompt and make sure Kubernetes namespace is `ccs3`:
+- Open command prompt and switch to `ccs3` namespace:
+```bash
+kubectl config set-context --current --namespace=ccs3
+```
+- Show all resources in the `ccs3` namespace
 ```bash
 kubectl get all
 ```
-  - Since we still didn't create anything in this Kubernetes namespace, the result should be `No resources found in ccs3 namespace.`
+- Since we still didn't create anything in this Kubernetes namespace, the result should be `No resources found in ccs3 namespace.`
 
 ## Certificates
 CCS3 uses secure communication which requires certificates files to be created for every system component. Certificates require passwords - use strong passwords and keep them in a safe place.
 
 Certificate files creation in this document is based on Linux `openssl`. 
 
-### Create CA certificate which will be used later for signing other certificates
+### Create CA certificate which will be used later for signing other certificates (look at `certificates/README.md`)
 It is better to create and keep all the certificates on another machine. If you have another machine with Windows, you can enable WSL 2 and install Ubuntu distribution:
 - Open command prompt and install wsl:
 ```bash
@@ -162,6 +178,8 @@ npm run apps/pc-connector:install-deps
 npm run apps/pc-connector:build
 npm run apps/operator-connector:install-deps
 npm run apps/operator-connector:build
+npm run apps/wrcode-signin:install-deps
+npm run apps/wrcode-signin:build
 ```
 The results can be found in the `dist` folder in the corresponding app (like `state-manager/dist` for the `state-manager` app).
 
@@ -175,6 +193,7 @@ npm run libs/websocket-server:build-watch
 npm run apps/state-manager:build-watch
 npm run apps/pc-connector:build-watch
 npm run apps/operator-connector:build-watch
+npm run apps/qrcode-signin:build-watch
 ```
 
 After a source code change of any of them, the debugging session must be restarted.

@@ -1,6 +1,6 @@
 FROM ccs3/caws-static-files:latest AS caws
 
-FROM nginx:1.27.3-alpine-slim
+FROM nginx:1.27.5-alpine-slim
 COPY nginx.conf /etc/nginx
 COPY health-check.txt /usr/share/nginx/html
 COPY --from=caws /usr/ccs3-zipped-files /usr/share/nginx/html

@@ -13,7 +13,7 @@ export interface ApiGetSignInCodeInfoResponseBody {
     code: string;
     identifierType: ApiCodeSignInIdentifierType;
     isValid: boolean;
-    expiresInSeconds?: number | null;
+    remainingSeconds?: number | null;
 }
 
 

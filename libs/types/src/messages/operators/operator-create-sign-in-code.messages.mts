@@ -11,7 +11,7 @@ export interface OperatorCreateSignInCodeReplyMessageBody {
     code: string;
     url: string;
     identifierType: BusCodeSignInIdentifierType;
-    validTo: number;
+    remainingSeconds: number;
 }
 
 export type OperatorCreateSignInCodeReplyMessage = OperatorReplyMessage<OperatorCreateSignInCodeReplyMessageBody>;
