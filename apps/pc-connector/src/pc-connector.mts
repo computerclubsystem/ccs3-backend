@@ -449,6 +449,7 @@ export class PcConnector {
             const busUserAuthWithLongLivedAccessTokenReq = createBusStartDeviceOnPrepaidTariffByCustomerRequestMessage();
             busUserAuthWithLongLivedAccessTokenReq.body.token = message.body.token;
             busUserAuthWithLongLivedAccessTokenReq.body.deviceId = clientData.deviceId!;
+            busUserAuthWithLongLivedAccessTokenReq.body.ipAddress = message.body.ipAddress;
             const busRes = await firstValueFrom(this.publishToDevicesChannelAndWaitForReply<BusStartDeviceOnPrepaidTariffByCustomerReplyMessageBody>(busUserAuthWithLongLivedAccessTokenReq, clientData));
             if (busRes.header.failure || !busRes.body.success) {
                 replyMsg.header.failure = true;

@@ -37,6 +37,8 @@ import { IDeviceGroup } from 'src/storage/entities/device-group.mjs';
 import { DeviceTransferQueryHelper } from './device-transfer-query-helper.mjs';
 import { LongLivedAccessTokenQueryHelper } from './long-lived-access-token-query-helper.mjs';
 import { ILongLivedAccessToken } from 'src/storage/entities/long-lived-access-token.mjs';
+import { LongLivedAccessTokenUsageQueryHelper } from './long-lived-access-token-usage-query-helper.mjs';
+import { ILongLivedAccessTokenUsage } from 'src/storage/entities/long-lived-access-token-usage.mjs';
 
 export class QueryUtils {
     private readonly helpers = {
@@ -62,7 +64,12 @@ export class QueryUtils {
         tariffInDeviceGroup: new TariffInDeviceGroupQueryHelper(),
         deviceTransfer: new DeviceTransferQueryHelper(),
         longLivedAccessToken: new LongLivedAccessTokenQueryHelper(),
+        longLivedAccessTokenUsage: new LongLivedAccessTokenUsageQueryHelper(),
     };
+
+    addLongLivedAccessTokenUsage(longLivedAccessTokenUsage: ILongLivedAccessTokenUsage): IQueryTextWithParamsResult {
+        return this.helpers.longLivedAccessTokenUsage.addLongLivedAccessTokenUsage(longLivedAccessTokenUsage);
+    }
 
     getLongLivedAccessToken(token: string): IQueryTextWithParamsResult {
         return this.helpers.longLivedAccessToken.getLongLivedAccessToken(token);

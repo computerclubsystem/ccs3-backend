@@ -1,4 +1,5 @@
 export enum BusErrorCode {
+    tokenExpired = 'token-expired',
     specifyEitherPasswordOrTokenButNotBoth = 'specify-either-password-or-token-but-not-both',
     tokenNotFound = 'token-not-found',
     tokenIsRequired = 'token-is-required',

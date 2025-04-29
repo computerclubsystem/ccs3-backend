@@ -3,6 +3,8 @@ import { Message } from '../declarations/message.mjs';
 
 export interface BusUserAuthWithLongLivedAccessTokenRequestMessageBody {
     token: string
+    ipAddress?: string | null;
+    deviceId?: number | null;
 }
 
 export type BusUserAuthWithLongLivedAccessTokenRequestMessage = Message<BusUserAuthWithLongLivedAccessTokenRequestMessageBody>;

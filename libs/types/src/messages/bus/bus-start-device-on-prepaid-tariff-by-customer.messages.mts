@@ -8,6 +8,8 @@ export interface BusStartDeviceOnPrepaidTariffByCustomerRequestMessageBody {
     // Do not provide passwordHash if token is provided
     passwordHash?: string | null;
     token?: string | null;
+    // In case QR code sign in is used
+    ipAddress?: string | null;
 }
 
 export type BusStartDeviceOnPrepaidTariffByCustomerRequestMessage = Message<BusStartDeviceOnPrepaidTariffByCustomerRequestMessageBody>;

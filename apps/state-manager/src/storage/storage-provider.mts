@@ -24,8 +24,10 @@ import { IUserProfileSettingWithValue } from './entities/user-profile-setting-wi
 import { IDeviceGroup } from './entities/device-group.mjs';
 import { ITariffInDeviceGroup } from './entities/tariff-in-device-group.mjs';
 import { ILongLivedAccessToken } from './entities/long-lived-access-token.mjs';
+import { ILongLivedAccessTokenUsage } from './entities/long-lived-access-token-usage.mjs';
 
 export interface StorageProvider {
+    addLongLivedAccessTokenUsage(longLivedAccessTokenUsage: ILongLivedAccessTokenUsage): Promise<ILongLivedAccessTokenUsage | undefined>;
     getLongLivedAccessToken(token: string): Promise<ILongLivedAccessToken | undefined>;
     setLongLivedAccessToken(longLivedToken: ILongLivedAccessToken): Promise<ILongLivedAccessToken | undefined>;
     getTariffDeviceGroups(tariffId: number): Promise<number[]>;

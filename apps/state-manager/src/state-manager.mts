@@ -107,6 +107,8 @@ import { ILongLivedAccessToken } from './storage/entities/long-lived-access-toke
 import { BusGetLongLivedAccessTokenRequestMessage, createBusGetLongLivedAccessTokenReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-long-lived-access-token.messages.mjs';
 import { BusUserAuthWithLongLivedAccessTokenRequestMessage, createBusUserAuthWithLongLivedAccessTokenReplyMessage } from '@computerclubsystem/types/messages/bus/bus-user-auth-with-long-lived-access-token.messages.mjs';
 import { BusCreateLongLivedAccessTokenForTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-long-lived-access-token-for-tariff.messages.mjs';
+import { ILongLivedAccessTokenUsage } from './storage/entities/long-lived-access-token-usage.mjs';
+import { LongLivedAccessToken } from '@computerclubsystem/types/entities/long-lived-access-token.mjs';
 
 export class StateManager {
     private readonly className = (this as object).constructor.name;
@@ -603,6 +605,24 @@ export class StateManager {
             replyMsg.header.errors = authReplyMsg.header.errors;
             replyMsg.header.failure = authReplyMsg.header.failure;
             this.publishToOperatorsChannel(replyMsg, message);
+            if (replyMsg.body.success && authReplyMsg.body.longLivedAccessToken) {
+                // Save success token usage
+                try {
+                    const longLivedAccessToken: LongLivedAccessToken = authReplyMsg.body.longLivedAccessToken;
+                    const storageLongLivedAccessTokenUsage: ILongLivedAccessTokenUsage = {
+                        token: message.body.token,
+                        used_at: this.dateTimeHelper.getCurrentUTCDateTimeAsISOString(),
+                        device_id: message.body.deviceId,
+                        tariff_id: longLivedAccessToken?.tariffId,
+                        user_id: longLivedAccessToken?.userId,
+                        ip_address: message.body.ipAddress,
+                        valid_to: longLivedAccessToken.validTo,
+                    } as ILongLivedAccessTokenUsage;
+                    await this.storageProvider.addLongLivedAccessTokenUsage(storageLongLivedAccessTokenUsage);
+                } catch (err) {
+                    this.logger.warn('Cannot save long lived access token usage', err);
+                }
+            }
         } catch (err) {
             this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
@@ -2564,7 +2584,23 @@ export class StateManager {
             replyMsg.body.success = true;
             replyMsg.body.tariffId = tariff.id;
             this.publishToDevicesChannel(replyMsg, message);
-            // TODO: If token is used, save usage history
+            if (replyMsg.body.success && storageLongLivedAccessToken) {
+                // If token is used, save usage history
+                try {
+                    const storageLongLivedAccessTokenUsage: ILongLivedAccessTokenUsage = {
+                        token: message.body.token,
+                        used_at: this.dateTimeHelper.getCurrentUTCDateTimeAsISOString(),
+                        device_id: message.body.deviceId,
+                        tariff_id: storageLongLivedAccessToken.tariff_id,
+                        user_id: storageLongLivedAccessToken.user_id,
+                        ip_address: message.body.ipAddress,
+                        valid_to: storageLongLivedAccessToken.valid_to,
+                    } as ILongLivedAccessTokenUsage;
+                    await this.storageProvider.addLongLivedAccessTokenUsage(storageLongLivedAccessTokenUsage);
+                } catch (err) {
+                    this.logger.warn('Cannot save long lived access token usage', err);
+                }
+            }
         } catch (err) {
             this.logger.warn(`Can't process BusStartDeviceRequestMessage message`, message, err);
             this.setErrorToReplyMessage(err, message, replyMsg);
@@ -3114,6 +3150,11 @@ export class StateManager {
             }
             const hasExpired = Date.now() > new Date(storageLongLivedToken.valid_to).getTime();
             if (hasExpired) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.tokenExpired,
+                    description: 'The specified token has expired',
+                }];
                 replyMsg.body.success = false;
                 return replyMsg;
             }
@@ -3123,7 +3164,7 @@ export class StateManager {
                 replyMsg.header.errors = [{
                     code: BusErrorCode.userIsNotActive,
                     description: 'The specified user is not active',
-                }]
+                }];
                 replyMsg.body.success = false;
                 return replyMsg;
             }
@@ -3132,6 +3173,7 @@ export class StateManager {
             replyMsg.body.userId = storageLongLivedToken.user_id;
             replyMsg.body.permissions = await this.storageProvider.getUserPermissions(user.id);
             replyMsg.body.username = user.username;
+            replyMsg.body.longLivedAccessToken = this.entityConverter.toLongLivedAccessToken(storageLongLivedToken);
             return replyMsg;
         } catch (err) {
             this.logger.warn(`Can't process getBusUserAuthReplyMessageForLongLivedToken message`, err);

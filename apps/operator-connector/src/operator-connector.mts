@@ -1742,6 +1742,9 @@ export class OperatorConnector {
             // Auth the user with long lived access token
             const busUserAuthWithLongLivedAccessTokenReq = createBusUserAuthWithLongLivedAccessTokenRequestMessage();
             busUserAuthWithLongLivedAccessTokenReq.body.token = message.body.token;
+            busUserAuthWithLongLivedAccessTokenReq.body.ipAddress = message.body.ipAddress;
+            // Operator authentications are not from devices defined in the system
+            busUserAuthWithLongLivedAccessTokenReq.body.deviceId = null;
             const busRes = await firstValueFrom(this.publishToOperatorsChannelAndWaitForReply<BusUserAuthWithLongLivedAccessTokenReplyMessageBody>(busUserAuthWithLongLivedAccessTokenReq, clientData));
             if (busRes.header.failure || !busRes.body.success) {
                 replyMsg.header.failure = true;

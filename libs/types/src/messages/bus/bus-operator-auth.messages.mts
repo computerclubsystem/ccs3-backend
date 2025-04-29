@@ -1,3 +1,4 @@
+import { LongLivedAccessToken } from 'src/entities/long-lived-access-token.mjs';
 import { MessageType } from '../declarations/message-type.mjs';
 import { Message } from '../declarations/message.mjs';
 
@@ -24,6 +25,7 @@ export interface BusUserAuthReplyMessageBody {
     // token?: string;
     userId?: number;
     username?: string | null;
+    longLivedAccessToken?: LongLivedAccessToken;
 }
 
 export type BusUserAuthReplyMessage = Message<BusUserAuthReplyMessageBody>;
