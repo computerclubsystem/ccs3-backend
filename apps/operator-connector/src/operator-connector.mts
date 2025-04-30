@@ -1452,7 +1452,7 @@ export class OperatorConnector {
         const mergedRoundTripData: OperatorConnectionRoundTripData = {
             ...authTokenCacheValue.roundtripData,
             ...this.createRoundTripDataFromConnectedClientData(clientData),
-        }
+        };
         authTokenCacheValue.roundtripData = mergedRoundTripData;
         authTokenCacheValue.tokenExpiresAt = authTokenCacheValue.setAt + this.getTokenExpirationMilliseconds();
         refreshTokenReplyMsg.body.tokenExpiresAt = authTokenCacheValue.tokenExpiresAt;
@@ -1561,7 +1561,7 @@ export class OperatorConnector {
         const mergedRoundTripData: OperatorConnectionRoundTripData = {
             ...authTokenCacheValue.roundtripData,
             ...this.createRoundTripDataFromConnectedClientData(clientData),
-        }
+        };
         authTokenCacheValue.roundtripData = mergedRoundTripData;
         // TODO: Get token expiration from configuration
         // The token expiration time is returned in seconds
@@ -2111,6 +2111,7 @@ export class OperatorConnector {
         keys.forEach(key => {
             const value = obj[key];
             if (value === null || value === undefined) {
+                // @typescript-eslint/no-dynamic-delete
                 delete obj[key];
             }
         });

@@ -1,7 +1,5 @@
-const CHANNEL_NAME_PREFIX = 'ccs3/';
-
 export const enum ChannelName {
-    shared = `${CHANNEL_NAME_PREFIX}shared`,
-    devices = `${CHANNEL_NAME_PREFIX}devices`,
-    operators = `${CHANNEL_NAME_PREFIX}operators`,
+    shared = `ccs3/shared`,
+    devices = `ccs3/devices`,
+    operators = `ccs3/operators`,
 }

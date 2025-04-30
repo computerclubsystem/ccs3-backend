@@ -663,11 +663,29 @@ export class StateManager {
                 return;
             }
             const fromDate = this.dateTimeHelper.convertToUTC(message.body.fromDate);
+            if (!fromDate) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.fromAndToDatesAreRequired,
+                    description: 'From and To dates are required',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
             const toDate = this.dateTimeHelper.convertToUTC(message.body.toDate);
+            if (!toDate) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.fromAndToDatesAreRequired,
+                    description: 'From and To dates are required',
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
 
             const storageDeviceSessions = await this.storageProvider.getDeviceSessions(
-                fromDate!,
-                toDate!,
+                fromDate,
+                toDate,
                 message.body.userId,
                 message.body.deviceId,
                 message.body.tariffId,
@@ -1078,8 +1096,17 @@ export class StateManager {
                 }
             }
             const storageUser = await this.storageProvider.getUserById(message.body.userId);
+            if (!storageUser) {
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.userNotFound,
+                    description: `User with ID ${message.body.userId} is not found`,
+                }];
+                this.publishToOperatorsChannel(replyMsg, message);
+                return;
+            }
             replyMsg.body.settings = profileSettings;
-            replyMsg.body.username = storageUser!.username;
+            replyMsg.body.username = storageUser.username;
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.setErrorToReplyMessage(err, message, replyMsg);
@@ -1159,7 +1186,7 @@ export class StateManager {
                 started_at: null,
                 stopped_at: null,
                 total: null,
-            }
+            };
             // Create record in device statuses database table
             await this.storageProvider.addOrUpdateDeviceStatusEnabled(storageDeviceStatus);
             this.logger.log(`New device created. Device Id ${createdStorageDevice.id}`);
@@ -1359,7 +1386,7 @@ export class StateManager {
             const username = isPrepaidTariff ? '' : (allUsersMap.get(userId!)?.username || '');
             const startedDeviceTotal = isPrepaidTariff ? 0 : (startedDevice.total || 0);
             runningSessionsTotal = this.roundAmount(runningSessionsTotal + startedDeviceTotal);
-            let mapItem = userWithTotalAndCountRunningMap.get(userId)
+            let mapItem = userWithTotalAndCountRunningMap.get(userId);
             if (mapItem === undefined) {
                 mapItem = {
                     count: 1,
@@ -1771,7 +1798,7 @@ export class StateManager {
             const replyDeviceContinuation = this.entityConverter.toDeviceContinuation(createdDeviceContinuation);
             replyDeviceContinuation.requestedAt = this.dateTimeHelper.getNumberFromISOStringDateTime(createdDeviceContinuation.requested_at)!;
             // TODO: Refresh only this device status
-            await this.refreshDeviceStatuses()
+            await this.refreshDeviceStatuses();
             replyMsg.body.deviceContinuation = replyDeviceContinuation;
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
@@ -2288,7 +2315,7 @@ export class StateManager {
         const replyMsg = createBusGetAllUsersReplyMessage();
         try {
             const allStorageUsers = await this.storageProvider.getAllUsers();
-            const allUsers = allStorageUsers.map(x => this.entityConverter.toUser(x))
+            const allUsers = allStorageUsers.map(x => this.entityConverter.toUser(x));
             replyMsg.body.users = allUsers;
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
@@ -2637,7 +2664,7 @@ export class StateManager {
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [
                     { code: BusErrorCode.userIdIsRequired, description: 'User Id is required to start device' },
-                ]
+                ];
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
@@ -2647,7 +2674,7 @@ export class StateManager {
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [
                     { code: BusErrorCode.deviceAlreadyStarted, description: 'Selected device is already started' },
-                ]
+                ];
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
@@ -2657,7 +2684,7 @@ export class StateManager {
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [
                     { code: BusErrorCode.tariffNotFound, description: 'Selected tariff is not found' },
-                ]
+                ];
                 this.publishToDevicesChannel(replyMsg, message);
                 return;
             }
@@ -2665,7 +2692,7 @@ export class StateManager {
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [
                     { code: BusErrorCode.tariffIsNotActive, description: `Specified tariff is not active` },
-                ]
+                ];
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
@@ -2687,7 +2714,7 @@ export class StateManager {
                     replyMsg.header.failure = true;
                     replyMsg.header.errors = [
                         { code: BusErrorCode.cantUseTheTariffNow, description: `Can't use the tariff right now` },
-                    ]
+                    ];
                     this.publishToOperatorsChannel(replyMsg, message);
                     return;
                 }
@@ -2699,7 +2726,7 @@ export class StateManager {
                     replyMsg.header.failure = true;
                     replyMsg.header.errors = [
                         { code: BusErrorCode.noRemainingTimeLeft, description: `The tariff '${tariff.name}' has no time remaining` },
-                    ]
+                    ];
                     this.publishToOperatorsChannel(replyMsg, message);
                     return;
                 }
@@ -2715,7 +2742,7 @@ export class StateManager {
                             code: BusErrorCode.prepaidTariffAlreadyInUse,
                             description: `The tariff Id ${tariff.id} ('${tariff.name}') is already in use by device Id ${firstDeviceStartedForTariff.device_id} '(${device?.name})'`,
                         },
-                    ]
+                    ];
                     this.publishToOperatorsChannel(replyMsg, message);
                     return;
                 }
@@ -2728,7 +2755,7 @@ export class StateManager {
                         replyMsg.header.failure = true;
                         replyMsg.header.errors = [
                             { code: BusErrorCode.cantStartTheTariffNow, description: `Can't start the tariff right now` },
-                        ]
+                        ];
                         this.publishToOperatorsChannel(replyMsg, message);
                         return;
                     }
@@ -3230,7 +3257,7 @@ export class StateManager {
                 started_at: null,
                 stopped_at: null,
                 total: null,
-            }
+            };
             // Create record in device statuses database table
             await this.storageProvider.addOrUpdateDeviceStatusEnabled(storageDeviceStatus);
             this.logger.log(`New device created. Device Id ${createdDevice.id}`);
@@ -3240,8 +3267,8 @@ export class StateManager {
         }
     }
 
-    private getUserValidationMessageErrors(user: User, idRequired: boolean = false): MessageError[] | undefined {
-        let result: MessageError[] | undefined
+    private getUserValidationMessageErrors(user: User, idRequired = false): MessageError[] | undefined {
+        let result: MessageError[] | undefined;
         if (this.isWhiteSpace(user?.username)) {
             result = [{
                 code: BusErrorCode.usernameIsRequired,
@@ -3261,8 +3288,8 @@ export class StateManager {
         return undefined;
     }
 
-    private getRoleValidationMessageErrors(role: Role, idRequired: boolean = false): MessageError[] | undefined {
-        let result: MessageError[] | undefined
+    private getRoleValidationMessageErrors(role: Role, idRequired = false): MessageError[] | undefined {
+        let result: MessageError[] | undefined;
         if (this.isWhiteSpace(role?.name)) {
             result = [{
                 code: BusErrorCode.roleNameIsRequired,

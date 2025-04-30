@@ -156,7 +156,7 @@ export class UpdateQueryBuilder extends QueryBuilderBase {
             columnName,
             value,
             parameterName: `$${this.updateColumnsWithValues.length + 1}`,
-        }
+        };
         this.updateColumnsWithValues.push(result);
         return result;
     }

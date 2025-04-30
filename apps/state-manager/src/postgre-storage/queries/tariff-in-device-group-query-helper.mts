@@ -39,7 +39,7 @@ export class TariffInDeviceGroupQueryHelper {
             text: fullQueryText,
             // TODO: Params are not needed because we replaced $1, $2 parameters with their values - instead return multiple lines with their parameters
             params: undefined,
-        }
+        };
     }
 
     private readonly addDeviceGroupToTariffQueryText = `
@@ -74,7 +74,7 @@ export class TariffInDeviceGroupQueryHelper {
             text: fullQueryText,
             // TODO: Params are not needed because we replaced $1, $2 parameters with their values - instead return multiple lines with their parameters
             params: undefined,
-        }
+        };
     }
 
     private readonly addTariffToDeviceGroupQueryText = `

@@ -42,9 +42,11 @@ export class TariffHelper {
         }
         const currentDayMinute = this.getCurrentDayMinute();
         if (tariff.type === TariffType.fromTo) {
-            const isCurrentDayMinuteInTariffInterval = this.isDayMinuteInInterval(currentDayMinute, tariff.fromTime!, tariff.toTime!);
+            const fromTime = tariff.fromTime!;
+            const toTime = tariff.toTime!;
+            const isCurrentDayMinuteInTariffInterval = this.isDayMinuteInInterval(currentDayMinute, fromTime, toTime);
             if (!isCurrentDayMinuteInTariffInterval) {
-                const tariffFromTime = tariff.fromTime!;
+                const tariffFromTime = toTime;
                 if (tariffFromTime > currentDayMinute) {
                     result.availableInMinutes = tariffFromTime - currentDayMinute;
                 } else {

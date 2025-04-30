@@ -12,7 +12,7 @@ export class WssServer {
     private clientConnectionsTotal = 0;
     private connectionId = 0;
     private httpsServer!: https.Server;
-    private config!: WssServerConfig
+    private config!: WssServerConfig;
     private emitter = new EventEmitter();
 
     start(config: WssServerConfig): void {

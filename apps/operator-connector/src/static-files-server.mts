@@ -9,7 +9,7 @@ export class StaticFilesServer {
     private eventEmitter = new EventEmitter();
     private resolvedPath = '';
     private basePath = '';
-    private readonly mimeMap: { [key: string]: string } = {};
+    private readonly mimeMap: Record<string, string> = {};
     private totalRequests = 0;
     private reqHandler = (req: http.IncomingMessage, res: http.ServerResponse): void => this.requestCallback(req, res);
 
@@ -194,8 +194,8 @@ export class StaticFilesServer {
         response.end('Internal Server Error');
     }
 
-    private createMimeMap(overwrites?: { [key: string]: string }): { [key: string]: string } {
-        const map: { [key: string]: string } = {
+    private createMimeMap(overwrites?: Record<string, string>): Record<string, string> {
+        const map: Record<string, string> = {
             'css': 'text/css',
             'gif': 'image/gif',
             'html': 'text/html',
@@ -211,7 +211,6 @@ export class StaticFilesServer {
             'txt': 'text/plain',
             'woff': 'font/woff',
             'woff2': 'font/woff2',
-            // tslint:disable-next-line:object-literal-sort-keys
             '.': 'application/octet-stream',
             '*': 'application/octet-stream'
         };
@@ -270,7 +269,7 @@ export class StaticFilesServer {
 export interface IStaticFilesServerConfig {
     path: string;
     defaultFileName: string;
-    mimeMap?: { [key: string]: string };
+    mimeMap?: Record<string, string>;
     notFoundFile: string;
     responseHeaders?: Record<string, string>;
 }

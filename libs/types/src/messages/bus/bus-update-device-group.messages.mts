@@ -29,5 +29,5 @@ export function createBusUpdateDeviceGroupReplyMessage(): BusUpdateDeviceGroupRe
         header: { type: MessageType.busUpdateDeviceGroupReply },
         body: {} as BusUpdateDeviceGroupReplyMessageBody,
     };
-    return msg
+    return msg;
 };

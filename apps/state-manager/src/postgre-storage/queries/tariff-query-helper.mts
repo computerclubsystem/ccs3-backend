@@ -69,12 +69,12 @@ export class TariffQueryHelper {
             params = [
                 types,
             ];
-            queryTextWhere = 'WHERE type = ANY($1)'
+            queryTextWhere = 'WHERE type = ANY($1)';
         }
         return {
             text: this.getAllTariffsQueryText + ' ' + queryTextWhere,
             params: params,
-        }
+        };
     }
 
     getTariffByIdQueryData(tariffId: number): IQueryTextWithParamsResult {
@@ -223,7 +223,7 @@ export class TariffQueryHelper {
         return {
             text: queryText,
             params: params,
-        }
+        };
     }
 
     private getReturningColumnNames(): ColumnName[] {

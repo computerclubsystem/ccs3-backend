@@ -898,7 +898,7 @@ export class PcConnector {
                     }
                 }
                 if (!customHttpToUdpProxyRequestHeaders) {
-                    const customHttpToUdpProxyRequestHeaderLine = trimmedLines.find(x => x.startsWith('CustomHttpToUdpProxyRequestHeaders='))
+                    const customHttpToUdpProxyRequestHeaderLine = trimmedLines.find(x => x.startsWith('CustomHttpToUdpProxyRequestHeaders='));
                     if (customHttpToUdpProxyRequestHeaderLine) {
                         const customHeaderParts = customHttpToUdpProxyRequestHeaderLine.split('=', 2);
                         customHttpToUdpProxyRequestHeaders = customHeaderParts[1];
@@ -1477,7 +1477,7 @@ export class PcConnector {
     }
 
     getDiffInSeconds(now: number, otherValue: number): number {
-        const seconds = Math.floor((now - otherValue) / 1000)
+        const seconds = Math.floor((now - otherValue) / 1000);
         return seconds;
     }
 

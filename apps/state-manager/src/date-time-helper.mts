@@ -28,7 +28,7 @@ export class DateTimeHelper {
             const toDate = startingDate.set({ hour: hours, minute: minutes, second: 0, millisecond: 0 });
             const currentDate = this.getNow();
             result.isAfter = currentDate >= toDate;
-            result.totalTimeSeconds = Math.floor(currentDate.diff(startingDate).as('seconds'))
+            result.totalTimeSeconds = Math.floor(currentDate.diff(startingDate).as('seconds'));
             if (!result.isAfter) {
                 result.remainingSeconds = Math.floor(toDate.diff(currentDate).as('seconds'));
                 result.expectedEndAt = currentDate.plus(Duration.fromMillis(result.remainingSeconds * 1000)).toMillis();

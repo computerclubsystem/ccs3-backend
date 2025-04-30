@@ -22,7 +22,7 @@ export class TariffValidator {
 
         switch (tariff.type) {
             case TariffType.duration: {
-                const isDurationPositive = tariff.duration! > 0;
+                const isDurationPositive = tariff.duration && tariff.duration > 0;
                 if (!isDurationPositive) {
                     result.errorCode = ValidateTariffErrorCode.durationMustBeGreaterThanZero;
                     result.errorMessage = `Duration '${tariff.duration}' must be positive`;
@@ -58,7 +58,7 @@ export class TariffValidator {
                 break;
             }
             case TariffType.prepaid: {
-                const isDurationPositive = tariff.duration! > 0;
+                const isDurationPositive = tariff.duration && tariff.duration > 0;
                 if (!isDurationPositive) {
                     result.errorCode = ValidateTariffErrorCode.durationMustBeGreaterThanZero;
                     result.errorMessage = `Duration '${tariff.duration}' must be positive`;

@@ -11,7 +11,7 @@ export class SystemSettingsValidator {
             const settingName: SystemSettingsName = item.name as SystemSettingsName;
             switch (settingName) {
                 case SystemSettingsName.device_status_refresh_interval: {
-                    const val = +item.value!;
+                    const val = item.value ? +item.value : 0;
                     const isValid = val > 0 && val <= 30;
                     if (!isValid) {
                         result.failed = true;
@@ -22,8 +22,8 @@ export class SystemSettingsValidator {
                     break;
                 }
                 case SystemSettingsName.free_seconds_at_start: {
-                    const val = +item.value!;
-                    const isValid = !this.isNullOrWhiteSpace(item.value) && val >= 0;
+                    const val = item.value ? +item.value : -1;
+                    const isValid = val >= 0;
                     if (!isValid) {
                         result.failed = true;
                         result.errorCode = ValidateNameWithValuesErrorCode.outOfRange;
@@ -39,7 +39,7 @@ export class SystemSettingsValidator {
                     break;
                 }
                 case SystemSettingsName.token_duration: {
-                    const val = +item.value!;
+                    const val = item.value ? +item.value : 0;
                     const isValid = val >= 60;
                     if (!isValid) {
                         result.failed = true;
@@ -50,8 +50,8 @@ export class SystemSettingsValidator {
                     break;
                 }
                 case SystemSettingsName.seconds_before_restarting_stopped_computers: {
-                    const val = +item.value!;
-                    const isValid = !this.isNullOrWhiteSpace(item.value) && val >= 0;
+                    const val = item.value ? +item.value : -1;
+                    const isValid = val >= 0;
                     if (!isValid) {
                         result.failed = true;
                         result.errorCode = ValidateNameWithValuesErrorCode.outOfRange;
@@ -62,13 +62,13 @@ export class SystemSettingsValidator {
                 }
                 case SystemSettingsName.seconds_before_notifying_customers_for_session_end: {
                     // This setting can have two parts - number and path to a file separated with comma
-                    if (this.isNullOrWhiteSpace(item.value)) {
+                    if (!item.value || this.isNullOrWhiteSpace(item.value)) {
                         result.failed = true;
                         result.errorCode = ValidateNameWithValuesErrorCode.outOfRange;
                         result.errorMessage = this.getOutOfRangeErrorMessage(item) + '. Valid values are >= 0';
                         return result;
                     }
-                    const parts = item.value!.split(',', 2).map(x => x.trim());
+                    const parts = item.value.split(',', 2).map(x => x.trim());
                     const seconds = +parts[0];
                     const isSecondsValueValid = seconds >= 0;
                     if (!isSecondsValueValid) {

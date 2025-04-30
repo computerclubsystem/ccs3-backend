@@ -21,5 +21,5 @@ export function createOperatorUpdateDeviceGroupReplyMessage(): OperatorUpdateDev
         header: { type: OperatorReplyMessageType.updateDeviceGroupReply },
         body: {} as OperatorUpdateDeviceGroupReplyMessageBody,
     };
-    return msg
+    return msg;
 };

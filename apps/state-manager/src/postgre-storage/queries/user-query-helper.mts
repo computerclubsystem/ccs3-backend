@@ -81,7 +81,7 @@ export class UserQueryHelper {
             text: fullQueryText,
             // TODO: Params are not needed because we replaced $1, $2 parameters with their values - instead return multiple lines with their parameters
             params: undefined,
-        }
+        };
     }
 
     private readonly addRoleToUserQueryText = `
@@ -175,7 +175,7 @@ export class UserQueryHelper {
         return {
             text: this.getUserPermissionsQueryText,
             params,
-        }
+        };
     }
 
     private readonly getUserRoleIdsQueryText = `

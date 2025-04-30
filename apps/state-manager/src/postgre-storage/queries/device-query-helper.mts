@@ -36,7 +36,7 @@ export class DeviceQueryHelper {
         return {
             text: this.createDeviceQueryText,
             params,
-        }
+        };
     }
 
     getDeviceByCertificateThumbprintQueryData(certificateThumbprint: string): IQueryTextWithParamsResult {
@@ -64,7 +64,7 @@ export class DeviceQueryHelper {
         return {
             text: this.updateDeviceQueryText,
             params,
-        }
+        };
     }
 
     getDeviceStatusQuery(deviceId: number): IQueryTextWithParamsResult {
