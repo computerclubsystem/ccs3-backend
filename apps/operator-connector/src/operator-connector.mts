@@ -894,7 +894,7 @@ export class OperatorConnector {
         this.publishToOperatorsChannelAndWaitForReply<BusCreateDeviceContinuationReplyMessageBody>(busRequestMsg, clientData)
             .subscribe(busReplyMsg => {
                 const operatorReplyMsg = createOperatorCreateDeviceContinuationReplyMessage();
-                operatorReplyMsg.body.deviceContinuation = operatorReplyMsg.body.deviceContinuation;
+                operatorReplyMsg.body.deviceContinuation = busReplyMsg.body.deviceContinuation;
                 this.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
                 this.sendReplyMessageToOperator(operatorReplyMsg, clientData, message);
             });

@@ -136,9 +136,9 @@ export class EntityConverter {
      */
     toDeviceContinuation(storageDeviceContinuation: IDeviceContinuation): DeviceContinuation {
         const result: DeviceContinuation = {
-            deviceId: storageDeviceContinuation.deviceId,
-            tariffId: storageDeviceContinuation.tariffId,
-            userId: storageDeviceContinuation.userId,
+            deviceId: storageDeviceContinuation.device_id,
+            tariffId: storageDeviceContinuation.tariff_id,
+            userId: storageDeviceContinuation.user_id,
         } as DeviceContinuation;
         return result;
     }
@@ -150,9 +150,9 @@ export class EntityConverter {
      */
     toStorageDeviceContinuation(deviceContinuation: DeviceContinuation): IDeviceContinuation {
         const result: IDeviceContinuation = {
-            deviceId: deviceContinuation.deviceId,
-            tariffId: deviceContinuation.tariffId,
-            userId: deviceContinuation.userId,
+            device_id: deviceContinuation.deviceId,
+            tariff_id: deviceContinuation.tariffId,
+            user_id: deviceContinuation.userId,
         } as IDeviceContinuation;
         return result;
     }

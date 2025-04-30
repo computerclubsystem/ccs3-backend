@@ -159,7 +159,7 @@ export class StaticFilesServer {
             // Files without extensions will map to . map
             ext = '.';
         }
-        return this.mimeMap.hasOwnProperty(ext) ? this.mimeMap[ext] : this.mimeMap['*'];
+        return Object.hasOwn(this.mimeMap, ext) ? this.mimeMap[ext] : this.mimeMap['*'];
     }
 
     private isHttpMethodSupported(httpMethod?: string): boolean {

@@ -1766,12 +1766,13 @@ export class StateManager {
             }
 
             const storageDeviceContinuation = this.entityConverter.toStorageDeviceContinuation(deviceContinuation);
-            storageDeviceContinuation.requestedAt = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
+            storageDeviceContinuation.requested_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
             const createdDeviceContinuation = await this.storageProvider.createDeviceContinuation(storageDeviceContinuation);
             const replyDeviceContinuation = this.entityConverter.toDeviceContinuation(createdDeviceContinuation);
-            replyDeviceContinuation.requestedAt = this.dateTimeHelper.getNumberFromISOStringDateTime(createdDeviceContinuation.requestedAt)!;
+            replyDeviceContinuation.requestedAt = this.dateTimeHelper.getNumberFromISOStringDateTime(createdDeviceContinuation.requested_at)!;
             // TODO: Refresh only this device status
             await this.refreshDeviceStatuses()
+            replyMsg.body.deviceContinuation = replyDeviceContinuation;
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.logger.warn(`Can't process BusCreateDeviceContinuationRequestMessage message`, message, err);
@@ -1782,13 +1783,15 @@ export class StateManager {
 
     getExpectedEndAt(tariff: Tariff, startedAt: number): number | null | undefined {
         switch (tariff.type) {
-            case TariffType.duration:
+            case TariffType.duration: {
                 const tariffDurationMs = tariff.duration! * 60 * 1000;
                 const expectedEndAt = startedAt + tariffDurationMs;
                 return expectedEndAt;
-            case TariffType.fromTo:
+            }
+            case TariffType.fromTo: {
                 const res = this.dateTimeHelper.compareCurrentDateWithMinutePeriod(startedAt, tariff.fromTime!, tariff.toTime!);
                 return res.expectedEndAt;
+            }
         }
     }
 
@@ -1810,7 +1813,7 @@ export class StateManager {
                     // Duration tariff which is not restricted can be started any time
                     return { isAvailable: true };
                 }
-            case TariffType.fromTo:
+            case TariffType.fromTo: {
                 const expectedEndAt = this.getExpectedEndAt(currentDeviceTariff, startedAt);
                 if (expectedEndAt) {
                     const expectedEndMinute = this.dateTimeHelper.getDateTimeMinute(expectedEndAt);
@@ -1820,6 +1823,7 @@ export class StateManager {
                     // Cannot determine extpectedEndAt means the current datetime is out of the tariff period and the device must be stopped
                     return { isAvailable: false };
                 }
+            }
         }
         return { isAvailable: false };
     }
@@ -1848,7 +1852,7 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
-            if (!!sourceDevice.disableTransfer) {
+            if (sourceDevice.disableTransfer) {
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [{
                     code: BusErrorCode.deviceIsNotTransferrable,
@@ -1867,7 +1871,7 @@ export class StateManager {
                 this.publishToOperatorsChannel(replyMsg, message);
                 return;
             }
-            if (!!targetDevice.disableTransfer) {
+            if (targetDevice.disableTransfer) {
                 replyMsg.header.failure = true;
                 replyMsg.header.errors = [{
                     code: BusErrorCode.deviceIsNotTransferrable,
@@ -3636,10 +3640,10 @@ export class StateManager {
 
     createDeviceContinuationFromStorageDeviceContinuation(storageDeviceContinuation: IDeviceContinuation): DeviceContinuation {
         const deviceContinuation: DeviceContinuation = {
-            deviceId: storageDeviceContinuation.deviceId,
-            requestedAt: this.dateTimeHelper.getNumberFromISOStringDateTime(storageDeviceContinuation.requestedAt)!,
-            tariffId: storageDeviceContinuation.tariffId,
-            userId: storageDeviceContinuation.userId,
+            deviceId: storageDeviceContinuation.device_id,
+            requestedAt: this.dateTimeHelper.getNumberFromISOStringDateTime(storageDeviceContinuation.requested_at)!,
+            tariffId: storageDeviceContinuation.tariff_id,
+            userId: storageDeviceContinuation.user_id,
         };
         return deviceContinuation;
     }

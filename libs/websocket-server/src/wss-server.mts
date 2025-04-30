@@ -203,7 +203,9 @@ export class WssServer {
             // terminate() will immediately close the socket but will cause error at the other party 
             // "(0x80004005): The remote party closed the WebSocket connection without completing the close handshake"
             // webSocket?.terminate();
-        } catch { }
+        } catch (err) {
+            console.error(err);
+         }
     }
 
     private createNewConnectionId(): number {

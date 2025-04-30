@@ -21,10 +21,10 @@ export class DeviceContinuationQueryHelper {
 
     upsertDeviceContinuationQuery(deviceContinuation: IDeviceContinuation): IQueryTextWithParamsResult {
         const params = [
-            deviceContinuation.deviceId,
-            deviceContinuation.tariffId,
-            deviceContinuation.userId,
-            deviceContinuation.requestedAt,
+            deviceContinuation.device_id,
+            deviceContinuation.tariff_id,
+            deviceContinuation.user_id,
+            deviceContinuation.requested_at,
         ];
         return {
             text: this.upsertDeviceContinuationQueryText,

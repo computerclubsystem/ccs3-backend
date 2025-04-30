@@ -1,6 +1,6 @@
 export interface IDeviceContinuation {
-    deviceId: number;
-    tariffId: number;
-    userId: number;
-    requestedAt: string;
+    device_id: number;
+    tariff_id: number;
+    user_id: number;
+    requested_at: string;
 }

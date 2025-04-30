@@ -970,11 +970,8 @@ export class PostgreStorageProvider implements StorageProvider {
                     const scriptFilePath = path.join(dirEntry.parentPath, dirEntry.name);
                     const scriptContent = (await fs.readFile(scriptFilePath)).toString();
                     this.logger.log('Executing database migration script', scriptFilePath, scriptContent);
-                    const queryResult = await migrateClient.query(scriptContent);
+                    await migrateClient.query(scriptContent);
                     this.logger.log('Script execution completed');
-                    // TODO: Show the results of the query - it could be array or something else
-                    if (Array.isArray(queryResult)) {
-                    }
                 }
             } else {
                 this.logger.log('Database version is up to date');
