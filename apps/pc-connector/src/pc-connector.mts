@@ -586,6 +586,7 @@ export class PcConnector {
         const replyMsg = createBusGetSignInCodeInfoReplyMessage();
         replyMsg.body.code = message.body.code;
         replyMsg.body.identifierType = BusCodeSignInIdentifierType.customerCard;
+        replyMsg.body.codeDurationSeconds = this.state.codeSignInDurationSeconds;
         replyMsg.header.correlationId = message.header.correlationId;
         try {
             const cacheItem = await this.cacheHelper.getCodeSignIn(message.body.code);
