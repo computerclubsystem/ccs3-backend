@@ -1649,6 +1649,7 @@ export class OperatorConnector {
         const replyMsg = createBusGetSignInCodeInfoReplyMessage();
         replyMsg.body.code = message.body.code;
         replyMsg.body.identifierType = BusCodeSignInIdentifierType.user;
+        replyMsg.body.codeDurationSeconds = this.state.codeSignInDurationSeconds;
         replyMsg.header.correlationId = message.header.correlationId;
         try {
             const cacheItem = await this.cacheHelper.getCodeSignIn(message.body.code);
