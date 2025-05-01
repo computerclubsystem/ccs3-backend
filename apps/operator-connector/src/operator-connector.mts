@@ -1832,6 +1832,8 @@ export class OperatorConnector {
             if (authReplyMsg.header.failure || !authReplyMsg.body.success) {
                 replyMsg.body.success = false;
                 replyMsg.body.errorMessage = `Can't sign in with code`;
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = authReplyMsg.header.errors;
             } else {
                 // Craft operatorMessage like the operator manually tried to authenticate but do not set credentials
                 const operatorMessage: OperatorAuthRequestMessage = {

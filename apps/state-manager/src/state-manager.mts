@@ -3363,12 +3363,22 @@ export class StateManager {
         if (!user) {
             // TODO: Send "credentials are invalid"
             replyMsg.body.success = false;
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: BusErrorCode.userNotFound,
+                description: 'User not found',
+            }];
         } else if (!user.enabled) {
             // TODO: Send "User not enabled"
             const replyMsg = createBusUserAuthReplyMessage();
             replyMsg.body.success = false;
             replyMsg.body.username = user.username;
             replyMsg.body.userId = user.id;
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: BusErrorCode.userIsNotActive,
+                description: 'User is not active',
+            }];
         } else {
             // User with such username and password is found and is enabled
             const permissions = await this.storageProvider.getUserPermissions(user.id);
