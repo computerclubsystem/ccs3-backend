@@ -200,9 +200,11 @@ export class QRCodeSignIn {
         busRequestMsg.body.identifierType = this.apiSignInIdentifierTypeToBusCodeSignInIdentifierTo(reqBody.identifierType)!;
         try {
             const res = await this.publishToSharedChannelAsync<BusCodeSignInWithCredentialsReplyMessageBody>(busRequestMsg);
-            if (res.header.failure) {
+            if (res.header.failure || !res.body.success) {
                 result.success = false;
-                result.errorMessage = `Error: ${res.header.errors?.[0].description || ''} (${res.header.errors?.[0].code || ''})`;
+                const errCode = res.body.errorCode || res.header.errors?.[0].code || '';
+                const errMessage = res.body.errorMessage || res.header.errors?.[0].description || '';
+                result.errorMessage = `Error: ${errMessage} (${errCode})`;
             } else {
                 result.success = res.body.success;
                 result.errorMessage = res.body.errorMessage;
