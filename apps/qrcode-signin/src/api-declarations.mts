@@ -33,6 +33,16 @@ export interface ApiTokenSignInResponseBody {
     identifierType?: ApiCodeSignInIdentifierType | null;
 }
 
+// Change password with token
+export interface ApiChangePasswordWithTokenRequestBody {
+    token: string;
+    passwordHash: string;
+}
+
+export interface ApiChangePasswordWithTokenResponseBody {
+  success: boolean;
+  errorMessage?: string | null;
+}
 
 // Credentials sign in
 export interface ApiCredentialsSignInRequestBody {

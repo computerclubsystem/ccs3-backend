@@ -109,6 +109,8 @@ import { BusUserAuthWithLongLivedAccessTokenRequestMessage, createBusUserAuthWit
 import { BusCreateLongLivedAccessTokenForTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-long-lived-access-token-for-tariff.messages.mjs';
 import { ILongLivedAccessTokenUsage } from './storage/entities/long-lived-access-token-usage.mjs';
 import { LongLivedAccessToken } from '@computerclubsystem/types/entities/long-lived-access-token.mjs';
+import { BusChangePasswordWithLongLivedAccessTokenRequestMessage, createBusChangePasswordWithLongLivedAccessTokenReplyMessage } from '@computerclubsystem/types/messages/bus/bus-change-password-with-long-lived-access-token.messages.mjs';
+import { BusChangePasswordWithLongLivedAccessTokenErrorCode } from '@computerclubsystem/types/messages/bus/declarations/bus-change-password-with-long-lived-access-token-error-code.mjs';
 
 export class StateManager {
     private readonly className = (this as object).constructor.name;
@@ -154,6 +156,9 @@ export class StateManager {
         const type: string = message.header?.type;
         // const notificationMessage = message as unknown as SharedNotificationMessage<TBody>;
         switch (type) {
+            case MessageType.busChangePasswordWithLongLivedAccessTokenRequest:
+                this.processBusChangePasswordWithLongLivedAccessTokenRequestMessage(message as BusChangePasswordWithLongLivedAccessTokenRequestMessage);
+                break;
             case MessageType.busCreateLongLivedAccessTokenForTariffRequest:
                 this.processBusCreateLongLivedAccessTokenForTariffRequestMessage(message as BusCreateLongLivedAccessTokenForTariffRequestMessage);
                 break;
@@ -175,6 +180,145 @@ export class StateManager {
             case MessageType.busGetAllSystemSettingsRequest:
                 this.processSharedMessageBusGetAllSystemSettings(message as BusGetAllSystemSettingsRequestMessage);
                 break;
+        }
+    }
+
+    async processBusChangePasswordWithLongLivedAccessTokenRequestMessage(message: BusChangePasswordWithLongLivedAccessTokenRequestMessage): Promise<void> {
+        const replyMsg = createBusChangePasswordWithLongLivedAccessTokenReplyMessage();
+        if (!message.body.token) {
+            replyMsg.body.errorCode = BusChangePasswordWithLongLivedAccessTokenErrorCode.invalidToken;
+            replyMsg.body.errorMessage = 'Token was not provided';
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: BusErrorCode.tokenIsRequired,
+                description: 'Token is required',
+            }];
+            this.publishToSharedChannel(replyMsg, message);
+            return;
+        }
+
+        if (!message.body.passwordHash) {
+            replyMsg.body.errorCode = BusChangePasswordWithLongLivedAccessTokenErrorCode.invalidPassword;
+            replyMsg.body.errorMessage = 'Invalid password';
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: BusErrorCode.passwordHashIsRequired,
+                description: 'Password hash is required',
+            }];
+            this.publishToSharedChannel(replyMsg, message);
+            return;
+        }
+
+        try {
+            const storageLongLivedToken = await this.storageProvider.getLongLivedAccessToken(message.body.token);
+            if (!storageLongLivedToken) {
+                replyMsg.body.errorCode = BusChangePasswordWithLongLivedAccessTokenErrorCode.invalidToken;
+                replyMsg.body.errorMessage = 'Token is invalid';
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.invalidToken,
+                    description: 'Invalid token',
+                }];
+                this.publishToSharedChannel(replyMsg, message);
+                return;
+            }
+            const hasExpired = Date.now() > new Date(storageLongLivedToken.valid_to).getTime();
+            if (hasExpired) {
+                replyMsg.body.errorCode = BusChangePasswordWithLongLivedAccessTokenErrorCode.invalidToken;
+                replyMsg.body.errorMessage = 'Token is invalid or expired';
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.tokenExpired,
+                    description: 'Token expired',
+                }];
+                this.publishToSharedChannel(replyMsg, message);
+                return;
+            }
+            const doesNotHaveIdentifier = !storageLongLivedToken.user_id && !storageLongLivedToken.tariff_id;
+            if (doesNotHaveIdentifier) {
+                replyMsg.body.errorCode = BusChangePasswordWithLongLivedAccessTokenErrorCode.invalidToken;
+                replyMsg.body.errorMessage = 'Token is invalid';
+                replyMsg.header.failure = true;
+                replyMsg.header.errors = [{
+                    code: BusErrorCode.invalidToken,
+                    description: 'Invalid token',
+                }];
+                this.publishToSharedChannel(replyMsg, message);
+                return;
+            }
+            if (storageLongLivedToken.tariff_id) {
+                const allTariffs = await this.cacheHelper.getAllTariffs();
+                const tariff = allTariffs?.find(x => x.id === storageLongLivedToken.tariff_id);
+                if (tariff?.type !== TariffType.prepaid) {
+                    replyMsg.body.errorCode = BusChangePasswordWithLongLivedAccessTokenErrorCode.invalidToken;
+                    replyMsg.body.errorMessage = 'Token is invalid';
+                    replyMsg.header.failure = true;
+                    replyMsg.header.errors = [{
+                        code: BusErrorCode.invalidToken,
+                        description: 'Invalid token',
+                    }];
+                    this.publishToSharedChannel(replyMsg, message);
+                    return;
+                } else if (!tariff?.enabled) {
+                    replyMsg.body.errorCode = BusChangePasswordWithLongLivedAccessTokenErrorCode.customerCardIsNotEnabled;
+                    replyMsg.body.errorMessage = 'The customer card is not enabled';
+                    replyMsg.header.failure = true;
+                    replyMsg.header.errors = [{
+                        code: BusErrorCode.tariffIsNotActive,
+                        description: 'The tariff is not active',
+                    }];
+                    this.publishToSharedChannel(replyMsg, message);
+                    return;
+                } else {
+                    // Change the tariff password
+                    await this.storageProvider.updateTariffPasswordHash(tariff.id, message.body.passwordHash);
+                    replyMsg.body.success = true;
+                    this.publishToSharedChannel(replyMsg, message);
+                    return;
+                }
+            }
+            if (storageLongLivedToken.user_id) {
+                const storageUser = await this.storageProvider.getUserById(storageLongLivedToken.user_id);
+                if (!storageUser?.enabled) {
+                    replyMsg.body.errorCode = BusChangePasswordWithLongLivedAccessTokenErrorCode.userIsDisabled;
+                    replyMsg.body.errorMessage = 'The user is disabled';
+                    replyMsg.header.failure = true;
+                    replyMsg.header.errors = [{
+                        code: BusErrorCode.userIsNotActive,
+                        description: 'The user is not active',
+                    }];
+                    this.publishToSharedChannel(replyMsg, message);
+                    return;
+                } else {
+                    // Change the user password
+                    const updatePasswordHashResult = await this.storageProvider.updateUserPasswordHash(storageUser.id, message.body.passwordHash);
+                    if (!updatePasswordHashResult) {
+                        replyMsg.body.errorCode = BusChangePasswordWithLongLivedAccessTokenErrorCode.invalidUser;
+                        replyMsg.body.errorMessage = 'The user is invalid';
+                        replyMsg.header.failure = true;
+                        replyMsg.header.errors = [{
+                            code: BusErrorCode.userNotUpdated,
+                            description: 'The user is not updated',
+                        }];
+                        this.publishToSharedChannel(replyMsg, message);
+                        return;
+                    } else {
+                        replyMsg.body.success = true;
+                        this.publishToSharedChannel(replyMsg, message);
+                        return;
+                    }
+                }
+            }
+        } catch (err) {
+            replyMsg.body.errorCode = BusChangePasswordWithLongLivedAccessTokenErrorCode.serverError;
+            replyMsg.body.errorMessage = 'Server error';
+            replyMsg.header.failure = true;
+            replyMsg.header.errors = [{
+                code: BusErrorCode.serverError,
+                description: 'Server error',
+            }];
+            this.setErrorToReplyMessage(err, message, replyMsg);
+            this.publishToSharedChannel(replyMsg, message);
         }
     }
 
@@ -2488,7 +2632,7 @@ export class StateManager {
                 if (!passwordMatches) {
                     replyMsg.header.failure = true;
                     replyMsg.header.errors = [{
-                        code: BusErrorCode.tariffIsNotActive,
+                        code: BusErrorCode.passwordDoesNotMatch,
                         description: 'Password does not match',
                     }];
                     replyMsg.body.passwordDoesNotMatch = true;

@@ -27,6 +27,7 @@ import { ILongLivedAccessToken } from './entities/long-lived-access-token.mjs';
 import { ILongLivedAccessTokenUsage } from './entities/long-lived-access-token-usage.mjs';
 
 export interface StorageProvider {
+    updateUserPasswordHash(userId: number, passwordHash: string): Promise<boolean>;
     addLongLivedAccessTokenUsage(longLivedAccessTokenUsage: ILongLivedAccessTokenUsage): Promise<ILongLivedAccessTokenUsage | undefined>;
     getLongLivedAccessToken(token: string): Promise<ILongLivedAccessToken | undefined>;
     setLongLivedAccessToken(longLivedToken: ILongLivedAccessToken): Promise<ILongLivedAccessToken | undefined>;

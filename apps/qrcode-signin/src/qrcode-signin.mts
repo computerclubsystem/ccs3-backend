@@ -14,10 +14,11 @@ import { EnvironmentVariablesHelper } from './environment-variables-helper.mjs';
 import { SubjectsService } from './subjects.service.mjs';
 import { MessageStatItem } from './declarations.mjs';
 import { BusCodeSignInWithCredentialsReplyMessageBody, createBusCodeSignInWithCredentialsRequestMessage } from '@computerclubsystem/types/messages/bus/bus-code-sign-in-with-credentials.messages.mjs';
-import { ApiCredentialsSignInRequestBody, ApiCredentialsSignInResponseBody, ApiCodeSignInIdentifierType, ApiTokenSignInRequestBody, ApiTokenSignInResponseBody, ApiGetSignInCodeInfoRequestBody, ApiGetSignInCodeInfoResponseBody } from './api-declarations.mjs';
+import { ApiCredentialsSignInRequestBody, ApiCredentialsSignInResponseBody, ApiCodeSignInIdentifierType, ApiTokenSignInRequestBody, ApiTokenSignInResponseBody, ApiGetSignInCodeInfoRequestBody, ApiGetSignInCodeInfoResponseBody, ApiChangePasswordWithTokenRequestBody, ApiChangePasswordWithTokenResponseBody } from './api-declarations.mjs';
 import { BusCodeSignInWithLongLivedAccessTokenReplyMessageBody, createBusCodeSignInWithLongLivedAccessTokenRequestMessage } from '@computerclubsystem/types/messages/bus/bus-code-sign-in-with-long-lived-access-token.messages.mjs';
 import { BusCodeSignInIdentifierType } from '@computerclubsystem/types/messages/bus/declarations/bus-code-sign-in-identifier-type.mjs';
 import { BusGetSignInCodeInfoReplyMessageBody, createBusGetSignInCodeInfoRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-sign-in-code-info.messages.mjs';
+import { BusChangePasswordWithLongLivedAccessTokenReplyMessageBody, createBusChangePasswordWithLongLivedAccessTokenRequestMessage } from '@computerclubsystem/types/messages/bus/bus-change-password-with-long-lived-access-token.messages.mjs';
 
 export class QRCodeSignIn {
     private readonly subClient = new RedisSubClient();
@@ -93,6 +94,11 @@ export class QRCodeSignIn {
         const app = express();
         app.use(express.json());
 
+        app.post('/api/change-password-with-token', async (req, res) => {
+            const result = await this.processApiChangePasswordWithToken(req.body as ApiChangePasswordWithTokenRequestBody, this.getIpAddressFromRequest(req));
+            res.json(result);
+        });
+
         app.post('/api/credentials-sign-in', async (req, res) => {
             const result = await this.processApiCredentialsSignIn(req.body as ApiCredentialsSignInRequestBody, this.getIpAddressFromRequest(req));
             res.json(result);
@@ -130,6 +136,28 @@ export class QRCodeSignIn {
         httpsServer.listen(webAPIPort, () => {
             this.logger.log(`Listening at port ${webAPIPort}`);
         });
+    }
+
+    async processApiChangePasswordWithToken(reqBody: ApiChangePasswordWithTokenRequestBody, ipAddress?: string | null): Promise<ApiChangePasswordWithTokenResponseBody> {
+        const result: ApiChangePasswordWithTokenResponseBody = {
+            success: false,
+        };
+        const busRequestMsg = createBusChangePasswordWithLongLivedAccessTokenRequestMessage();
+        busRequestMsg.body.token = reqBody.token;
+        busRequestMsg.body.passwordHash = reqBody.passwordHash;
+        busRequestMsg.body.ipAddress = ipAddress;
+        try {
+            const res = await this.publishToSharedChannelAsync<BusChangePasswordWithLongLivedAccessTokenReplyMessageBody>(busRequestMsg);
+            result.success = res.body.success && !res.header.failure;
+            const errCode = res.body.errorCode || res.header.errors?.[0]?.code || '';
+            const errMessage = res.body.errorMessage || res.header.errors?.[0]?.description || '';
+            result.errorMessage = `Error: ${errMessage} (${errCode})`;
+        } catch (err) {
+            this.logger.error('Error in processApiChangePasswordWithToken', err);
+            result.success = false;
+            result.errorMessage = `Can't change password with token. ${(err as Error).message}`;
+        }
+        return result;
     }
 
     async processApiSignInCodeInfo(reqBody: ApiGetSignInCodeInfoRequestBody): Promise<ApiGetSignInCodeInfoResponseBody> {
@@ -172,8 +200,8 @@ export class QRCodeSignIn {
             const res = await this.publishToSharedChannelAsync<BusCodeSignInWithLongLivedAccessTokenReplyMessageBody>(busRequestMsg);
             if (res.header.failure || !res.body.success) {
                 result.success = false;
-                const errCode = res.body.errorCode || res.header.errors?.[0].code || '';
-                const errMessage = res.body.errorMessage || res.header.errors?.[0].description || '';
+                const errCode = res.body.errorCode || res.header.errors?.[0]?.code || '';
+                const errMessage = res.body.errorMessage || res.header.errors?.[0]?.description || '';
                 result.errorMessage = `Error: ${errMessage} (${errCode})`;
             } else {
                 result.success = res.body.success;
@@ -204,8 +232,8 @@ export class QRCodeSignIn {
             const res = await this.publishToSharedChannelAsync<BusCodeSignInWithCredentialsReplyMessageBody>(busRequestMsg);
             if (res.header.failure || !res.body.success) {
                 result.success = false;
-                const errCode = res.body.errorCode || res.header.errors?.[0].code || '';
-                const errMessage = res.body.errorMessage || res.header.errors?.[0].description || '';
+                const errCode = res.body.errorCode || res.header.errors?.[0]?.code || '';
+                const errMessage = res.body.errorMessage || res.header.errors?.[0]?.description || '';
                 result.errorMessage = `Error: ${errMessage} (${errCode})`;
             } else {
                 result.success = res.body.success;
