@@ -51,9 +51,9 @@ export class AuthorizationHelper {
             }
         }
 
-        // If all the other checks fail, assume missing permission
+        // If all the other checks fail, assume unknown message
         result.authorized = false;
-        result.reason = IsAuthorizedResultReason.missingPermission;
+        result.reason = IsAuthorizedResultReason.unknownPermissionsRequired;
         return result;
     }
 

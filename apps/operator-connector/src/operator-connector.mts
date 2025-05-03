@@ -276,7 +276,7 @@ export class OperatorConnector {
             if (canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.notAuthorized) {
                 clientData.unauthorizedMessageRequestsCount++;
             }
-            this.logger.log(`Can't process operator message`, canProcessOperatorMessageResult, message, clientData);
+            this.logger.warn(`Can't process operator message`, canProcessOperatorMessageResult, message, clientData);
             if (canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.tokenExpired
                 || canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.tokenNotFound
                 || canProcessOperatorMessageResult.errorReason === CanProcessOperatorMessageResultErrorReason.tokenNotProvided
