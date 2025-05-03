@@ -7,7 +7,7 @@ export class AuthorizationHelper {
     private readonly messagesNotRequiringAuthenticationSet = this.createMessagesNotRequiringAuthenticationSet();
     private readonly messagesRequiringOnlyAuthenticationSet = this.createMessagesRequiringOnlyAuthenticationSet();
 
-    isAuthorized(permissions: Set<string>, messageType: OperatorRequestMessageType | OperatorNotificationMessageType, isUserAuthenticated: boolean): IsAuthorizedResult {
+    isAuthorized(permissions: Set<PermissionName>, messageType: OperatorRequestMessageType | OperatorNotificationMessageType, isUserAuthenticated: boolean): IsAuthorizedResult {
         const result: IsAuthorizedResult = {
             authorized: false,
             reason: IsAuthorizedResultReason.missingPermission,

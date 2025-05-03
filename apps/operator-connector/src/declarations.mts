@@ -7,6 +7,7 @@ import { BusDeviceStatusesNotificationMessage } from '@computerclubsystem/types/
 import { ChannelName } from '@computerclubsystem/types/channels/channel-name.mjs';
 import { SystemSetting } from '@computerclubsystem/types/entities/system-setting.mjs';
 import { FilterServerLogsItem } from '@computerclubsystem/types/messages/shared-declarations/filter-server-logs-item.mjs';
+import { PermissionName } from '@computerclubsystem/types/entities/declarations/permission-name.mjs';
 
 export interface ConnectedClientData {
     connectionId: number;
@@ -44,7 +45,7 @@ export interface ConnectedClientData {
     /**
      * Permissions of the operator
      */
-    permissions: Set<string>;
+    permissions: Set<PermissionName>;
     /**
      * The count of unauthorized messages received by the client. Can be used to close the connection if specific limit is reached
      */

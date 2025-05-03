@@ -239,6 +239,7 @@ import { BusCodeSignInIdentifierType } from '@computerclubsystem/types/messages/
 import { BusCodeSignInErrorCode } from '@computerclubsystem/types/messages/bus/declarations/bus-code-sign-in-error-code.mjs';
 import { BusUserAuthWithLongLivedAccessTokenReplyMessageBody, createBusUserAuthWithLongLivedAccessTokenRequestMessage } from '@computerclubsystem/types/messages/bus/bus-user-auth-with-long-lived-access-token.messages.mjs';
 import { BusGetSignInCodeInfoRequestMessage, createBusGetSignInCodeInfoReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-sign-in-code-info.messages.mjs';
+import { PermissionName } from '@computerclubsystem/types/entities/declarations/permission-name.mjs';
 
 export class OperatorConnector {
     private readonly subClient = new RedisSubClient();
@@ -1395,7 +1396,7 @@ export class OperatorConnector {
 
     async processOperatorSignOutRequestMessage(clientData: ConnectedClientData, message: OperatorSignOutRequestMessage): Promise<void> {
         clientData.isAuthenticated = false;
-        clientData.permissions = new Set<string>();
+        clientData.permissions = new Set<PermissionName>();
         const token = message.header.token!;
         if (this.isWhiteSpace(token)) {
             return;
@@ -1464,7 +1465,7 @@ export class OperatorConnector {
         await this.cacheHelper.setUserAuthData(authTokenCacheValue);
         // Mark operator as authenticated
         clientData.isAuthenticated = true;
-        clientData.permissions = new Set<string>(authTokenCacheValue.permissions);
+        clientData.permissions = new Set<PermissionName>(authTokenCacheValue.permissions);
         const operatorId = clientData.userId || authTokenCacheValue.userId;
         clientData.userId = operatorId;
         // Send messages back to the operator
@@ -1575,7 +1576,7 @@ export class OperatorConnector {
         await this.cacheHelper.setUserAuthData(authTokenCacheValue);
         // Mark operator as authenticated
         clientData.isAuthenticated = true;
-        clientData.permissions = new Set<string>(authTokenCacheValue.permissions);
+        clientData.permissions = new Set<PermissionName>(authTokenCacheValue.permissions);
         const operatorId = clientData.userId || authTokenCacheValue.userId;
         clientData.userId = operatorId;
         // Send messages back to the operator
@@ -1905,7 +1906,7 @@ export class OperatorConnector {
         }
         const rtData = busUserAuthReplyMsg.header.roundTripData! as OperatorConnectionRoundTripData;
         clientData.isAuthenticated = busUserAuthReplyMsg.body.success;
-        clientData.permissions = new Set<string>(busUserAuthReplyMsg.body.permissions);
+        clientData.permissions = new Set<PermissionName>(busUserAuthReplyMsg.body.permissions);
         clientData.userId = busUserAuthReplyMsg.body.userId;
         replyMsg.body.permissions = busUserAuthReplyMsg.body.permissions;
         replyMsg.body.success = busUserAuthReplyMsg.body.success;
@@ -2381,7 +2382,7 @@ export class OperatorConnector {
     async maintainUserAuthDataTokenCacheItem(
         userId: number,
         connectedAt: number,
-        permissions: string[],
+        permissions: PermissionName[],
         token: string,
         roundtripData: OperatorConnectionRoundTripData,
         username: string,
@@ -2585,7 +2586,7 @@ export class OperatorConnector {
             sentMessagesCount: 0,
             isAuthenticated: false,
             headers: args.headers,
-            permissions: new Set<string>(),
+            permissions: new Set<PermissionName>(),
             unauthorizedMessageRequestsCount: 0,
         };
         this.setConnectedClientData(clientData);

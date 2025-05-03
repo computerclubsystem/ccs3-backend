@@ -1,5 +1,6 @@
 import { RedisCacheClient } from '@computerclubsystem/redis-client';
 import { OperatorConnectionRoundTripData } from '@computerclubsystem/types/messages/operators/declarations/operator-connection-roundtrip-data.mjs';
+import { PermissionName } from '@computerclubsystem/types/entities/declarations/permission-name.mjs';
 import { CodeSignIn } from './declarations.mjs';
 
 export class CacheHelper {
@@ -158,7 +159,7 @@ export interface UserAuthDataCacheValue {
     userId: number;
     username: string;
     roundtripData: OperatorConnectionRoundTripData;
-    permissions: string[];
+    permissions: PermissionName[];
     setAt: number;
     token: string;
     tokenExpiresAt: number;

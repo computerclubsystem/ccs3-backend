@@ -1,6 +1,7 @@
 import { LongLivedAccessToken } from 'src/entities/long-lived-access-token.mjs';
 import { MessageType } from '../declarations/message-type.mjs';
 import { Message } from '../declarations/message.mjs';
+import { PermissionName } from 'src/entities/declarations/permission-name.mjs';
 
 export interface BusUserAuthRequestMessageBody {
     username?: string;
@@ -21,7 +22,7 @@ export function createBusUserAuthRequestMessage(): BusUserAuthRequestMessage {
 
 export interface BusUserAuthReplyMessageBody {
     success: boolean;
-    permissions?: string[];
+    permissions?: PermissionName[];
     // token?: string;
     userId?: number;
     username?: string | null;

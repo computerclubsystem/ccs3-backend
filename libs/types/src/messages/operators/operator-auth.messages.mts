@@ -1,3 +1,4 @@
+import { PermissionName } from 'src/entities/declarations/permission-name.mjs';
 import { OperatorReplyMessageType } from './declarations/operator-message-type.mjs';
 import { OperatorReplyMessage, OperatorRequestMessage } from './declarations/operator.message.mjs';
 
@@ -12,7 +13,7 @@ export type OperatorAuthRequestMessage = OperatorRequestMessage<OperatorAuthRequ
 
 export interface OperatorAuthReplyMessageBody {
     success: boolean;
-    permissions?: string[];
+    permissions?: PermissionName[];
     token?: string;
     tokenExpiresAt?: number;
 }
