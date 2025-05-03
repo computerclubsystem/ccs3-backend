@@ -76,34 +76,22 @@ const MESSAGES_NOT_REQUIRING_AUTHENTICATION_SET = new Set<OperatorRequestMessage
 
 export class AuthorizationHelper {
     isAuthorized(permissions: Set<PermissionName>, messageType: OperatorRequestMessageType | OperatorNotificationMessageType, isUserAuthenticated: boolean): IsAuthorizedResult {
-        const result: IsAuthorizedResult = {
-            authorized: false,
-            reason: IsAuthorizedResultReason.missingPermission,
-        };
-
         if (permissions.has(PermissionName.all)) {
             // Permission "all" allows all operations
-            result.authorized = true;
-            result.reason = IsAuthorizedResultReason.hasAllPermissions;
-            return result;
+            return { authorized: true, reason: IsAuthorizedResultReason.hasAllPermissions };
         }
 
         if (MESSAGES_NOT_REQUIRING_AUTHENTICATION_SET.has(messageType)) {
             // This message type does not require permissions
-            result.authorized = true;
-            result.reason = IsAuthorizedResultReason.permissionIsNotRequired;
-            return result;
+            return { authorized: true, reason: IsAuthorizedResultReason.permissionIsNotRequired };
         }
 
         if (MESSAGES_REQUIRING_ONLY_AUTHENTICATION_SET.has(messageType)) {
             if (isUserAuthenticated) {
-                result.authorized = true;
-                result.reason = IsAuthorizedResultReason.permissionIsNotRequired;
+                return { authorized: true, reason: IsAuthorizedResultReason.permissionIsNotRequired };
             } else {
-                result.authorized = false;
-                result.reason = IsAuthorizedResultReason.notAuthenticated;
+                return { authorized: false, reason: IsAuthorizedResultReason.notAuthenticated };
             }
-            return result;
         }
 
         // Find the message with permissions map
@@ -113,15 +101,11 @@ export class AuthorizationHelper {
             const hasAnyOfThePermissions = mapPermissions.some(permission => permissions.has(permission));
             if (hasAnyOfThePermissions) {
                 // At least one of the user permissions is found
-                result.authorized = true;
-                result.reason = IsAuthorizedResultReason.hasRequiredPermissions;
-                return result;
+                return { authorized: true, reason: IsAuthorizedResultReason.hasRequiredPermissions };
             }
         }
 
         // If all the other checks fail, assume unknown message
-        result.authorized = false;
-        result.reason = IsAuthorizedResultReason.unknownPermissionsRequired;
-        return result;
+        return { authorized: false, reason: IsAuthorizedResultReason.unknownPermissionsRequired };
     }
 }
