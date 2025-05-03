@@ -76,6 +76,11 @@ const MESSAGES_NOT_REQUIRING_AUTHENTICATION_SET = new Set<OperatorRequestMessage
 
 export class AuthorizationHelper {
     isAuthorized(permissions: Set<PermissionName>, messageType: OperatorRequestMessageType | OperatorNotificationMessageType, isUserAuthenticated: boolean): IsAuthorizedResult {
+        if (permissions.has(PermissionName.all)) {
+            // Permission "all" allows all operations
+            return { authorized: true, reason: IsAuthorizedResultReason.hasAllPermissions };
+        }
+
         // Find the message with permissions map
         const requiredPermissions = MESSAGES_REQUIRING_PERMISSIONS_MAP.get(messageType);
         if (requiredPermissions) {
@@ -89,11 +94,6 @@ export class AuthorizationHelper {
                 // At least one of the user permissions is found
                 return { authorized: true, reason: IsAuthorizedResultReason.hasRequiredPermissions };
             }
-        }
-
-        if (permissions.has(PermissionName.all)) {
-            // Permission "all" allows all operations
-            return { authorized: true, reason: IsAuthorizedResultReason.hasAllPermissions };
         }
 
         if (MESSAGES_NOT_REQUIRING_AUTHENTICATION_SET.has(messageType)) {
