@@ -3,9 +3,80 @@ import { OperatorRequestMessageType, OperatorNotificationMessageType } from '@co
 import { IsAuthorizedResult, IsAuthorizedResultReason } from './declarations.mjs';
 
 export class AuthorizationHelper {
-    private readonly messageTypeToPermissionMap: Map<OperatorRequestMessageType | OperatorNotificationMessageType, PermissionName[]>;
+    private readonly messagesRequiringPermissionsMap = this.createMessagesRequiringPermissionsMap();
+    private readonly messagesNotRequiringAuthenticationSet = this.createMessagesNotRequiringAuthenticationSet();
+    private readonly messagesRequiringOnlyAuthenticationSet = this.createMessagesRequiringOnlyAuthenticationSet();
 
-    constructor() {
+    isAuthorized(permissions: Set<string>, messageType: OperatorRequestMessageType | OperatorNotificationMessageType, isUserAuthenticated: boolean): IsAuthorizedResult {
+        const result: IsAuthorizedResult = {
+            authorized: false,
+            reason: IsAuthorizedResultReason.missingPermission,
+        };
+
+        if (permissions.has(PermissionName.all)) {
+            // Permission "all" allows all operations
+            result.authorized = true;
+            result.reason = IsAuthorizedResultReason.hasAllPermissions;
+            return result;
+        }
+
+        if (this.messagesNotRequiringAuthenticationSet.has(messageType)) {
+            // This message type does not require permissions
+            result.authorized = true;
+            result.reason = IsAuthorizedResultReason.permissionIsNotRequired;
+            return result;
+        }
+
+        if (this.messagesRequiringOnlyAuthenticationSet.has(messageType)) {
+            if (isUserAuthenticated) {
+                result.authorized = true;
+                result.reason = IsAuthorizedResultReason.permissionIsNotRequired;
+            } else {
+                result.authorized = false;
+                result.reason = IsAuthorizedResultReason.notAuthenticated;
+            }
+            return result;
+        }
+
+        // Find the message with permissions map
+        const mapPermissions = this.messagesRequiringPermissionsMap.get(messageType);
+        if (mapPermissions) {
+            // Check if any of the user permissions is found in the permissions map for this message type
+            const hasAnyOfThePermissions = mapPermissions.some(permission => permissions.has(permission));
+            if (hasAnyOfThePermissions) {
+                // At least one of the user permissions is found
+                result.authorized = true;
+                result.reason = IsAuthorizedResultReason.hasRequiredPermissions;
+                return result;
+            }
+        }
+
+        // If all the other checks fail, assume missing permission
+        result.authorized = false;
+        result.reason = IsAuthorizedResultReason.missingPermission;
+        return result;
+    }
+
+    private createMessagesRequiringOnlyAuthenticationSet(): Set<OperatorRequestMessageType | OperatorNotificationMessageType> {
+        const set = new Set<OperatorRequestMessageType | OperatorNotificationMessageType>();
+        set.add(OperatorRequestMessageType.pingRequest);
+        set.add(OperatorRequestMessageType.refreshTokenRequest);
+        set.add(OperatorRequestMessageType.signOutRequest);
+        set.add(OperatorRequestMessageType.getAllPermissionsRequest);
+        set.add(OperatorRequestMessageType.getProfileSettingsRequest);
+        set.add(OperatorRequestMessageType.updateProfileSettingsRequest);
+        set.add(OperatorRequestMessageType.changePasswordRequest);
+        return set;
+    }
+
+    private createMessagesNotRequiringAuthenticationSet(): Set<OperatorRequestMessageType | OperatorNotificationMessageType> {
+        const set = new Set<OperatorRequestMessageType | OperatorNotificationMessageType>();
+        set.add(OperatorRequestMessageType.authRequest);
+        set.add(OperatorRequestMessageType.createSignInCodeRequest);
+        return set;
+    }
+
+    private createMessagesRequiringPermissionsMap(): Map<OperatorRequestMessageType | OperatorNotificationMessageType, PermissionName[]> {
         const map = new Map<OperatorRequestMessageType | OperatorNotificationMessageType, PermissionName[]>();
         map.set(OperatorRequestMessageType.createUserWithRolesRequest, [PermissionName.usersCreate]);
         map.set(OperatorRequestMessageType.updateUserWithRolesRequest, [PermissionName.usersUpdate]);
@@ -63,63 +134,6 @@ export class AuthorizationHelper {
         map.set(OperatorRequestMessageType.restartDevicesRequest, [PermissionName.devicesStop]);
         map.set(OperatorRequestMessageType.getDeviceConnectivityDetailsRequest, [PermissionName.devicesReadStatus]);
         map.set(OperatorRequestMessageType.shutdownDevicesRequest, [PermissionName.devicesStop]);
-        this.messageTypeToPermissionMap = map;
-    }
-
-    isAuthorized(permissions: Set<string>, messageType: string, isUserAuthenticated: boolean): IsAuthorizedResult {
-        const result: IsAuthorizedResult = {
-            authorized: false,
-            reason: IsAuthorizedResultReason.missingPermission,
-        };
-
-        if (permissions.has(PermissionName.all)) {
-            // Permission "all" allows all operations
-            result.authorized = true;
-            result.reason = IsAuthorizedResultReason.hasAllPermissions;
-            return result;
-        }
-
-        const mapPermissions = this.messageTypeToPermissionMap.get(messageType as OperatorRequestMessageType | OperatorNotificationMessageType);
-        if (mapPermissions) {
-            const hasAnyOfThePermissions = mapPermissions.some(permission => permissions.has(permission));
-            if (hasAnyOfThePermissions) {
-                result.authorized = true;
-                return result;
-            }
-        }
-
-        switch (messageType) {
-            case OperatorRequestMessageType.authRequest:
-            case OperatorRequestMessageType.createSignInCodeRequest:
-                result.authorized = true;
-                result.reason = IsAuthorizedResultReason.permissionIsNotRequired;
-                break;
-            case OperatorRequestMessageType.pingRequest:
-            case OperatorRequestMessageType.refreshTokenRequest:
-            case OperatorRequestMessageType.signOutRequest:
-            case OperatorRequestMessageType.getAllPermissionsRequest:
-            case OperatorRequestMessageType.getProfileSettingsRequest:
-            case OperatorRequestMessageType.updateProfileSettingsRequest:
-            case OperatorRequestMessageType.changePasswordRequest:
-                // The user only needs to be successfully authenticated
-                if (isUserAuthenticated) {
-                    result.authorized = true;
-                    result.reason = IsAuthorizedResultReason.permissionIsNotRequired;
-                } else {
-                    result.authorized = false;
-                    result.reason = IsAuthorizedResultReason.notAuthenticated;
-                }
-                break;
-            default:
-                // This should not happen - all message types must be covered in switch cases
-                result.authorized = false;
-                result.reason = IsAuthorizedResultReason.unknownPermissionsRequired;
-                break;
-        }
-
-        if (!result.authorized && !result.reason) {
-            result.reason = IsAuthorizedResultReason.missingPermission;
-        }
-        return result;
+        return map;
     }
 }
