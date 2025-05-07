@@ -1,4 +1,4 @@
-import { UserWithTotalAndCount } from "./user-total-and-count.mjs";
+import { UserWithTotalAndCount } from './user-total-and-count.mjs';
 
 export interface ShiftStatus {
     completedSessionsTotal: number;

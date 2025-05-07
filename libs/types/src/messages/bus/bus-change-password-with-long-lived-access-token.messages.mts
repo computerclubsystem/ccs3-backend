@@ -1,6 +1,6 @@
-import { MessageType } from "../declarations/message-type.mjs";
-import { Message } from "../declarations/message.mjs";
-import { BusChangePasswordWithLongLivedAccessTokenErrorCode } from "./declarations/bus-change-password-with-long-lived-access-token-error-code.mjs";
+import { MessageType } from '../declarations/message-type.mjs';
+import { Message } from '../declarations/message.mjs';
+import { BusChangePasswordWithLongLivedAccessTokenErrorCode } from './declarations/bus-change-password-with-long-lived-access-token-error-code.mjs';
 
 export interface BusChangePasswordWithLongLivedAccessTokenRequestMessageBody {
     token: string;
