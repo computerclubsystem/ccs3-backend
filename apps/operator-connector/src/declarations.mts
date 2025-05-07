@@ -80,6 +80,7 @@ export interface OperatorConnectorState {
     isQrCodeSignInFeatureEnabled: boolean;
     cleanUpCodeSignInInterval: number;
     lastCodeSignInCleanUpAt?: number | null;
+    tokenExpirationMilliseconds: number;
 }
 
 export interface OperatorConnectorValidators {

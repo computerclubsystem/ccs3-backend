@@ -125,6 +125,10 @@ export class CacheHelper {
         return value as (TValue | null);
     }
 
+    async setValue(key: string, value: unknown): Promise<unknown> {
+        return this.cacheClient.setValue(key, value);
+    }
+
     getCachedItem(key: string): CachedItem | undefined {
         const cachedItem = this.cacheMap.get(key);
         return cachedItem;

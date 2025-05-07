@@ -47,7 +47,7 @@ export enum OperatorRequestMessageType {
     transferDeviceRequest = 'transfer-device-request',
     createDeviceContinuationRequest = 'create-device-continuation-request',
     deleteDeviceContinuationRequest = 'delete-device-continuation-request',
-    getSigndInUsersRequest = 'get-signed-in-users-request',
+    getSignedInUsersRequest = 'get-signed-in-users-request',
     forceSignOutAllUserSessionsRequest = 'force-sign-out-all-user-sessions-request',
     getCurrentShiftStatusRequest = 'get-current-shift-status-request',
     completeShiftRequest = 'complete-shift-request',
