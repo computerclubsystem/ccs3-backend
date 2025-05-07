@@ -1,6 +1,6 @@
-import { Shift } from "src/entities/shift.mjs";
-import { MessageType } from "../declarations/message-type.mjs";
-import { Message } from "../declarations/message.mjs";
+import { Shift } from 'src/entities/shift.mjs';
+import { MessageType } from '../declarations/message-type.mjs';
+import { Message } from '../declarations/message.mjs';
 
 export type BusGetLastCompletedShiftRequestMessageBody = object;
 

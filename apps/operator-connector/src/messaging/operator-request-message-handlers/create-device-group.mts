@@ -1,7 +1,7 @@
-import { createOperatorCreateDeviceGroupReplyMessage, OperatorCreateDeviceGroupRequestMessage } from "@computerclubsystem/types/messages/operators/operator-create-device-group.messages.mjs";
-import { MessageHandlerBase } from "../message-handler-base.mjs";
-import { OperatorRequestMessageHandler, OperatorRequestMessageHandlerResult, ProcessOperatorRequestMessageContext } from "../declarations.mjs";
-import { BusCreateDeviceGroupReplyMessageBody, createBusCreateDeviceGroupRequestMessage } from "@computerclubsystem/types/messages/bus/bus-create-device-group.messages.mjs";
+import { createOperatorCreateDeviceGroupReplyMessage, OperatorCreateDeviceGroupRequestMessage } from '@computerclubsystem/types/messages/operators/operator-create-device-group.messages.mjs';
+import { MessageHandlerBase } from '../message-handler-base.mjs';
+import { OperatorRequestMessageHandler, OperatorRequestMessageHandlerResult, ProcessOperatorRequestMessageContext } from '../declarations.mjs';
+import { BusCreateDeviceGroupReplyMessageBody, createBusCreateDeviceGroupRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-device-group.messages.mjs';
 
 export class CreateDeviceGroupRequestMessageHandler extends MessageHandlerBase implements OperatorRequestMessageHandler {
     async handle(context: ProcessOperatorRequestMessageContext): Promise<OperatorRequestMessageHandlerResult | void> {
