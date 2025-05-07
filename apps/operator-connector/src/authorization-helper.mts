@@ -7,7 +7,7 @@ const MESSAGES_REQUIRING_PERMISSIONS_MAP = new Map<OperatorRequestMessageType | 
     [OperatorRequestMessageType.updateUserWithRolesRequest, [PermissionName.usersUpdate]],
     [OperatorRequestMessageType.getAllUsersRequest, [PermissionName.usersRead]],
     [OperatorRequestMessageType.getUserWithRolesRequest, [PermissionName.usersRead]],
-    [OperatorRequestMessageType.getSigndInUsersRequest, [PermissionName.reportsSignedInUsersRead]],
+    [OperatorRequestMessageType.getSignedInUsersRequest, [PermissionName.reportsSignedInUsersRead]],
     [OperatorRequestMessageType.forceSignOutAllUserSessionsRequest, [PermissionName.usersForceSignOut]],
     [OperatorRequestMessageType.createRoleWithPermissionsRequest, [PermissionName.rolesCreate]],
     [OperatorRequestMessageType.updateRoleWithPermissionsRequest, [PermissionName.rolesUpdate]],

@@ -4034,12 +4034,10 @@ export class StateManager {
     async start(): Promise<boolean> {
         this.cacheHelper.initialize(this.cacheClient);
         this.logger.setPrefix(this.className);
-        const databaseInitialized = await this.initializeDatabase();
-        if (!databaseInitialized) {
-            this.logger.error('The database cannot be initialized');
+        const databaseIntialized = await this.setupDatabase();
+        if (!databaseIntialized) {
             return false;
         }
-
         const storageSystemSettings = await this.loadSystemSettings();
 
         this.applySystemSettingTimeZone();
@@ -4062,6 +4060,32 @@ export class StateManager {
         this.state.mainTimerHandle = setInterval(() => this.mainTimerCallback(), 1000);
 
         return true;
+    }
+
+    async setupDatabase(): Promise<boolean> {
+        const maxDatabaseInitializationTries = 20;
+        let currentDatabaseInitializationTry = 0;
+        let databaseInitialized = false;
+        const delayBetweenDatabaseInitializationTries = 5000;
+        while (currentDatabaseInitializationTry < maxDatabaseInitializationTries) {
+            currentDatabaseInitializationTry++;
+            try {
+                databaseInitialized = await this.initializeDatabase();
+                if (databaseInitialized) {
+                    break;
+                } else {
+                    this.logger.warn(`The database cannot be initialized. Try ${currentDatabaseInitializationTry} / ${maxDatabaseInitializationTries}`);
+                    if (currentDatabaseInitializationTry < maxDatabaseInitializationTries) {
+                        await this.delay(delayBetweenDatabaseInitializationTries);
+                    } else {
+                        break;
+                    }
+                }
+            } catch (err) {
+                this.logger.warn('Cannot initialize the database', err);
+            }
+        }
+        return databaseInitialized;
     }
 
     async connectCacheClient(redisHost: string, redisPort: number): Promise<void> {
@@ -4156,6 +4180,12 @@ export class StateManager {
 
     roundAmount(amount: number): number {
         return Math.round(amount * 100) / 100;
+    }
+
+    async delay(ms: number): Promise<void> {
+        return new Promise(resolve => {
+            setTimeout(() => resolve(), ms);
+        });
     }
 
     async terminate(): Promise<void> {
