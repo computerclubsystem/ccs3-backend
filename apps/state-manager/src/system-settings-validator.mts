@@ -104,6 +104,17 @@ export class SystemSettingsValidator {
                     }
                     break;
                 }
+                case SystemSettingsName.feature_qrcode_sign_in_token_duration: {
+                    const val = item.value ? +item.value : 0;
+                    const isValid = val > 0;
+                    if (!isValid) {
+                        result.failed = true;
+                        result.errorCode = ValidateNameWithValuesErrorCode.outOfRange;
+                        result.errorMessage = this.getOutOfRangeErrorMessage(item) + '. Valid values are > 0';
+                        return result;
+                    }
+                    break;
+                }
                 default:
                     result.failed = true;
                     result.errorCode = ValidateNameWithValuesErrorCode.unknownSettingName;

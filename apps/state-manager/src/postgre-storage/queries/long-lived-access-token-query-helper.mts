@@ -1,8 +1,19 @@
 import { ILongLivedAccessToken } from 'src/storage/entities/long-lived-access-token.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
-import { InsertQueryBuilder, SelectQueryBuilder, WhereClauseOperation } from './query-builder.mjs';
+import { InsertQueryBuilder, SelectQueryBuilder, UpdateQueryBuilder, WhereClauseOperation } from './query-builder.mjs';
 
 export class LongLivedAccessTokenQueryHelper {
+    updateLongLivedTokenValidTo(longLivedAccessTokenId: number, validTo: string): IQueryTextWithParamsResult {
+        const builder = new UpdateQueryBuilder();
+        builder.setTableName(TableName.long_lived_access_token);
+        builder.addUpdateColumnNameWithValue(ColumnName.valid_to, validTo);
+        builder.addWhereParameterColumnNameWithValue(ColumnName.id, longLivedAccessTokenId);
+        return {
+            text: builder.getQueryString(),
+            params: builder.getParameterValues(),
+        };
+    }
+
     getLongLivedAccessToken(token: string): IQueryTextWithParamsResult {
         const builder = new SelectQueryBuilder();
         builder.setTableName(TableName.long_lived_access_token);

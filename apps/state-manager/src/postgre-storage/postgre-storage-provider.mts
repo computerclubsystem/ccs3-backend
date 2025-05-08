@@ -75,6 +75,11 @@ export class PostgreStorageProvider implements StorageProvider {
         return result;
     }
 
+    async updateLongLivedTokenValidTo(longLivedAccessTokenId: number, validTo: string): Promise<void> {
+        const queryData = this.queryUtils.updateLongLivedTokenValidTo(longLivedAccessTokenId, validTo);
+        await this.execQuery(queryData.text, queryData.params);
+    }
+
     async updateUserPasswordHash(userId: number, passwordHash: string): Promise<boolean> {
         const queryData = this.queryUtils.updateUserPasswordHash(userId, passwordHash);
         const res = await this.execQuery(queryData.text, queryData.params);

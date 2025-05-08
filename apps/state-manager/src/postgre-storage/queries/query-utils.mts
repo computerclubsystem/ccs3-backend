@@ -67,6 +67,10 @@ export class QueryUtils {
         longLivedAccessTokenUsage: new LongLivedAccessTokenUsageQueryHelper(),
     };
 
+    updateLongLivedTokenValidTo(longLivedAccessTokenId: number, validTo: string): IQueryTextWithParamsResult {
+        return this.helpers.longLivedAccessToken.updateLongLivedTokenValidTo(longLivedAccessTokenId, validTo);
+    }
+
     updateUserPasswordHash(userId: number, passwordHash: string): IQueryTextWithParamsResult {
         return this.helpers.user.updateUserPasswordHash(userId, passwordHash);
     }

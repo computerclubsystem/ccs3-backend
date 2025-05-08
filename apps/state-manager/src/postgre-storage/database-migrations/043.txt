@@ -1,0 +1,18 @@
+INSERT INTO system_setting
+(
+    name,
+    type,
+    description,
+    value
+)
+VALUES
+(
+    'feature_qrcode_sign_in_token_duration',
+    'number',
+    'How many days to keep QR code sign in token valid. Every time a user uses QR code sign in, the token expiration date for the account will be set specified days in the future. If the user does not use QR code sign in for the specified days, its token will expire and new sign in will be required. Default value is 30 days.',
+    '30'
+);
+
+UPDATE db_metadata
+SET value = '43'
+WHERE name = 'database-version';

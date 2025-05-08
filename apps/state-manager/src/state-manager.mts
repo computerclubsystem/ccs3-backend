@@ -17,7 +17,7 @@ import { StorageProvider } from './storage/storage-provider.mjs';
 import { PostgreStorageProvider } from './postgre-storage/postgre-storage-provider.mjs';
 import { BusDeviceUnknownDeviceConnectedRequestMessage } from '@computerclubsystem/types/messages/bus/bus-device-unknown-device-connected.messages.mjs';
 import { IDevice } from './storage/entities/device.mjs';
-import { SystemSettingsName as SystemSettingName } from './storage/entities/constants/system-setting-names.mjs';
+import { SystemSettingsName } from './storage/entities/constants/system-setting-names.mjs';
 import { EntityConverter } from './entity-converter.mjs';
 import { BusDeviceConnectionEventNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-device-connection-event-notification.message.mjs';
 import { IDeviceConnectionEvent } from './storage/entities/device-connection-event.mjs';
@@ -751,8 +751,10 @@ export class StateManager {
             this.publishToOperatorsChannel(replyMsg, message);
             if (replyMsg.body.success && authReplyMsg.body.longLivedAccessToken) {
                 // Save success token usage
+                // Reresh long lived access token valid_to
+                const longLivedAccessToken: LongLivedAccessToken = authReplyMsg.body.longLivedAccessToken;
+                await this.extendValidToOfLongLivedAccessToken(longLivedAccessToken.id);
                 try {
-                    const longLivedAccessToken: LongLivedAccessToken = authReplyMsg.body.longLivedAccessToken;
                     const storageLongLivedAccessTokenUsage: ILongLivedAccessTokenUsage = {
                         token: message.body.token,
                         used_at: this.dateTimeHelper.getCurrentUTCDateTimeAsISOString(),
@@ -2760,6 +2762,8 @@ export class StateManager {
             replyMsg.body.tariffId = tariff.id;
             this.publishToDevicesChannel(replyMsg, message);
             if (replyMsg.body.success && storageLongLivedAccessToken) {
+                // Reresh long lived access token valid_to
+                await this.extendValidToOfLongLivedAccessToken(storageLongLivedAccessToken.id);
                 // If token is used, save usage history
                 try {
                     const storageLongLivedAccessTokenUsage: ILongLivedAccessTokenUsage = {
@@ -3521,6 +3525,16 @@ export class StateManager {
         this.manageLogFiltering(now);
     }
 
+    async extendValidToOfLongLivedAccessToken(longLivedAccessTokenId: number): Promise<void> {
+        const now = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
+        const newValidTo = this.dateTimeHelper.addSeconds(now, this.state.longLivedTokenDurationSeconds);
+        try {
+            await this.storageProvider.updateLongLivedTokenValidTo(longLivedAccessTokenId, newValidTo);
+        } catch (err) {
+            this.logger.error(`Can't change long lived token valid to value to ${newValidTo}`, err);
+        }
+    }
+
     manageLogFiltering(now: number): void {
         if (this.state.filterLogsItem) {
             const diff = now - this.state.filterLogsRequestedAt!;
@@ -3539,7 +3553,7 @@ export class StateManager {
             return;
         }
         const diff = now - this.state.lastDeviceStatusRefreshAt;
-        if (diff > this.state.systemSettings[SystemSettingName.device_status_refresh_interval]) {
+        if (diff > this.state.systemSettings[SystemSettingsName.device_status_refresh_interval]) {
             this.refreshDeviceStatuses();
         }
     }
@@ -3970,26 +3984,27 @@ export class StateManager {
     }
 
     private createDefaultState(): StateManagerState {
+        const qrCodeSignInTokenDurationDays = 30;
         const state: StateManagerState = {
             systemSettings: {
-                [SystemSettingName.device_status_refresh_interval]: 5 * 1000,
+                [SystemSettingsName.device_status_refresh_interval]: 5 * 1000,
                 // 1800 seconds = 30 minutes
-                [SystemSettingName.token_duration]: 1800 * 1000,
-                // Empty timezone means the current computer timezone will be used
-                [SystemSettingName.timezone]: '',
-                [SystemSettingName.free_seconds_at_start]: 180,
-                [SystemSettingName.seconds_before_restarting_stopped_computers]: 120,
-                [SystemSettingName.seconds_before_notifying_customers_for_session_end]: 0,
-                [SystemSettingName.feature_qrcode_sign_in_enabled]: false,
-                [SystemSettingName.feature_qrcode_sign_in_server_public_url]: '',
+                [SystemSettingsName.token_duration]: 1800 * 1000,
+                // Empty timezsone means the current computer timezone will be used
+                [SystemSettingsName.timezone]: '',
+                [SystemSettingsName.free_seconds_at_start]: 180,
+                [SystemSettingsName.seconds_before_restarting_stopped_computers]: 120,
+                [SystemSettingsName.seconds_before_notifying_customers_for_session_end]: 0,
+                [SystemSettingsName.feature_qrcode_sign_in_enabled]: false,
+                [SystemSettingsName.feature_qrcode_sign_in_server_public_url]: '',
+                [SystemSettingsName.feature_qrcode_sign_in_token_duration]: qrCodeSignInTokenDurationDays,
             },
             lastDeviceStatusRefreshAt: 0,
             deviceStatusRefreshInProgress: false,
             mainTimerHandle: undefined,
             // 5 minutes
             codeSignInDurationSeconds: 5 * 60,
-            // 180 days
-            longLivedTokenDurationSeconds: 180 * 24 * 60 * 60,
+            longLivedTokenDurationSeconds: qrCodeSignInTokenDurationDays * 24 * 60 * 60,
         };
         return state;
     }
@@ -3998,17 +4013,18 @@ export class StateManager {
         const allSystemSettings = await this.storageProvider.getAllSystemSettings();
         const settingsMap = new Map<string, ISystemSetting>();
         allSystemSettings.forEach(x => settingsMap.set(x.name, x));
-        const getAsNumber = (name: SystemSettingName) => +(settingsMap.get(name)?.value || 0);
-        const getAsBoolean = (name: SystemSettingName) => settingsMap.get(name)?.value?.trim()?.toLowerCase() === 'yes';
+        const getAsNumber = (name: SystemSettingsName) => +(settingsMap.get(name)?.value || 0);
+        const getAsBoolean = (name: SystemSettingsName) => settingsMap.get(name)?.value?.trim()?.toLowerCase() === 'yes';
         this.state.systemSettings = {
-            [SystemSettingName.device_status_refresh_interval]: 1000 * getAsNumber(SystemSettingName.device_status_refresh_interval),
-            [SystemSettingName.token_duration]: 1000 * getAsNumber(SystemSettingName.token_duration),
-            [SystemSettingName.free_seconds_at_start]: getAsNumber(SystemSettingName.free_seconds_at_start),
-            [SystemSettingName.timezone]: settingsMap.get(SystemSettingName.timezone)?.value,
-            [SystemSettingName.seconds_before_restarting_stopped_computers]: getAsNumber(SystemSettingName.seconds_before_restarting_stopped_computers),
-            [SystemSettingName.seconds_before_notifying_customers_for_session_end]: getAsNumber(SystemSettingName.seconds_before_notifying_customers_for_session_end),
-            [SystemSettingName.feature_qrcode_sign_in_enabled]: getAsBoolean(SystemSettingName.feature_qrcode_sign_in_enabled),
-            [SystemSettingName.feature_qrcode_sign_in_server_public_url]: settingsMap.get(SystemSettingName.feature_qrcode_sign_in_server_public_url)?.value,
+            [SystemSettingsName.device_status_refresh_interval]: 1000 * getAsNumber(SystemSettingsName.device_status_refresh_interval),
+            [SystemSettingsName.token_duration]: 1000 * getAsNumber(SystemSettingsName.token_duration),
+            [SystemSettingsName.free_seconds_at_start]: getAsNumber(SystemSettingsName.free_seconds_at_start),
+            [SystemSettingsName.timezone]: settingsMap.get(SystemSettingsName.timezone)?.value,
+            [SystemSettingsName.seconds_before_restarting_stopped_computers]: getAsNumber(SystemSettingsName.seconds_before_restarting_stopped_computers),
+            [SystemSettingsName.seconds_before_notifying_customers_for_session_end]: getAsNumber(SystemSettingsName.seconds_before_notifying_customers_for_session_end),
+            [SystemSettingsName.feature_qrcode_sign_in_enabled]: getAsBoolean(SystemSettingsName.feature_qrcode_sign_in_enabled),
+            [SystemSettingsName.feature_qrcode_sign_in_server_public_url]: settingsMap.get(SystemSettingsName.feature_qrcode_sign_in_server_public_url)?.value,
+            [SystemSettingsName.feature_qrcode_sign_in_token_duration]: getAsNumber(SystemSettingsName.feature_qrcode_sign_in_token_duration),
         };
         return allSystemSettings;
     }
@@ -4017,10 +4033,11 @@ export class StateManager {
         // Some of the system settings need to be applied to other entities when they are changed,
         // not just set to this.state.systemSettings
         this.applySystemSettingTimeZone();
+        this.applySystemSettingLongLivedTokenDuration();
     }
 
     getFreeSecondsAtComputerSessionStart(): number {
-        return this.state.systemSettings[SystemSettingName.free_seconds_at_start];
+        return this.state.systemSettings[SystemSettingsName.free_seconds_at_start];
     }
 
     createUUIDString(): string {
@@ -4039,8 +4056,8 @@ export class StateManager {
             return false;
         }
         const storageSystemSettings = await this.loadSystemSettings();
+        this.applySystemSettings();
 
-        this.applySystemSettingTimeZone();
         // TODO: Should we publish system settings to the shared channel ? They can contain sensitive information
 
         const redisHost = this.envVars.CCS3_REDIS_HOST.value;
@@ -4147,8 +4164,14 @@ export class StateManager {
         await this.subClient.subscribe(ChannelName.operators);
     }
 
+    applySystemSettingLongLivedTokenDuration(): void {
+        // Long lived access token duration
+        const longLivedTokenDurationDays = this.state.systemSettings[SystemSettingsName.feature_qrcode_sign_in_token_duration];
+        this.state.longLivedTokenDurationSeconds = longLivedTokenDurationDays * 24 * 60 * 60;
+    }
+
     applySystemSettingTimeZone(): void {
-        this.dateTimeHelper.setDefaultTimeZone(this.state.systemSettings[SystemSettingName.timezone]);
+        this.dateTimeHelper.setDefaultTimeZone(this.state.systemSettings[SystemSettingsName.timezone]);
     }
 
     setErrorToReplyMessage(err: unknown, requestMessage: Message<unknown>, replyMessage: Message<unknown>): void {
@@ -4215,14 +4238,15 @@ interface StateManagerState {
 }
 
 interface StateManagerStateSystemSettings {
-    [SystemSettingName.device_status_refresh_interval]: number;
-    [SystemSettingName.token_duration]: number;
-    [SystemSettingName.timezone]: string | undefined | null;
-    [SystemSettingName.free_seconds_at_start]: number;
-    [SystemSettingName.seconds_before_restarting_stopped_computers]: number;
-    [SystemSettingName.seconds_before_notifying_customers_for_session_end]: number;
-    [SystemSettingName.feature_qrcode_sign_in_enabled]: boolean;
-    [SystemSettingName.feature_qrcode_sign_in_server_public_url]: string | undefined | null;
+    [SystemSettingsName.device_status_refresh_interval]: number;
+    [SystemSettingsName.token_duration]: number;
+    [SystemSettingsName.timezone]: string | undefined | null;
+    [SystemSettingsName.free_seconds_at_start]: number;
+    [SystemSettingsName.seconds_before_restarting_stopped_computers]: number;
+    [SystemSettingsName.seconds_before_notifying_customers_for_session_end]: number;
+    [SystemSettingsName.feature_qrcode_sign_in_enabled]: boolean;
+    [SystemSettingsName.feature_qrcode_sign_in_server_public_url]: string | undefined | null;
+    [SystemSettingsName.feature_qrcode_sign_in_token_duration]: number;
 }
 
 // interface UserAuthDataCacheValue {
