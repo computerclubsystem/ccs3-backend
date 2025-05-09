@@ -277,7 +277,7 @@ spec:
           httpGet:
             scheme: HTTPS
             path: /api/health-check
-            port: ccs3-qrcode-signin-port
+            port: 65503
           initialDelaySeconds: 10
           periodSeconds: 20
           failureThreshold: 3
