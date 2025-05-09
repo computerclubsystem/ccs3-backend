@@ -273,6 +273,14 @@ spec:
           limits:
             memory: 128Mi
             cpu: "0.1"
+        livenessProbe:
+          httpGet:
+            scheme: HTTPS
+            path: /api/health-check
+            port: ccs3-qrcode-signin-port
+          initialDelaySeconds: 10
+          periodSeconds: 20
+          failureThreshold: 3
       volumes:
       - name: qrcode-signin-certs-volume
         secret:

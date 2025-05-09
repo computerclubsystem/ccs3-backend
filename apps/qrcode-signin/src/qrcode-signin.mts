@@ -94,6 +94,11 @@ export class QRCodeSignIn {
         const app = express();
         app.use(express.json());
 
+        app.get('/api/health-check', async (req, res) => {
+            res.status(200);
+            res.end();
+        });
+
         app.post('/api/change-password-with-token', async (req, res) => {
             const result = await this.processApiChangePasswordWithToken(req.body as ApiChangePasswordWithTokenRequestBody, this.getIpAddressFromRequest(req));
             res.json(result);
