@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: ccs3-static-files-container
-        image: ccs3/static-files-service:latest
+        image: computerclubsystem/static-files-service:3.1.1
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: nginx-certs-volume
@@ -91,7 +91,7 @@ spec:
     spec:
       containers:
       - name: ccs3-state-manager-container
-        image: ccs3/state-manager:latest
+        image: computerclubsystem/state-manager:3.1.1
         imagePullPolicy: IfNotPresent
         env:
         - name: CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING
@@ -136,7 +136,7 @@ spec:
     spec:
       containers:
       - name: ccs3-pc-connector-container
-        image: ccs3/pc-connector:latest
+        image: computerclubsystem/pc-connector:3.1.1
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: pc-connector-certs-volume
@@ -197,7 +197,7 @@ spec:
     spec:
       containers:
       - name: ccs3-operator-connector-container
-        image: ccs3/operator-connector:latest
+        image: computerclubsystem/operator-connector:3.1.1
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: operator-connector-certs-volume
@@ -258,7 +258,7 @@ spec:
     spec:
       containers:
       - name: ccs3-qrcode-signin-container
-        image: ccs3/qrcode-signin:latest
+        image: computerclubsystem/qrcode-signin:3.1.1
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: qrcode-signin-certs-volume
