@@ -4248,12 +4248,3 @@ interface StateManagerStateSystemSettings {
     [SystemSettingsName.feature_qrcode_sign_in_server_public_url]: string | undefined | null;
     [SystemSettingsName.feature_qrcode_sign_in_token_duration]: number;
 }
-
-// interface UserAuthDataCacheValue {
-//     userId: number;
-//     roundtripData: OperatorConnectionRoundTripData;
-//     permissions: string[];
-//     setAt: number;
-//     token: string;
-//     tokenExpiresAt: number;
-// }

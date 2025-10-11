@@ -1,0 +1,18 @@
+INSERT INTO system_setting
+(
+    name,
+    type,
+    description,
+    value
+)
+VALUES
+(
+    'feature_second_price',
+    'string',
+    'Whether to show second price on the customer screen. Leave empty to not show second price. Default value is empty. If second price must be shown, provide two values separated with comma. The first value is the currency and the second value is the exchange rate. Example for second price in Euro which has exchange rate of 0.511292: EUR,0.511292',
+    ''
+);
+
+UPDATE db_metadata
+SET value = '44'
+WHERE name = 'database-version';

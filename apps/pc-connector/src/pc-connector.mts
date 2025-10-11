@@ -120,6 +120,24 @@ export class PcConnector {
     applySystemSettings(systemSettings: SystemSetting[]): void {
         // TODO: Generate objects based on provided system settings
         this.state.isQrCodeSignInFeatureEnabled = systemSettings.find(x => x.name === SystemSettingsName.feature_qrcode_sign_in_enabled)?.value?.trim() === 'yes';
+        const secondPriceSystemSetting = systemSettings.find(x => x.name === SystemSettingsName.feature_second_price);
+        this.state.isSecondPriceFeatureEnabled = !!secondPriceSystemSetting?.value?.trim();
+        if (this.state.isSecondPriceFeatureEnabled) {
+            const secondPriceSystemSettingValue = secondPriceSystemSetting!.value!;
+            const parts = secondPriceSystemSettingValue.trim().split(',');
+            const secondPriceRate = +parts[1];
+            const isSecondPriceRateValid = secondPriceRate > 0;
+            if (isSecondPriceRateValid) {
+                this.state.secondPriceCurrency = parts[1];
+                this.state.secondPriceRate = secondPriceRate;
+            } else {
+                this.state.isSecondPriceFeatureEnabled = false;
+            }
+        }
+        if (!this.state.isSecondPriceFeatureEnabled) {
+            this.state.secondPriceCurrency = null;
+            this.state.secondPriceRate = null;
+        }
         const allConnectedClientsData = this.getAllConnectedClientsData();
         const msg = createServerToDeviceDeviceConfigurationNotificationMessage();
         msg.body = this.createServerToDeviceDeviceConfigurationNotificationMessageBody(systemSettings);
@@ -815,6 +833,13 @@ export class PcConnector {
                         totalSum: status.totalSum,
                         totalTime: status.totalTime,
                     };
+                    if (this.state.isSecondPriceFeatureEnabled && msg.body.amounts.totalSum && this.state.secondPriceRate) {
+                        const calculatedSecondPrice = msg.body.amounts.totalSum * this.state.secondPriceRate;
+                        if (calculatedSecondPrice) {
+                            // Currencies should have 100 "cents" in order to do this calculation
+                            msg.body.amounts.totalSumSecondPrice = Math.ceil(calculatedSecondPrice * 100) / 100;
+                        }
+                    }
                     if (continuationTariffsShortInfo && status.continuationTariffId) {
                         const tariffShortInfo = continuationTariffsShortInfo.find(x => x.id === status.continuationTariffId);
                         if (tariffShortInfo) {
@@ -1080,7 +1105,9 @@ export class PcConnector {
                 sessionEndNotificationSoundFilePath: null,
                 featureFlags: {
                     codeSignIn: false,
+                    secondPrice: false,
                 },
+                secondPriceCurrency: null,
             };
             return result;
         }
@@ -1095,6 +1122,15 @@ export class PcConnector {
             secondsBeforeNotifyingCustomerForSessionEnd = +parts[0] || 0;
             sessionEndNotificationSoundFilePath = parts[1];
         }
+
+        let secondPriceCurrency = '';
+        let secondPriceRate = 0;
+        const secondPriceSetting = systemSettings.find(x => x.name === SystemSettingsName.feature_second_price);
+        if (secondPriceSetting?.value) {
+            const parts = secondPriceSetting.value.split(',').map(x => x.trim());
+            secondPriceCurrency = parts[0];
+            secondPriceRate = +parts[1];
+        }
         result = {
             secondsAfterStoppedBeforeRestart: secondsBeforeRestartingStoppedComputersValue ? +secondsBeforeRestartingStoppedComputersValue : this.state.defaultSecondsAfterStoppedBeforeRestart,
             // TODO: Define pingInterval system setting
@@ -1103,7 +1139,9 @@ export class PcConnector {
             sessionEndNotificationSoundFilePath: sessionEndNotificationSoundFilePath,
             featureFlags: {
                 codeSignIn: this.state.systemSettings.find(x => x.name === SystemSettingsName.feature_qrcode_sign_in_enabled)?.value?.toLowerCase() == "yes",
+                secondPrice: secondPriceRate > 0,
             },
+            secondPriceCurrency: secondPriceCurrency,
         };
         return result;
     }
@@ -1561,6 +1599,9 @@ export class PcConnector {
             codeSignInDurationSeconds: 3 * 60,
             // 1 minute
             cleanUpCodeSignInInterval: 1 * 60 * 1000,
+            isSecondPriceFeatureEnabled: false,
+            secondPriceCurrency: null,
+            secondPriceRate: null,
         };
         return state;
     }
@@ -1655,4 +1696,8 @@ interface PcConnectorState {
     codeSignInDurationSeconds: number;
     cleanUpCodeSignInInterval: number;
     lastCodeSignInCleanUpAt?: number | null;
+
+    isSecondPriceFeatureEnabled: boolean;
+    secondPriceCurrency?: string | null;
+    secondPriceRate?: number | null;
 }

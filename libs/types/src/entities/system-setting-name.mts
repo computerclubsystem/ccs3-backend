@@ -8,4 +8,5 @@ export enum SystemSettingsName {
     feature_qrcode_sign_in_enabled = 'feature_qrcode_sign_in_enabled',
     feature_qrcode_sign_in_server_public_url = 'feature_qrcode_sign_in_server_public_url',
     feature_qrcode_sign_in_token_duration = 'feature_qrcode_sign_in_token_duration',
+    feature_second_price = 'feature_second_price',
 }

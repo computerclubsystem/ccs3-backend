@@ -115,6 +115,25 @@ export class SystemSettingsValidator {
                     }
                     break;
                 }
+                case SystemSettingsName.feature_second_price: {
+                    if (!item.value || this.isNullOrWhiteSpace(item.value)) {
+                        // Empty value is allowed
+                        result.failed = false;
+                        return result;
+                    }
+                    // This setting can have two parts - currency text and rate as number
+                    const parts = item.value.split(',', 2).map(x => x.trim());
+                    const secondPriceRate = +parts[1];
+                    const isSecondPriceRateValid = secondPriceRate > 0;
+                    if (!isSecondPriceRateValid) {
+                        result.failed = true;
+                        result.errorCode = ValidateNameWithValuesErrorCode.outOfRange;
+                        result.errorMessage = this.getOutOfRangeErrorMessage(item) + '. Valid values are > 0';
+                        return result;
+                    }
+                    result.failed = false;
+                    break;
+                }
                 default:
                     result.failed = true;
                     result.errorCode = ValidateNameWithValuesErrorCode.unknownSettingName;

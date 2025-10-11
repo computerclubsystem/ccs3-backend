@@ -3,6 +3,7 @@ import { ServerToDeviceNotificationMessage } from './declarations/server-to-devi
 
 export interface ServerToDeviceDeviceConfigurationNotificationMessageFeatureFlags {
     codeSignIn: boolean;
+    secondPrice: boolean;
 }
 
 export interface ServerToDeviceDeviceConfigurationNotificationMessageBody {
@@ -11,6 +12,7 @@ export interface ServerToDeviceDeviceConfigurationNotificationMessageBody {
     secondsBeforeNotifyingCustomerForSessionEnd: number;
     sessionEndNotificationSoundFilePath?: string | null;
     featureFlags: ServerToDeviceDeviceConfigurationNotificationMessageFeatureFlags;
+    secondPriceCurrency?: string | null;
 }
 
 export type ServerToDeviceDeviceConfigurationNotificationMessage = ServerToDeviceNotificationMessage<ServerToDeviceDeviceConfigurationNotificationMessageBody>;

@@ -4,6 +4,7 @@ import { ServerToDeviceNotificationMessage } from './declarations/server-to-devi
 
 export interface DeviceStatusAmounts {
     totalSum?: number | null;
+    totalSumSecondPrice?: number | null;
     totalTime?: number | null;
     startedAt?: number | null;
     stoppedAt?: number | null;
