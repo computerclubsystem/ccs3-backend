@@ -17,6 +17,8 @@ export class GetDeviceCompletedSessionsRequestMessageHandler extends MessageHand
                 const operatorReplyMsg = createOperatorGetDeviceCompletedSessionsReplyMessage();
                 operatorReplyMsg.body.deviceSessions = busReplyMsg.body.deviceSessions;
                 operatorReplyMsg.body.totalSum = busReplyMsg.body.totalSum;
+                operatorReplyMsg.body.tariffUsages = busReplyMsg.body.tariffUsages;
+                operatorReplyMsg.body.deviceUsages = busReplyMsg.body.deviceUsages;
                 context.errorReplyHelper.setBusMessageFailure(busReplyMsg, message, operatorReplyMsg);
                 this.sendReplyMessageToOperator(context, operatorReplyMsg, message);
             });

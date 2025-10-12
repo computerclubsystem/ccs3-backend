@@ -117,6 +117,10 @@ export class DateTimeHelper {
         return DateTime.fromMillis(milliseconds).toISO()!;
     }
 
+    getDiff(fromDate: string, toDate: string): number {
+        return Math.abs(this.getNumberFromISOStringDateTime(fromDate)! - this.getNumberFromISOStringDateTime(toDate)!);
+    }
+
     getNumberFromISOStringDateTime(isoDateTime?: string | null): number | null {
         if (!isoDateTime) {
             return null;

@@ -111,6 +111,8 @@ import { ILongLivedAccessTokenUsage } from './storage/entities/long-lived-access
 import { LongLivedAccessToken } from '@computerclubsystem/types/entities/long-lived-access-token.mjs';
 import { BusChangePasswordWithLongLivedAccessTokenRequestMessage, createBusChangePasswordWithLongLivedAccessTokenReplyMessage } from '@computerclubsystem/types/messages/bus/bus-change-password-with-long-lived-access-token.messages.mjs';
 import { BusChangePasswordWithLongLivedAccessTokenErrorCode } from '@computerclubsystem/types/messages/bus/declarations/bus-change-password-with-long-lived-access-token-error-code.mjs';
+import { TariffUsage } from '@computerclubsystem/types/messages/shared-declarations/tariff-usage.mjs';
+import { DeviceUsage } from '@computerclubsystem/types/messages/shared-declarations/device-usage.mjs';
 
 export class StateManager {
     private readonly className = (this as object).constructor.name;
@@ -840,6 +842,38 @@ export class StateManager {
             const totalSum = deviceSessions.reduce((acc, curr) => this.roundAmount(acc + curr.totalAmount), 0);
             replyMsg.body.deviceSessions = deviceSessions;
             replyMsg.body.totalSum = totalSum;
+
+            const groupedByTariffId = this.groupBy(deviceSessions, x => x.tariffId);
+            const tariffUsages: TariffUsage[] = [];
+            for (const group of groupedByTariffId) {
+                const totalAmountSum = group.items.map(x => x.totalAmount).reduce((prev, curr) => this.roundAmount(prev + curr), 0);
+                const totalTimeSeconds = Math.floor(group.items.map(x => this.dateTimeHelper.getDiff(x.startedAt, x.stoppedAt)).reduce((prev, curr) => prev + curr, 0) / 1000);
+                tariffUsages.push({
+                    count: group.items.length,
+                    tariffId: group.key,
+                    totalAmount: totalAmountSum,
+                    totalTime: totalTimeSeconds,
+                });
+            }
+            replyMsg.body.tariffUsages = tariffUsages;
+
+            const groupedByDeviceId = this.groupBy(deviceSessions, x => x.deviceId);
+            const deviceUsages: DeviceUsage[] = [];
+            for (const group of groupedByDeviceId) {
+                const totalAmountSum = group.items.map(x => x.totalAmount).reduce((prev, curr) => this.roundAmount(prev + curr), 0);
+                const totalTimeSeconds = Math.floor(group.items.map(x => this.dateTimeHelper.getDiff(x.startedAt, x.stoppedAt)).reduce((prev, curr) => prev + curr, 0) / 1000);
+                const zeroPriceSessions = group.items.filter(x => x.totalAmount === 0);
+                const zeroPriceSessionsTotalTime = Math.floor(zeroPriceSessions.map(x => this.dateTimeHelper.getDiff(x.startedAt, x.stoppedAt)).reduce((prev, curr) => prev + curr, 0) / 1000);
+                deviceUsages.push({
+                    count: group.items.length,
+                    deviceId: group.key,
+                    totalAmount: totalAmountSum,
+                    totalTime: totalTimeSeconds,
+                    zeroPriceSessionsCount: zeroPriceSessions.length,
+                    zeroPriceSessionsTotalTime: zeroPriceSessionsTotalTime,
+                });
+            }
+            replyMsg.body.deviceUsages = deviceUsages;
             this.publishToOperatorsChannel(replyMsg, message);
         } catch (err) {
             this.setErrorToReplyMessage(err, message, replyMsg);

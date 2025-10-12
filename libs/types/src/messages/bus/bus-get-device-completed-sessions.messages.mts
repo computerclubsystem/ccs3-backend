@@ -1,6 +1,8 @@
 import { DeviceSession } from 'src/entities/device-session.mjs';
 import { MessageType } from '../declarations/message-type.mjs';
 import { Message } from '../declarations/message.mjs';
+import { TariffUsage } from '../shared-declarations/tariff-usage.mjs';
+import { DeviceUsage } from '../shared-declarations/device-usage.mjs';
 
 export interface BusGetDeviceCompletedSessionsRequestMessageBody {
     fromDate: string;
@@ -20,10 +22,11 @@ export function createBusGetDeviceCompletedSessionsRequestMessage(): BusGetDevic
     return msg;
 }
 
-
 export interface BusGetDeviceCompletedSessionsReplyMessageBody {
     deviceSessions: DeviceSession[];
     totalSum: number;
+    tariffUsages: TariffUsage[];
+    deviceUsages: DeviceUsage[];
 }
 
 export type BusGetDeviceCompletedSessionsReplyMessage = Message<BusGetDeviceCompletedSessionsReplyMessageBody>;
