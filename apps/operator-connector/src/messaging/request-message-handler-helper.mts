@@ -49,6 +49,7 @@ import { GetAllDevicesRequestMessageHandler } from './operator-request-message-h
 import { GetDeviceByIdRequestMessageHandler } from './operator-request-message-handlers/get-device-by-id.mjs';
 import { RefreshTokenRequestMessageHandler } from './operator-request-message-handlers/refresh-token.mjs';
 import { SignOutRequestMessageHandler } from './operator-request-message-handlers/sign-out.mjs';
+import { UpdateDeviceRequestMessageHandler } from './operator-request-message-handlers/update-device.mjs';
 
 export class RequestMessageHandlerHelper {
     createOperatorRequestMessageHandlersMap(): Map<OperatorRequestMessageType, OperatorRequestMessageHandler> {
@@ -71,6 +72,7 @@ export class RequestMessageHandlerHelper {
         map.set(OperatorRequestMessageType.getProfileSettingsRequest, new GetProfileSettingsRequestMessageHandler());
         map.set(OperatorRequestMessageType.changePasswordRequest, new ChangePasswordRequestMessageHandler());
         map.set(OperatorRequestMessageType.createDeviceRequest, new CreateDeviceRequestMessageHandler());
+        map.set(OperatorRequestMessageType.updateDeviceRequest, new UpdateDeviceRequestMessageHandler());
         map.set(OperatorRequestMessageType.updateSystemSettingsValuesRequest, new UpdateSystemSettingsValuesRequestMessageHandler());
         map.set(OperatorRequestMessageType.getAllSystemSettingsRequest, new GetAllSystemSettingsRequestMessageHandler());
         map.set(OperatorRequestMessageType.getShifts, new GetShiftsRequestMessageHandler());
