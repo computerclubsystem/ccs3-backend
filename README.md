@@ -370,13 +370,18 @@ import { ... } from '@computerclubsystem/<new-lib-name>'
 ```
 
 ## Build docker images
+Set the version with
+```bash
+node scripts/update-version.mjs 3.4.5
+```
+
 DevOps related files are in `devops` folder. Each dockerfile has a comment in the beginning showing a sample command line that builds the image. The `package.json` file has npm scripts for building images if Docker Desktop is used or Rancher Desktop is used with `containerd` (`nerdctl`) like:
 ```bash
 npm run apps/state-manager:build-image-docker
 ```
 or
 ```bash
-npm run apps/state-manager:build-image-racnher-nerdctl
+npm run apps/state-manager:build-image-nerdctl
 ```
 
 Building `state-manager` manually would look like this for Docker Desktop:
