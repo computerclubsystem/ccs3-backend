@@ -1,0 +1,379 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ccs3-static-files-deployment
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ccs3
+      component: ccs3-static-files
+  template:
+    metadata:
+      labels:
+        app: ccs3
+        component: ccs3-static-files
+    spec:
+      containers:
+      - name: ccs3-static-files-container
+        image: computerclubsystem/static-files-service:3.1.9
+        imagePullPolicy: IfNotPresent
+        ports: 
+        - containerPort: 443
+        - containerPort: 80
+        volumeMounts:
+        - name: nginx-certs-volume
+          mountPath: /etc/ssl/nginx-certs
+        resources:
+          requests: 
+            memory: 32Mi
+            cpu: "0.05"
+          limits:
+            memory: 64Mi
+            cpu: "0.1"
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /health-check.txt
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 20
+          failureThreshold: 3
+      volumes:
+      - name: nginx-certs-volume
+        secret:
+          secretName: nginx-certs
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ccs3-valkey-deployment
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ccs3
+      component: valkey
+  template:
+    metadata:
+      labels:
+        app: ccs3
+        component: valkey
+    spec:
+      containers:
+      - name: ccs3-valkey-container
+        image: valkey/valkey:8.1.1-alpine3.21
+        ports: 
+        - containerPort: 6379
+        resources:
+          requests: 
+            memory: 64Mi
+            cpu: "0.01"
+          limits:
+            memory: 128Mi
+            cpu: "0.05"
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ccs3-state-manager-deployment
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ccs3
+      component: state-manager
+  template:
+    metadata:
+      labels:
+        app: ccs3
+        component: state-manager
+    spec:
+      containers:
+      - name: ccs3-state-manager-container
+        image: computerclubsystem/state-manager:3.1.9
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING
+          valueFrom:
+            secretKeyRef:
+              name: storage-connection-string
+              key: conn-string
+        - name: CCS3_REDIS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: redis-host
+              key: host
+        resources:
+          requests: 
+            memory: 64Mi
+            cpu: "0.1"
+          limits:
+            memory: 128Mi
+            cpu: "0.2"
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ccs3-pc-connector-deployment
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ccs3
+      component: pc-connector
+  template:
+    metadata:
+      labels:
+        app: ccs3
+        component: pc-connector
+    spec:
+      containers:
+      - name: ccs3-pc-connector-container
+        image: computerclubsystem/pc-connector:3.1.9
+        imagePullPolicy: IfNotPresent
+        ports: 
+        - containerPort: 30501
+        volumeMounts:
+        - name: pc-connector-certs-volume
+          mountPath: /app/dist/certificates
+        env:
+        - name: CCS3_REDIS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: redis-host
+              key: host
+        resources:
+          requests: 
+            memory: 64Mi
+            cpu: "0.1"
+          limits:
+            memory: 128Mi
+            cpu: "0.2"
+      volumes:
+      - name: pc-connector-certs-volume
+        secret:
+          secretName: pc-connector-certs
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ccs3-pc-connector-load-balancer
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  type: LoadBalancer
+  ports:
+  - name: ccs3-pc-connector-port
+    protocol: TCP
+    port: 30501
+    targetPort: 30501
+  selector:
+   app: ccs3
+   component: pc-connector
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ccs3-operator-connector-deployment
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ccs3
+      component: operator-connector
+  template:
+    metadata:
+      labels:
+        app: ccs3
+        component: operator-connector
+    spec:
+      containers:
+      - name: ccs3-operator-connector-container
+        image: computerclubsystem/operator-connector:3.1.9
+        imagePullPolicy: IfNotPresent
+        ports: 
+        - containerPort: 30502
+        volumeMounts:
+        - name: operator-connector-certs-volume
+          mountPath: /app/dist/certificates
+        env:
+        - name: CCS3_REDIS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: redis-host
+              key: host
+        resources:
+          requests: 
+            memory: 64Mi
+            cpu: "0.1"
+          limits:
+            memory: 128Mi
+            cpu: "0.2"
+      volumes:
+      - name: operator-connector-certs-volume
+        secret:
+          secretName: operator-connector-certs
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ccs3-operator-connector-load-balancer
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  type: LoadBalancer
+  ports:
+  - name: ccs3-operator-connector-port
+    protocol: TCP
+    port: 30502
+    targetPort: 30502
+  selector:
+   app: ccs3
+   component: operator-connector
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ccs3-qrcode-signin-deployment
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ccs3
+      component: qrcode-signin
+  template:
+    metadata:
+      labels:
+        app: ccs3
+        component: qrcode-signin
+    spec:
+      containers:
+      - name: ccs3-qrcode-signin-container
+        image: computerclubsystem/qrcode-signin:3.1.9
+        imagePullPolicy: IfNotPresent
+        ports: 
+        - containerPort: 30503
+        - containerPort: 8081
+        volumeMounts:
+        - name: qrcode-signin-certs-volume
+          mountPath: /app/dist/certificates
+        env:
+        - name: CCS3_REDIS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: redis-host
+              key: host
+        resources:
+          requests: 
+            memory: 64Mi
+            cpu: "0.1"
+          limits:
+            memory: 128Mi
+            cpu: "0.2"
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /health-check
+            port: 8081
+          initialDelaySeconds: 10
+          periodSeconds: 20
+          failureThreshold: 3
+      volumes:
+      - name: qrcode-signin-certs-volume
+        secret:
+          secretName: qrcode-signin-certs
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ccs3-qrcode-signin-load-balancer
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  type: LoadBalancer
+  ports:
+  - name: ccs3-qrcode-signin-port
+    protocol: TCP
+    port: 30503
+    targetPort: 30503
+  selector:
+   app: ccs3
+   component: qrcode-signin
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ccs3-valkey-service
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  type: ClusterIP
+  ports:
+    - name: valkey-backend
+      protocol: TCP
+      port: 6379
+      targetPort: 6379
+  selector:
+    app: ccs3
+    component: valkey
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ccs3-static-files-service-load-balancer
+  labels:
+    app: ccs3
+    tier: backend
+spec:
+  type: LoadBalancer
+  ports:
+  - name: ccs3-static-files-service-port
+    protocol: TCP
+    port: 30500
+    targetPort: 443
+  selector:
+   app: ccs3
+   component: ccs3-static-files
