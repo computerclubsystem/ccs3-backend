@@ -10,28 +10,35 @@ spec:
   selector:
     matchLabels:
       app: ccs3
+      component: ccs3-static-files
   template:
     metadata:
       labels:
         app: ccs3
-        pod: ccs3-static-files
+        component: ccs3-static-files
     spec:
       containers:
       - name: ccs3-static-files-container
-        image: ccs3/static-files-service:latest
+        image: computerclubsystem/static-files-service:dev
         imagePullPolicy: IfNotPresent
+        ports: 
+        - containerPort: 443
+        - containerPort: 80
         volumeMounts:
         - name: nginx-certs-volume
           mountPath: /etc/ssl/nginx-certs
         resources:
-          limits:
+          requests: 
             memory: 32Mi
+            cpu: "0.05"
+          limits:
+            memory: 64Mi
             cpu: "0.1"
         livenessProbe:
           httpGet:
-            scheme: HTTPS
+            scheme: HTTP
             path: /health-check.txt
-            port: 443
+            port: 80
           initialDelaySeconds: 10
           periodSeconds: 20
           failureThreshold: 3
@@ -54,22 +61,27 @@ spec:
   selector:
     matchLabels:
       app: ccs3
+      component: valkey
   template:
     metadata:
       labels:
         app: ccs3
-        pod: valkey
+        component: valkey
     spec:
       containers:
       - name: ccs3-valkey-container
         image: valkey/valkey:8.1.1-alpine3.21
+        ports: 
+        - containerPort: 6379
         resources:
+          requests: 
+            memory: 64Mi
+            cpu: "0.01"
           limits:
             memory: 128Mi
-            cpu: "0.1"
+            cpu: "0.05"
 
 ---
-
 
 apiVersion: apps/v1
 kind: Deployment
@@ -83,15 +95,16 @@ spec:
   selector:
     matchLabels:
       app: ccs3
+      component: state-manager
   template:
     metadata:
       labels:
         app: ccs3
-        pod: state-manager
+        component: state-manager
     spec:
       containers:
       - name: ccs3-state-manager-container
-        image: ccs3/state-manager:latest
+        image: computerclubsystem/state-manager:dev
         imagePullPolicy: IfNotPresent
         env:
         - name: CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING
@@ -99,20 +112,18 @@ spec:
             secretKeyRef:
               name: storage-connection-string
               key: conn-string
-        - name: CCS3_STATE_MANAGER_STORAGE_PROVIDER_DATABASE_MIGRATION_SCRIPTS_DIRECTORY
-          valueFrom:
-            secretKeyRef:
-              name: state-manager-storage-provider-database-migration-scripts-directory
-              key: path
         - name: CCS3_REDIS_HOST
           valueFrom:
             secretKeyRef:
               name: redis-host
               key: host
         resources:
+          requests: 
+            memory: 64Mi
+            cpu: "0.1"
           limits:
             memory: 128Mi
-            cpu: "0.1"
+            cpu: "0.2"
 
 ---
 
@@ -128,16 +139,19 @@ spec:
   selector:
     matchLabels:
       app: ccs3
+      component: pc-connector
   template:
     metadata:
       labels:
         app: ccs3
-        pod: pc-connector
+        component: pc-connector
     spec:
       containers:
       - name: ccs3-pc-connector-container
-        image: ccs3/pc-connector:latest
+        image: computerclubsystem/pc-connector:dev
         imagePullPolicy: IfNotPresent
+        ports: 
+        - containerPort: 30501
         volumeMounts:
         - name: pc-connector-certs-volume
           mountPath: /app/dist/certificates
@@ -148,9 +162,12 @@ spec:
               name: redis-host
               key: host
         resources:
+          requests: 
+            memory: 64Mi
+            cpu: "0.1"
           limits:
             memory: 128Mi
-            cpu: "0.1"
+            cpu: "0.2"
       volumes:
       - name: pc-connector-certs-volume
         secret:
@@ -170,10 +187,11 @@ spec:
   ports:
   - name: ccs3-pc-connector-port
     protocol: TCP
-    port: 65501
+    port: 30501
+    targetPort: 30501
   selector:
    app: ccs3
-   pod: pc-connector
+   component: pc-connector
 
 ---
 
@@ -189,16 +207,19 @@ spec:
   selector:
     matchLabels:
       app: ccs3
+      component: operator-connector
   template:
     metadata:
       labels:
         app: ccs3
-        pod: operator-connector
+        component: operator-connector
     spec:
       containers:
       - name: ccs3-operator-connector-container
-        image: ccs3/operator-connector:latest
+        image: computerclubsystem/operator-connector:dev
         imagePullPolicy: IfNotPresent
+        ports: 
+        - containerPort: 30502
         volumeMounts:
         - name: operator-connector-certs-volume
           mountPath: /app/dist/certificates
@@ -209,9 +230,12 @@ spec:
               name: redis-host
               key: host
         resources:
+          requests: 
+            memory: 64Mi
+            cpu: "0.1"
           limits:
             memory: 128Mi
-            cpu: "0.1"
+            cpu: "0.2"
       volumes:
       - name: operator-connector-certs-volume
         secret:
@@ -231,10 +255,11 @@ spec:
   ports:
   - name: ccs3-operator-connector-port
     protocol: TCP
-    port: 65502
+    port: 30502
+    targetPort: 30502
   selector:
    app: ccs3
-   pod: operator-connector
+   component: operator-connector
 
 ---
 
@@ -250,16 +275,20 @@ spec:
   selector:
     matchLabels:
       app: ccs3
+      component: qrcode-signin
   template:
     metadata:
       labels:
         app: ccs3
-        pod: qrcode-signin
+        component: qrcode-signin
     spec:
       containers:
       - name: ccs3-qrcode-signin-container
-        image: ccs3/qrcode-signin:latest
+        image: computerclubsystem/qrcode-signin:dev
         imagePullPolicy: IfNotPresent
+        ports: 
+        - containerPort: 30503
+        - containerPort: 8081
         volumeMounts:
         - name: qrcode-signin-certs-volume
           mountPath: /app/dist/certificates
@@ -270,14 +299,17 @@ spec:
               name: redis-host
               key: host
         resources:
+          requests: 
+            memory: 64Mi
+            cpu: "0.1"
           limits:
             memory: 128Mi
-            cpu: "0.1"
+            cpu: "0.2"
         livenessProbe:
           httpGet:
-            scheme: HTTPS
-            path: /api/health-check
-            port: 65503
+            scheme: HTTP
+            path: /health-check
+            port: 8081
           initialDelaySeconds: 10
           periodSeconds: 20
           failureThreshold: 3
@@ -300,10 +332,11 @@ spec:
   ports:
   - name: ccs3-qrcode-signin-port
     protocol: TCP
-    port: 65503
+    port: 30503
+    targetPort: 30503
   selector:
    app: ccs3
-   pod: qrcode-signin
+   component: qrcode-signin
 
 ---
 
@@ -313,7 +346,6 @@ metadata:
   name: ccs3-valkey-service
   labels:
     app: ccs3
-    service: ccs3-valkey-service
     tier: backend
 spec:
   type: ClusterIP
@@ -321,10 +353,10 @@ spec:
     - name: valkey-backend
       protocol: TCP
       port: 6379
-    #   targetPort: 6379
+      targetPort: 6379
   selector:
     app: ccs3
-    pod: valkey
+    component: valkey
 
 ---
 
@@ -340,8 +372,8 @@ spec:
   ports:
   - name: ccs3-static-files-service-port
     protocol: TCP
-    port: 65500
+    port: 30500
     targetPort: 443
   selector:
    app: ccs3
-   pod: ccs3-static-files
+   component: ccs3-static-files

@@ -15,7 +15,7 @@ export class EnvironmentVariablesHelper {
         result.CCS3_PC_CONNECTOR_CERTIFICATE_CRT_FILE_PATH.value = this.getEnvVarValue(result.CCS3_PC_CONNECTOR_CERTIFICATE_CRT_FILE_PATH.name, './certificates/ccs3-pc-connector.crt');
         result.CCS3_PC_CONNECTOR_CERTIFICATE_KEY_FILE_PATH.value = this.getEnvVarValue(result.CCS3_PC_CONNECTOR_CERTIFICATE_KEY_FILE_PATH.name, './certificates/ccs3-pc-connector.key');
         result.CCS3_PC_CONNECTOR_ISSUER_CERTIFICATE_CRT_FILE_PATH.value = this.getEnvVarValue(result.CCS3_PC_CONNECTOR_ISSUER_CERTIFICATE_CRT_FILE_PATH.name, './certificates/ccs3-ca.crt')!;
-        result.CCS3_PC_CONNECTOR_PORT.value = this.getEnvironmentVarValueAsNumber(result.CCS3_PC_CONNECTOR_PORT.name, 65501);
+        result.CCS3_PC_CONNECTOR_PORT.value = this.getEnvironmentVarValueAsNumber(result.CCS3_PC_CONNECTOR_PORT.name, 30501);
         return result;
     }
 

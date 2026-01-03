@@ -88,16 +88,12 @@ export class QRCodeSignIn {
         // this.startMainTimer();
         // this.startClientConnectionsMonitor();
         this.startWebAPI();
+        this.startHealthCheckService();
     }
 
     startWebAPI(): void {
         const app = express();
         app.use(express.json());
-
-        app.get('/api/health-check', async (req, res) => {
-            res.status(200);
-            res.end();
-        });
 
         app.post('/api/change-password-with-token', async (req, res) => {
             const result = await this.processApiChangePasswordWithToken(req.body as ApiChangePasswordWithTokenRequestBody, this.getIpAddressFromRequest(req));
@@ -140,6 +136,17 @@ export class QRCodeSignIn {
         }, app);
         httpsServer.listen(webAPIPort, () => {
             this.logger.log(`Listening at port ${webAPIPort}`);
+        });
+    }
+
+    startHealthCheckService(): void {
+        const healthCheckApp = express();
+        healthCheckApp.get('/health-check', async (req, res) => {
+            res.status(200).send("OK");
+        });
+        const healthCheckPort = 8081;
+        healthCheckApp.listen(healthCheckPort, () => {
+            this.logger.log(`Health check listening at port ${healthCheckPort}`);
         });
     }
 

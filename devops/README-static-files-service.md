@@ -13,14 +13,9 @@ kubectl create secret generic nginx-certs --from-file=ccs3-static-files-service.
 Files to serve must be put in `/usr/share/nginx/html`
 
 # Build Docker image
-- Ensure that all the images referenced in the `Dockerfile.static-files-service` are available
+- Ensure that all the images referenced in the `Dockerfile.static-files-service` are already build locally
 - Navigate to `devops` folder
-- Build the Docker image:
-  - Using `nerdctl`
+- Build the Docker image with `dev` tag
 ```bash
-nerdctl --namespace k8s.io build -f Dockerfile.static-files-service -t ccs3/static-files-service:latest ./static-files-service
-```
-  - Using `docker`
-```bash
-docker buildx build -f Dockerfile.static-files-service -t ccs3/static-files-service:latest ./static-files-service
+docker buildx build -t computerclubsystem/static-files-service:dev -f Dockerfile.static-files-service ./static-files-service
 ```

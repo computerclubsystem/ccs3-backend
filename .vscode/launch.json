@@ -12,6 +12,9 @@
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}/apps/state-manager/src/index.mts",
+            "env": {
+                "CCS3_REDIS_PORT": "30637"
+            }
             // TODO: Either do not use "outFiles" or specify build folder of every library that is used by this application
             // "outFiles": [
             //     "${workspaceFolder}/apps/state-manager/dist/**/*.mjs"
@@ -25,6 +28,9 @@
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}/apps/pc-connector/src/index.mts",
+            "env": {
+                "CCS3_REDIS_PORT": "30637"
+            }
             // TODO: Either do not use "outFiles" or specify build folder of every library that is used by this application
             // "outFiles": [
             //     "${workspaceFolder}/apps/pc-connector/dist/**/*.mjs"
@@ -38,6 +44,9 @@
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}/apps/operator-connector/src/index.mts",
+            "env": {
+                "CCS3_REDIS_PORT": "30637"
+            }
             // TODO: Either do not use "outFiles" or specify build folder of every library that is used by this application
             // "outFiles": [
             //     "${workspaceFolder}/apps/operator-connector/dist/**/*.mjs"
@@ -51,6 +60,9 @@
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}/apps/qrcode-signin/src/index.mts",
+            "env": {
+                "CCS3_REDIS_PORT": "30637"
+            }
             // TODO: Either do not use "outFiles" or specify build folder of every library that is used by this application
             // "outFiles": [
             //     "${workspaceFolder}/apps/qrcode-signin/dist/**/*.mjs"

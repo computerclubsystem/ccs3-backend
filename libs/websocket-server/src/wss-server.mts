@@ -30,7 +30,7 @@ export class WssServer {
         this.wsServer = new WebSocketServer({
             server: this.httpsServer,
             // host: '0.0.0.0',
-            // port: 65502,
+            // port: 30502,
             // 100 Kb
             maxPayload: 100 * 1024,
             backlog: 50,

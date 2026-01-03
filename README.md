@@ -36,7 +36,7 @@ git clone https://github.com/computerclubsystem/qrcode-signin.git
 
 
 ## Kubernetes cluster installation
-The Kubernetes cluster installation and usage in this document are based on Windows 11 computer, `Rancher Desktop`, `WSL 2`, and `containerd`. Most of the operations on the server require administrative rights:
+The Kubernetes cluster installation and usage in this document are based on Windows 11 computer, `Rancher Desktop`, `WSL 2`, and `dockerd`. Most of the operations on the server require administrative rights:
 - Log in to the server computer as administrator user
 - Open command prompt as administrator and install wsl:
 ```bash
@@ -47,31 +47,14 @@ wsl --install --no-distribution
 wsl --update
 ```
 - Restart Windows.
-- Install `Rancher Desktop` from https://rancherdesktop.io/
-- Open Rancher Desktop and press the  `Preferences` button to open the preferences window and make the following changes:
+- Install `Rancher Desktop` with `dockerd` engine runtime. Download it from https://rancherdesktop.io/ (tested with version 1.20.1 - you can install another version from here - `https://github.com/rancher-sandbox/rancher-desktop/releases`)
+- Open Rancher Desktop and press the `Preferences` button to open the preferences window and make the following changes:
   - `Application - Behavior tab - Automatically start at login`
-  - `Container Engine - containerd`
+  - `Container Engine - dockerd`
   - `Kubernetes` - Select the most recent stable Kubernetes version and press `Apply` button
-- Create Kubernetes namespace for CCS3 - open command prompt and run:
-```bash
-kubectl create namespace ccs3
-```
-- Switch to the CCS3 namespace:
-```bash
-kubectl config set-context --current --namespace=ccs3
-```
-- Configure your Windows user to log in automatically - https://learn.microsoft.com/en-us/troubleshoot/windows-server/user-profiles-and-logon/turn-on-automatic-logon
+- Configure your Windows user to log in automatically - `https://learn.microsoft.com/en-us/troubleshoot/windows-server/user-profiles-and-logon/turn-on-automatic-logon`
 - Configure your Windows to never sleep / hibernate / power off etc.
 - Restart Windows and make sure it auto logs in and Rancher Desktop opens automatically
-- Open command prompt and switch to `ccs3` namespace:
-```bash
-kubectl config set-context --current --namespace=ccs3
-```
-- Show all resources in the `ccs3` namespace
-```bash
-kubectl get all
-```
-- Since we still didn't create anything in this Kubernetes namespace, the result should be `No resources found in ccs3 namespace.`
 
 ## Certificates
 CCS3 uses secure communication which requires certificates files to be created for every system component. Certificates require passwords - use strong passwords and keep them in a safe place.
@@ -84,18 +67,22 @@ It is better to create and keep all the certificates on another machine. If you 
 ```bash
 wsl --install
 ```
-- This will install Ubuntu distribution by default
 - Update to the latest WSL version:
 ```bash
 wsl --update
+```
+- Install Ubuntu distribution (you can check if it is already installed with `wsl -l`). Select the most recent Ubuntu version from the list:
+```bash
+wsl --list --online
+wsl --install -d Ubuntu-24.04
 ```
 - Restart Windows.
 - Open command prompt and navigate to the folder `certificates` where the file `create-cert-signed-by-ca.sh` is located
 - Run the Ubuntu WSL distribution:
 ```bash 
-wsl
+wsl -d Ubuntu-24.04
 ```
-- Install `openssl`:
+- Install `openssl` (if it is already installed, no changes will be made):
 ```bash
 sudo apt-get install openssl
 ```
@@ -123,15 +110,15 @@ openssl req -x509 -new -nodes -key ccs3-ca.key -sha256 -days 3650 -out ccs3-ca.c
 Applications in the CCS3 will need certificates to act as services. These are services running on the back-end as well as services that will run on Windows computers for the customers.
 
 #### Create certificates for `CCS3 Client App Windows Service`
-The `CCS3 Client App Windows Service` needs 2 certificates. One for authenticating itself as a client to the back-end services (mainly the `PC-CONNECTOR` service) and another one for authenticating itself as a service for the `CCS3 Client App`.
+The `CCS3 Client App Windows Service` needs 2 certificates. One for authenticating itself as a client to the back-end services (mainly the `pc-connector` service) and another one for authenticating itself as a service for the `CCS3 Client App`.
 
 - Creating `CCS3 Client App Windows Service` certificate for authenticating as client to the back-end
   - Open command prompt and navigate to the folder where the `ccs3-ca.crt` and `ccs3-ca.key` files are
   - Start WSL:
 ```bash
-wsl
+wsl -d Ubuntu-24.04
 ```
-  - Create certificate - change the `PC-1` occurrences with the name of the computer to which the certificate is created:
+  - Create certificate - change the `PC-1` occurrences with the name of the computer to which the certificate is created. Also change the values of `C=` (country), `ST=` (state), `O=` (organization), `OU=` (organizational unit), `CN=` (common name - this must be the same as the computer name):
 ```bash
 sh create-cert-signed-by-ca.sh PC-1 PC-1 ccs3-ca.crt ccs3-ca.key /C=BG/ST=Varna/O=CCS3/OU=Development/CN=PC-1 'clientAuth'
 ```

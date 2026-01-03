@@ -12,13 +12,11 @@ export class EnvironmentVariablesHelper {
         // The object keys must be the same as environment variable names
         const result: EnvironmentVarsData = {
             CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING: {} as EnvironmentVariableNameWithValue<string>,
-            CCS3_STATE_MANAGER_STORAGE_PROVIDER_DATABASE_MIGRATION_SCRIPTS_DIRECTORY: {} as EnvironmentVariableNameWithValue<string>,
             CCS3_REDIS_HOST: {} as EnvironmentVariableNameWithValue<string>,
             CCS3_REDIS_PORT: {} as EnvironmentVariableNameWithValue<number>,
         };
         Object.keys(result).forEach(key => this.setObjectValueByKey(result, key, { name: key } as EnvironmentVariableNameWithValue<unknown>));
         result.CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING.value = this.getEnvVarValue(result.CCS3_STATE_MANAGER_STORAGE_CONNECTION_STRING.name)!;
-        result.CCS3_STATE_MANAGER_STORAGE_PROVIDER_DATABASE_MIGRATION_SCRIPTS_DIRECTORY.value = this.getEnvVarValue(result.CCS3_STATE_MANAGER_STORAGE_PROVIDER_DATABASE_MIGRATION_SCRIPTS_DIRECTORY.name, './postgre-storage/database-migrations')!;
         result.CCS3_REDIS_HOST.value = this.getEnvVarValue(result.CCS3_REDIS_HOST.name, 'ccs3-valkey-service')!;
         result.CCS3_REDIS_PORT.value = this.getEnvironmentVarValueAsNumber(result.CCS3_REDIS_PORT.name, 6379);
         return result;
@@ -59,10 +57,6 @@ export interface EnvironmentVarsData {
      * Reserved for future use. Database connection with admin credentials. Can be used in the future to create the application database and its user automatically
      */
     // CCS3_STATE_MANAGER_STORAGE_ADMIN_CONNECTION_STRING: EnvironmentVariableNameWithValue<string>,
-    /**
-     * The path to the directory that contains database migration scripts used to update the database schema if needed.
-     */
-    CCS3_STATE_MANAGER_STORAGE_PROVIDER_DATABASE_MIGRATION_SCRIPTS_DIRECTORY: EnvironmentVariableNameWithValue<string>,
     CCS3_REDIS_HOST: EnvironmentVariableNameWithValue<string>;
     CCS3_REDIS_PORT: EnvironmentVariableNameWithValue<number>;
 }

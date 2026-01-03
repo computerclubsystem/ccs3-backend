@@ -26,7 +26,7 @@ export class EnvironmentVariablesHelper {
         result.CCS3_QRCODE_SIGNIN_CERTIFICATE_CRT_FILE_PATH.value = this.getEnvVarValue(result.CCS3_QRCODE_SIGNIN_CERTIFICATE_CRT_FILE_PATH.name, './certificates/ccs3-qrcode-signin.crt')!;
         result.CCS3_QRCODE_SIGNIN_CERTIFICATE_KEY_FILE_PATH.value = this.getEnvVarValue(result.CCS3_QRCODE_SIGNIN_CERTIFICATE_KEY_FILE_PATH.name, './certificates/ccs3-qrcode-signin.key')!;
         result.CCS3_QRCODE_SIGNIN_ISSUER_CERTIFICATE_CRT_FILE_PATH.value = this.getEnvVarValue(result.CCS3_QRCODE_SIGNIN_ISSUER_CERTIFICATE_CRT_FILE_PATH.name, './certificates/ccs3-ca.crt')!;
-        result.CCS3_QRCODE_SIGNIN_PORT.value = this.getEnvironmentVarValueAsNumber(result.CCS3_QRCODE_SIGNIN_PORT.name, 65503);
+        result.CCS3_QRCODE_SIGNIN_PORT.value = this.getEnvironmentVarValueAsNumber(result.CCS3_QRCODE_SIGNIN_PORT.name, 30503);
         result.CCS3_REDIS_HOST.value = this.getEnvVarValue(result.CCS3_REDIS_HOST.name, 'ccs3-valkey-service')!;
         result.CCS3_REDIS_PORT.value = this.getEnvironmentVarValueAsNumber(result.CCS3_REDIS_PORT.name, 6379);
         return result;

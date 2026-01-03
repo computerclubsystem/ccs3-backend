@@ -36,10 +36,6 @@ kubectl create secret generic redis-host --from-literal=host=ccs3-valkey-service
 ```bash
 kubectl create secret generic storage-connection-string --from-literal=conn-string="postgresql://<ip-address-or-host>:5432/ccs3?user=<your-postgre-user>&password=<your-password>&connect_timeout=10&application_name=state-manager"
 ```
-- `state-manager-storage-provider-database-migration-scripts-directory` - path to the `database-migrations` folder that contains database migration scripts
-```bash
-kubectl create secret generic state-manager-storage-provider-database-migration-scripts-directory --from-literal=path="postgre-storage/database-migrations"
-```
 
 ## yaml files
 
@@ -47,22 +43,46 @@ ALl commands that use `.yaml` files must be executed from the project root folde
 
 ### Development environment
 
-For development environment, apply the file `devops/ccs3-dev.yaml` - this one exposes Redis through LoadBalancer service so it is available for local development and apps debugged locally will be able to access Redis which runs inside Kubernetes cluster:
+For development environment, apply the file `ccs3-local-dev.yaml` - this one exposes Redis through LoadBalancer service so it is available for local development and apps debugged locally will be able to access Redis which runs inside Kubernetes cluster:
 ```bash
-kubectl apply -f ./devops/ccs3-dev.yaml
+kubectl apply -f ccs3-local-dev.yaml
 ```
 
 ### Production environment
 
-For production environment, apply the file `devops/ccs3-prod.yaml`:
+For production environment, apply the file `ccs3-prod.yaml`:
 ```bash
-kubectl apply -f ./devops/ccs3-prod.yaml
+kubectl apply -f ccs3-prod.yaml
 ```
 
 ## Ports
 The following are the default ports used by the system (defined in Kubernetes .yaml file):
 - 6379 - internal - for connecting applications running inside the cluster with Valkey. Can be set with environment variable `CCS3_REDIS_PORT`
-- 65500 - external - used by static-files-service - redirects to port 443 inside the container
-- 65501 - external - used by pc-connector is listening at this port - same port inside the container
-- 65502 - external - used by operator-connector - same port inside the container
-- 65503 - external - used by qrcode-signin - same port inside the container
+- 30500 - external - used by static-files-service - redirects to port 443 inside the container
+- 30501 - external - used by pc-connector is listening at this port - same port inside the container
+- 30502 - external - used by operator-connector - same port inside the container
+- 30503 - external - used by qrcode-signin - same port inside the container
+
+# Build docker images
+
+## Update the version
+- Navigate to the root of the project
+- Update `version` field in all `package.json` files with
+```bash
+node scripts/update-version.mjs <new version like 3.1.7>
+```
+## Local development
+- Make sure other images are already built with the new version (refer to the projects README files for information on how to build them)
+  - `Ccs3ClientApp`
+  - `Ccs3ClientAppWindowsService`
+  - `Ccs3ClientAppBootstrapWindowsService`
+  - `ccs3-operator`
+- Local development usually only requires building of `static-files-service`. To make sure the most recent build is used by Kubernetes. See `README-static-files-service.md` for instructions on how to build it
+
+## Operator connector
+- Navigate to the project root folder
+- Make sure the required image `computerclubsystem/operator-web-app-static-files:dev` is already build locally (refer to `ccs3-operator` project on how to build its image)
+- Build `dev` tag
+```bash
+docker buildx build --no-cache -t computerclubsystem/operator-connector:dev -f devops/Dockerfile.operator-connector .
+```

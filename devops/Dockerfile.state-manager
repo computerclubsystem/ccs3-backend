@@ -1,5 +1,4 @@
-# Build for Rancher with containerd: nerdctl -n k8s.io build -t ccs3/state-manager:latest -f Dockerfile.state-manager ../
-FROM node:23.11.0-alpine3.21 AS build
+FROM node:24.12.0-alpine3.22 AS build
 
 WORKDIR /app
 
@@ -16,7 +15,7 @@ COPY apps/state-manager/src/postgre-storage/database-migrations ./apps/state-man
 RUN rm -rf node_modules
 RUN npm run apps/state-manager:install-deps-omit-dev
 
-FROM node:23.11.0-alpine3.21 AS final
+FROM node:24.12.0-alpine3.22 AS final
 WORKDIR /app
 # TODO: Find out how can we install dependencies in node_modules and not use them as links so we can just copy node_modules
 # Because node_modules does not have the real code but just links to libs/.../dist

@@ -10,6 +10,7 @@ spec:
   selector:
     matchLabels:
       app: ccs3
+      pod: ccs3-static-files
   template:
     metadata:
       labels:
@@ -18,7 +19,7 @@ spec:
     spec:
       containers:
       - name: ccs3-static-files-container
-        image: ccs3/static-files-service:latest
+        image: computerclubsystem/static-files-service:dev
         imagePullPolicy: Never
         volumeMounts:
         - name: nginx-certs-volume
@@ -83,8 +84,8 @@ spec:
   ports:
     - name: valkey-backend
       protocol: TCP
-      port: 6379
-    #   targetPort: 6379
+      port: 30637
+      targetPort: 6379
   selector:
     app: ccs3
     pod: valkey
@@ -94,7 +95,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: ccs3-static-files-service-load-balancer
+  name: ccs3-static-files-service-node-port
   labels:
     app: ccs3
     tier: backend
@@ -103,7 +104,7 @@ spec:
   ports:
   - name: ccs3-static-files-service-port
     protocol: TCP
-    port: 65500
+    port: 30500
     targetPort: 443
   selector:
    app: ccs3

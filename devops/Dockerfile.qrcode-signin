@@ -1,5 +1,4 @@
-# Build for Rancher with containerd: nerdctl -n k8s.io build -t ccs3/qrcode-signin:latest -f Dockerfile.qrcode-signin ../
-FROM node:23.11.0-alpine3.21 AS build
+FROM node:24.12.0-alpine3.22 AS build
 
 WORKDIR /app
 
@@ -16,9 +15,14 @@ RUN npm run apps/qrcode-signin:build-include-deps
 RUN rm -rf node_modules
 RUN npm run apps/qrcode-signin:install-deps-omit-dev
 
-FROM ccs3/qrcode-signin-web-app-static-files:latest AS qrcode-signin-web-app
+# Get the QR Sign In files
+FROM computerclubsystem/qrcode-signin-web-app-static-files:dev AS qrcodesignin_image
+FROM scratch AS qrcodesignin_image_clean
+COPY --from=qrcodesignin_image / /
 
-FROM node:23.11.0-alpine3.21 AS final
+FROM computerclubsystem/qrcode-signin-web-app-static-files:dev AS qrcode-signin-web-app
+
+FROM node:24.12.0-alpine3.22 AS final
 WORKDIR /app
 # TODO: Find out how can we install dependencies in node_modules and not use them as links so we can just copy node_modules
 # Because node_modules does not have the real code but just links to libs/.../dist
@@ -30,7 +34,7 @@ COPY --from=build /app/libs/types/dist ./libs/types/dist
 COPY --from=build /app/libs/redis-client/package.json ./libs/redis-client/package.json
 COPY --from=build /app/libs/redis-client/dist ./libs/redis-client/dist
 COPY --from=build /app/apps/qrcode-signin/dist ./dist
-COPY --from=qrcode-signin-web-app /app ./dist/qrcode-signin-web-app
+COPY --from=qrcodesignin_image_clean /app/dist ./dist/qrcode-signin-web-app
 
 WORKDIR /app/dist
 CMD ["node", "index.mjs"]

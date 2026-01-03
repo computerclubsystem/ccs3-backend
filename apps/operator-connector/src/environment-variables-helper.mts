@@ -26,7 +26,7 @@ export class EnvironmentVariablesHelper {
         result.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_CRT_FILE_PATH.value = this.getEnvVarValue(result.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_CRT_FILE_PATH.name, './certificates/ccs3-operator-connector.crt')!;
         result.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_KEY_FILE_PATH.value = this.getEnvVarValue(result.CCS3_OPERATOR_CONNECTOR_CERTIFICATE_KEY_FILE_PATH.name, './certificates/ccs3-operator-connector.key')!;
         result.CCS3_OPERATOR_CONNECTOR_ISSUER_CERTIFICATE_CRT_FILE_PATH.value = this.getEnvVarValue(result.CCS3_OPERATOR_CONNECTOR_ISSUER_CERTIFICATE_CRT_FILE_PATH.name, './certificates/ccs3-ca.crt')!;
-        result.CCS3_OPERATOR_CONNECTOR_PORT.value = this.getEnvironmentVarValueAsNumber(result.CCS3_OPERATOR_CONNECTOR_PORT.name, 65502);
+        result.CCS3_OPERATOR_CONNECTOR_PORT.value = this.getEnvironmentVarValueAsNumber(result.CCS3_OPERATOR_CONNECTOR_PORT.name, 30502);
         result.CCS3_REDIS_HOST.value = this.getEnvVarValue(result.CCS3_REDIS_HOST.name, 'ccs3-valkey-service')!;
         result.CCS3_REDIS_PORT.value = this.getEnvironmentVarValueAsNumber(result.CCS3_REDIS_PORT.name, 6379);
         return result;

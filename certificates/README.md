@@ -64,7 +64,7 @@ bash create-cert-signed-by-ca.sh comp-1 ccs3-ca.crt ccs3-ca.key /C=BG/ST=Varna/O
 The client application running on Windows uses certificate to connect to services. Follow the section `Import the CA .crt file to each Windows computer` but use the path `Certificates (Local Computer) - Personal - Certificates` and import the client `.pfx` file (when borwsing for the file change the drop-down that filters by specific file extensions to point to `Personal Information Exchange (*.pfx)` to see the file). Importing `.pfx` file will ask you for the password provided when the certificate was created.
 
 ## Change `hosts` file of operator computer to associate domain name specified in the service certificate to the IP address of the service
-The operator browser tries to connect to `https://ccs3.operator-connector.local:65502` and `wss://ccs3.operator-connector.local:65502`. This means the host `ccs3.operator-connector.local` must resolve to the IP address where the `operator-connector` service runs (the server computer IP address). Change the `hosts` file of the operator computer to include the following:
+The operator browser tries to connect to `https://ccs3.operator-connector.local:30502` and `wss://ccs3.operator-connector.local:30502`. This means the host `ccs3.operator-connector.local` must resolve to the IP address where the `operator-connector` service runs (the server computer IP address). Change the `hosts` file of the operator computer to include the following:
 ```
 192.168.1.20 ccs3.operator-connector.local
 ``` 

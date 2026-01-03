@@ -24,7 +24,7 @@ VALUES
 (
     'feature_qrcode_sign_in_server_public_url',
     'string',
-    'If "QR code sign in" feature is enabled (setting "feature_qrcode_sign_in_enabled"), this must contain the URL pointing to the server that processes QR code sign ins. Example: https://150.35.12.208:65503',
+    'If "QR code sign in" feature is enabled (setting "feature_qrcode_sign_in_enabled"), this must contain the URL pointing to the server that processes QR code sign ins. Example: https://150.35.12.208:30503',
     ''
 );
 
