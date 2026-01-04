@@ -84,5 +84,5 @@ node scripts/update-version.mjs <new version like 3.1.7>
 - Make sure the required image `computerclubsystem/operator-web-app-static-files:dev` is already build locally (refer to `ccs3-operator` project on how to build its image)
 - Build `dev` tag
 ```bash
-docker buildx build --no-cache -t computerclubsystem/operator-connector:dev -f devops/Dockerfile.operator-connector .
+docker buildx build -t computerclubsystem/operator-connector:dev -f devops/Dockerfile.operator-connector .
 ```
