@@ -146,12 +146,12 @@ npm install
 ```
 
 ## Build
-To build everything with single command:
+- To build everything with single command:
 ```bash
 npm run build
 ```
 
-Building individual apps require certain order - first build the dependencies and then the applications that depend on them. This is the order:
+- Building individual apps require certain order - first build the dependencies and then the applications that depend on them. This is the order:
 ```bash
 npm run libs/types:install-deps
 npm run libs/types:build
@@ -171,7 +171,25 @@ npm run apps/wrcode-signin:build
 The results can be found in the `dist` folder in the corresponding app (like `state-manager/dist` for the `state-manager` app).
 
 ## Debug
-Debugging is configured for VSCode in `.vscode/launch.json` file. To debug the app, first build it (preferrably in `watch` mode) and then select the appropriate VSCode launch configuration. Applications have dependencies (like `apps/state-manager` depends on `libs/redis-client`) so these dependencies should also be build. To ensure a change in any component (application or library) will be reflected in the debugged application, execute these in their own terminals in the following order (you can skip some of them if you don't expect to make changes to like `npm run libs/redis-client:build-watch` and `npm run libs/websocket-server:build-watch` - these are pretty static and if there is some change, you can run one-time non-watch `...:build` version):
+Debugging is configured for VSCode in `.vscode/launch.json` file. To debug the app, first build it (preferrably in `watch` mode) and then select the appropriate VSCode launch configuration.
+
+If you find that while debugging you see your new soucrce code changes but at runtime the old code is executed (this can happen if you switch from one of the build approaches to the other or if some tsconfig.json file is changed) - stop all builds and delete the `dist` folder of all the projects in `apps` and `libs`. Switching between builds (`npm run watch-all` and `npm run libs/types:build-watch` etc.) requires deleting the output folders to avoid reusing previously built files.
+
+There are two ways to build and watch the projects for changes so they can be easily built:
+- Using TypeScript reference projects:
+  - `npm run watch-operator` - sufficient if only `operator-connector` or `state-manager` are about to be changed.   Builds and watches for changes the following projects:
+  - ./libs/types
+  - ./apps/state-manager
+  - ./apps/operator-connector
+  - `npm run watch-operator-and-pc` - sufficient if only `operator-connector`, `state-manager` or `pc-connector`   are about to be changed. Builds and watches for changes the following projects:
+  - ./libs/types
+  - ./apps/state-manager
+  - ./apps/operator-connector
+  - ./apps/pc-connector
+  - `npm run watch-all` - builds and watch all the projects
+
+- Using build for individual projects
+Applications have dependencies (like `apps/state-manager` depends on `libs/redis-client`) so these dependencies should also be build. To ensure a change in any component (application or library) will be reflected in the debugged application, execute these in their own terminals in the following order (you can skip some of them if you don't expect to make changes to like `npm run libs/redis-client:build-watch` and `npm run libs/websocket-server:build-watch` - these are pretty static and if there is some change, you can run one-time non-watch `...:build` version):
 
 ```bash
 npm run libs/types:build-watch

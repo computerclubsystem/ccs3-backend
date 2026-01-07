@@ -1,6 +1,6 @@
 {
     "name": "ccs3",
-    "version": "3.1.10",
+    "version": "3.1.11",
     "description": "",
     "main": "index.js",
     "scripts": {
@@ -48,7 +48,10 @@
         "build-images-nerdctl": "npm run apps/state-manager:build-image-nerdctl && npm run apps/pc-connector:build-image-nerdctl && npm run apps/operator-connector:build-image-nerdctl && npm run apps/qrcode-signin:build-image-nerdctl",
         "build": "npm run libs/types:install-deps && npm run libs/types:build && npm run libs/websocket-server:install-deps && npm run libs/websocket-server:build && npm run libs/redis-client:install-deps && npm run libs/redis-client:build && npm run apps/state-manager:install-deps && npm run apps/state-manager:build && npm run apps/pc-connector:install-deps && npm run apps/pc-connector:build && npm run apps/operator-connector:install-deps && npm run apps/operator-connector:build && npm run apps/qrcode-signin:install-deps && npm run apps/qrcode-signin:build",
         "eslint": "eslint",
-        "update-version": "npm version --allow-same-version --no-git-tag-version --include-workspace-root --workspaces"
+        "update-version": "npm version --allow-same-version --no-git-tag-version --include-workspace-root --workspaces",
+        "watch-operator": "tsc --build tsconfig.dev-operator.json --watch",
+        "watch-operator-and-pc": "tsc --build tsconfig.dev-operator-and-pc.json --watch",
+        "watch-all": "tsc --build tsconfig.all-projects.json --watch"
     },
     "author": "",
     "license": "MIT",

@@ -974,7 +974,7 @@ export class PcConnector {
                 // TODO: This will turn off certificate validation for the entire process
                 //       We must use per-request certificate validation
                 this.disableCertificateValidation();
-                const headers: HeadersInit = {
+                const headers: Record<string, string> = {
                     'Content-type': 'application/json; charset=UTF-8'
                 };
                 const customHeaders: { name: string, value: string }[] = [];

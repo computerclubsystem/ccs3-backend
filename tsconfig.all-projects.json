@@ -1,0 +1,12 @@
+{
+    "files": [],
+    "references": [
+        { "path": "./libs/types"},
+        { "path": "./libs/redis-client"},
+        { "path": "./libs/websocket-server"},
+        { "path": "./apps/state-manager"},
+        { "path": "./apps/operator-connector"},
+        { "path": "./apps/pc-connector"},
+        { "path": "./apps/qrcode-signin"}
+    ]
+}

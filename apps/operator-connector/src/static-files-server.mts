@@ -3,7 +3,6 @@ import * as fs from 'node:fs';
 import * as http from 'node:http';
 import * as https from 'node:https';
 import * as path from 'node:path';
-import * as url from 'node:url';
 
 export class StaticFilesServer {
     private eventEmitter = new EventEmitter();
@@ -66,7 +65,7 @@ export class StaticFilesServer {
 
     private getDesiredPath(requestUrl?: string): string {
         requestUrl = requestUrl || '';
-        const urlPathName = url.parse(requestUrl).pathname || '';
+        const urlPathName = URL.parse(requestUrl, 'https://dummy')?.pathname || '';
         const decodedUrl = decodeURI(urlPathName);
         return path.join(this.basePath, decodedUrl);
     }

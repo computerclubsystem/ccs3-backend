@@ -11,7 +11,7 @@ export interface BusOperatorConnectionEventNotificationMessageBody {
 
 export type BusOperatorConnectionEventNotificationMessage = Message<BusOperatorConnectionEventNotificationMessageBody>;
 
-export function createBusOperatorConnectionEventNotificatinMessage(): BusOperatorConnectionEventNotificationMessage {
+export function createBusOperatorConnectionEventNotificationMessage(): BusOperatorConnectionEventNotificationMessage {
     const msg: BusOperatorConnectionEventNotificationMessage = {
         header: { type: MessageType.busUserConnectionEventNotification },
         body: {} as BusOperatorConnectionEventNotificationMessageBody,

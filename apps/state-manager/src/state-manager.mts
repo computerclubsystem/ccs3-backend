@@ -4007,7 +4007,7 @@ export class StateManager {
         const storageProviderConfig: StorageProviderConfig = {
             // adminConnectionString: undefined,
             connectionString: storageProviderConnectionString,
-            databaseMigrationsPath: './postgre-storage/database-migrations',
+            databaseMigrationsPath: this.envVars.CCS3_STATE_MANAGER_STORAGE_PROVIDER_DATABASE_MIGRATION_SCRIPTS_DIRECTORY.value,
         };
         const initRes = await this.storageProvider.init(storageProviderConfig);
         return initRes.success;

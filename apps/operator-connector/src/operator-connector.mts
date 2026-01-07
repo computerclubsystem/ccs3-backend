@@ -17,7 +17,7 @@ import {
 } from '@computerclubsystem/websocket-server';
 import { OperatorAuthRequestMessage } from '@computerclubsystem/types/messages/operators/operator-auth.messages.mjs';
 import { BusUserAuthReplyMessage, BusUserAuthReplyMessageBody, createBusUserAuthReplyMessage, createBusUserAuthRequestMessage } from '@computerclubsystem/types/messages/bus/bus-operator-auth.messages.mjs';
-import { createBusOperatorConnectionEventNotificatinMessage } from '@computerclubsystem/types/messages/bus/bus-operator-connection-event-notification.message.mjs';
+import { createBusOperatorConnectionEventNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-operator-connection-event-notification.message.mjs';
 import { createOperatorAuthReplyMessage } from '@computerclubsystem/types/messages/operators/operator-auth.messages.mjs';
 import { Logger } from './logger.mjs';
 import { IStaticFilesServerConfig, StaticFilesServer } from './static-files-server.mjs';
@@ -892,7 +892,7 @@ export class OperatorConnector {
             this.logger.warn(`Can't publish operator connection event message '${eventType}'. Specified operatorId is null`, ipAddress, note);
             return;
         }
-        const deviceConnectionEventMsg = createBusOperatorConnectionEventNotificatinMessage();
+        const deviceConnectionEventMsg = createBusOperatorConnectionEventNotificationMessage();
         deviceConnectionEventMsg.body.operatorId = operatorId;
         deviceConnectionEventMsg.body.ipAddress = ipAddress;
         deviceConnectionEventMsg.body.type = eventType;

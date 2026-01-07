@@ -11,7 +11,7 @@ import { BusUserAuthReplyMessage, BusUserAuthReplyMessageBody, createBusUserAuth
 import { OperatorRequestMessage } from '@computerclubsystem/types/messages/operators/declarations/operator.message.mjs';
 import { BusGetLastCompletedShiftReplyMessageBody, createBusGetLastCompletedShiftRequestMessage } from '@computerclubsystem/types/messages/bus/bus-get-last-completed-shift.messages.mjs';
 import { createOperatorSignInInformationNotificationMessage } from '@computerclubsystem/types/messages/operators/operator-sign-in-information-notification.message.mjs';
-import { createBusOperatorConnectionEventNotificatinMessage } from '@computerclubsystem/types/messages/bus/bus-operator-connection-event-notification.message.mjs';
+import { createBusOperatorConnectionEventNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-operator-connection-event-notification.message.mjs';
 import { createOperatorConfigurationNotificationMessage, OperatorConfigurationNotificationMessage } from '@computerclubsystem/types/messages/operators/operator-configuration-notification.message.mjs';
 import { MessageHandlerBase } from '../message-handler-base.mjs';
 import { UserAuthDataCacheValue } from 'src/cache-helper.mjs';
@@ -140,7 +140,7 @@ export class AuthRequestMessageHandler extends MessageHandlerBase implements Ope
             context.logger.warn(`Can't publish operator connection event message. Specified operatorId is null`, context.clientData.ipAddress, eventType, note);
             return;
         }
-        const deviceConnectionEventMsg = createBusOperatorConnectionEventNotificatinMessage();
+        const deviceConnectionEventMsg = createBusOperatorConnectionEventNotificationMessage();
         deviceConnectionEventMsg.body.operatorId = operatorId;
         deviceConnectionEventMsg.body.ipAddress = context.clientData.ipAddress;
         deviceConnectionEventMsg.body.type = eventType;

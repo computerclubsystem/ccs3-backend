@@ -1,0 +1,8 @@
+{
+    "files": [],
+    "references": [
+        { "path": "./libs/types"},
+        { "path": "./apps/state-manager"},
+        { "path": "./apps/operator-connector"},
+    ]
+}

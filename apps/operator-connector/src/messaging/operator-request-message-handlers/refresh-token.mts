@@ -3,7 +3,7 @@ import { OperatorRequestMessageHandler, OperatorRequestMessageHandlerResult, Pro
 import { MessageHandlerBase } from '../message-handler-base.mjs';
 import { OperatorConnectionRoundTripData } from '@computerclubsystem/types/messages/operators/declarations/operator-connection-roundtrip-data.mjs';
 import { OperatorConnectionEventType } from '@computerclubsystem/types/entities/declarations/operator-connection-event-type.mjs';
-import { createBusOperatorConnectionEventNotificatinMessage } from '@computerclubsystem/types/messages/bus/bus-operator-connection-event-notification.message.mjs';
+import { createBusOperatorConnectionEventNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-operator-connection-event-notification.message.mjs';
 import { PermissionName } from '@computerclubsystem/types/entities/declarations/permission-name.mjs';
 
 export class RefreshTokenRequestMessageHandler extends MessageHandlerBase implements OperatorRequestMessageHandler {
@@ -71,7 +71,7 @@ export class RefreshTokenRequestMessageHandler extends MessageHandlerBase implem
             context.logger.warn(`Can't publish operator connection event message '${eventType}'. Specified operatorId is null`, ipAddress, note);
             return;
         }
-        const deviceConnectionEventMsg = createBusOperatorConnectionEventNotificatinMessage();
+        const deviceConnectionEventMsg = createBusOperatorConnectionEventNotificationMessage();
         deviceConnectionEventMsg.body.operatorId = operatorId;
         deviceConnectionEventMsg.body.ipAddress = ipAddress;
         deviceConnectionEventMsg.body.type = eventType;
