@@ -825,14 +825,33 @@ export class PcConnector {
                     // TODO: ? Also return the tariff name ?
                     msg.body.tariffId = status.tariff;
                     msg.body.canBeStoppedByCustomer = status.canBeStoppedByCustomer;
-                    msg.body.amounts = {
-                        expectedEndAt: status.expectedEndAt,
-                        remainingSeconds: status.remainingSeconds,
-                        startedAt: status.startedAt,
-                        stoppedAt: status.stoppedAt,
-                        totalSum: status.totalSum,
-                        totalTime: status.totalTime,
-                    };
+                    let sendAmounts = true;
+                    if (!status.started && status.stoppedAt) {
+                        const diff = this.getNowAsNumber() - status.stoppedAt;
+                        if (diff > 0 && diff > this.state.durationToSendAmountsForStoppedDevices) {
+                            sendAmounts = false;
+                        }
+                    }
+                    if (sendAmounts) {
+                        msg.body.amounts = {
+                            expectedEndAt: status.expectedEndAt,
+                            remainingSeconds: status.remainingSeconds,
+                            startedAt: status.startedAt,
+                            stoppedAt: status.stoppedAt,
+                            totalSum: status.totalSum,
+                            totalTime: status.totalTime,
+                        };
+                    } else {
+                        msg.body.amounts = {
+                            expectedEndAt: null,
+                            remainingSeconds: null,
+                            startedAt: null,
+                            stoppedAt: null,
+                            totalSum: null,
+                            totalSumSecondPrice: null,
+                            totalTime: null,
+                        };
+                    }
                     if (this.state.isSecondPriceFeatureEnabled && msg.body.amounts.totalSum && this.state.secondPriceRate) {
                         const calculatedSecondPrice = msg.body.amounts.totalSum * this.state.secondPriceRate;
                         if (calculatedSecondPrice) {
@@ -1602,6 +1621,10 @@ export class PcConnector {
             isSecondPriceFeatureEnabled: false,
             secondPriceCurrency: null,
             secondPriceRate: null,
+            // How much time to show the amounts for stopped devices - stopped devices should not
+            // receive their amounts only for short amount of time after they are stopped to avoid
+            // exposing session information
+            durationToSendAmountsForStoppedDevices: 30 * 1000,
         };
         return state;
     }
@@ -1700,4 +1723,6 @@ interface PcConnectorState {
     isSecondPriceFeatureEnabled: boolean;
     secondPriceCurrency?: string | null;
     secondPriceRate?: number | null;
+
+    durationToSendAmountsForStoppedDevices: number;
 }
