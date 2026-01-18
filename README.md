@@ -377,7 +377,7 @@ import { ... } from '@computerclubsystem/<new-lib-name>'
 ## Build docker images
 Set the version with
 ```bash
-node scripts/update-version.mjs 3.4.5
+npm run update-version -- <major.minor.revision>
 ```
 
 DevOps related files are in `devops` folder. Each dockerfile has a comment in the beginning showing a sample command line that builds the image. The `package.json` file has npm scripts for building images if Docker Desktop is used or Rancher Desktop is used with `containerd` (`nerdctl`) like:
