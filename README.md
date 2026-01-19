@@ -380,33 +380,19 @@ Set the version with
 npm run update-version -- <major.minor.revision>
 ```
 
-DevOps related files are in `devops` folder. Each dockerfile has a comment in the beginning showing a sample command line that builds the image. The `package.json` file has npm scripts for building images if Docker Desktop is used or Rancher Desktop is used with `containerd` (`nerdctl`) like:
+DevOps related files are in `devops` folder. Each dockerfile has a comment in the beginning showing a sample command line that builds the image. The `package.json` file has npm scripts for building images if Docker Desktop is used or Rancher Desktop is used with `dockerd` container engine like:
 ```bash
 npm run apps/state-manager:build-image-docker
 ```
-or
-```bash
-npm run apps/state-manager:build-image-nerdctl
-```
 
-Building `state-manager` manually would look like this for Docker Desktop:
+Building `state-manager` manually would look like this:
 ```bash
 docker build -t ccs3/state-manager:latest -f Dockerfile.state-manager ../apps/state-manager
 ```
 
-Building `state-manager` manually would look like this for Rancher Desktop with `containerd` (`nerdctl`):
-```bash
-nerdctl -n k8s.io build -t ccs3/state-manager:latest -f Dockerfile.state-manager ../apps/state-manager
-```
-
-Building all the images for Docker Desktop:
+Building all the images:
 ```bash
 npm run build-images-docker
-```
-
-Building all the images for Rancher Desktop with `containerd` (`nerdctl`):
-```bash
-npm run build-images-rancher-nerdctl
 ```
 
 ## Kubernetes

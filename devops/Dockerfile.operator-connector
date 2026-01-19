@@ -11,6 +11,7 @@ COPY package.json .
 # TODO: Installation should also install dependencies in node_modules - this one uses symlinks causing the dependencies folders like libs/redis-client mandatory
 #       Need to investigate "npm install --install-links"
 RUN npm run apps/operator-connector:build-include-deps
+RUN rm -f apps/state-manager/dist/.tsbuildinfo
 # Delete devDependencies from node_modules and install again without them
 RUN rm -rf node_modules
 RUN npm run apps/operator-connector:install-deps-omit-dev

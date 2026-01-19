@@ -9,4 +9,4 @@ export {
     MessageReceivedEventArgs,
     WssServerConfig,
     WssServerEventName,
-} from './src/wss-server.mjs';
+} from './wss-server.mjs';

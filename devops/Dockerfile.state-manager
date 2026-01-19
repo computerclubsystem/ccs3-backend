@@ -10,6 +10,7 @@ COPY package.json .
 # TODO: Installation should also install dependencies in node_modules - this one uses symlinks causing the dependencies folders like libs/redis-client mandatory
 #       Need to investigate "npm install --install-links"
 RUN npm run apps/state-manager:build-include-deps
+RUN rm -f apps/state-manager/dist/.tsbuildinfo
 COPY apps/state-manager/src/postgre-storage/database-migrations ./apps/state-manager/dist/postgre-storage/database-migrations/ 
 # Delete devDependencies from node_modules and install again without them
 RUN rm -rf node_modules
