@@ -271,12 +271,14 @@ export interface SendErrorEventArgs extends ConnectionEventArgs {
 
 export type MessageContent = object | Record<string | number, unknown>;
 
-export const enum WssServerEventName {
-    serverError = 'server-error',
-    serverListening = 'server-listening',
-    clientConnected = 'client-connected',
-    messageReceived = 'message-received',
-    connectionClosed = 'connection-closed',
-    connectionError = 'connection-error',
-    sendError = 'send-error',
-}
+export const WssServerEventName = {
+    serverError: 'server-error',
+    serverListening: 'server-listening',
+    clientConnected: 'client-connected',
+    messageReceived: 'message-received',
+    connectionClosed: 'connection-closed',
+    connectionError: 'connection-error',
+    sendError: 'send-error',
+} as const;
+type WssServerEventNameObject = typeof WssServerEventName;
+export type WssServerEventName = WssServerEventNameObject[keyof WssServerEventNameObject];

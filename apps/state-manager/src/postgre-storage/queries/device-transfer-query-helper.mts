@@ -1,6 +1,7 @@
 import { IDeviceStatus } from 'src/storage/entities/device-status.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
 import { InsertQueryBuilder } from './query-builder.mjs';
+import { ValueOf } from '@computerclubsystem/types/declarations.mjs';
 
 export class DeviceTransferQueryHelper {
     addDeviceTransferQueryData(
@@ -49,20 +50,22 @@ export class DeviceTransferQueryHelper {
     }
 }
 
-const enum TableName {
-    device_transfer = 'device_transfer',
-}
+const TableName = {
+    device_transfer: 'device_transfer',
+} as const;
+export type TableName = ValueOf<typeof TableName>;
 
-const enum ColumnName {
-    id = 'id',
-    source_device_id = 'source_device_id',
-    target_device_id = 'target_device_id',
-    start_reason = 'start_reason',
-    started_at = 'started_at',
-    total = 'total',
-    started_by_user_id = 'started_by_user_id',
-    transferred_by_user_id = 'transferred_by_user_id',
-    source_note = 'source_note',
-    target_note = 'target_note',
-    transferred_at = 'transferred_at',
-}
+const ColumnName = {
+    id: 'id',
+    source_device_id: 'source_device_id',
+    target_device_id: 'target_device_id',
+    start_reason: 'start_reason',
+    started_at: 'started_at',
+    total: 'total',
+    started_by_user_id: 'started_by_user_id',
+    transferred_by_user_id: 'transferred_by_user_id',
+    source_note: 'source_note',
+    target_note: 'target_note',
+    transferred_at: 'transferred_at',
+} as const;
+export type ColumnName = ValueOf<typeof ColumnName>;

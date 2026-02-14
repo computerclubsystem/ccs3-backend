@@ -273,14 +273,16 @@ export interface IStaticFilesServerConfig {
     responseHeaders?: Record<string, string>;
 }
 
-export const enum StaticFilesServerEventName {
-    requestArrived = 'request-arrived',
-    fileResolved = 'file-resolved',
-    responseSent = 'response-sent',
-    desiredPath = 'desired-path',
-    unsafeUrl = 'unsafe-url',
-    err = 'err'
-}
+export const StaticFilesServerEventName = {
+    requestArrived: 'request-arrived',
+    fileResolved: 'file-resolved',
+    responseSent: 'response-sent',
+    desiredPath: 'desired-path',
+    unsafeUrl: 'unsafe-url',
+    err: 'err'
+} as const;
+type StaticFilesServerEventNameObject = typeof StaticFilesServerEventName;
+export type StaticFilesServerEventName = StaticFilesServerEventNameObject[keyof StaticFilesServerEventNameObject];
 
 export interface IRequestArrivedEventArgs {
     requestId: number;

@@ -1,6 +1,7 @@
 import { ILongLivedAccessTokenUsage } from 'src/storage/entities/long-lived-access-token-usage.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
 import { InsertQueryBuilder } from './query-builder.mjs';
+import { ValueOf } from '@computerclubsystem/types/declarations.mjs';
 
 export class LongLivedAccessTokenUsageQueryHelper {
     addLongLivedAccessTokenUsage(longLivedAccessTokenUsage: ILongLivedAccessTokenUsage): IQueryTextWithParamsResult {
@@ -38,17 +39,19 @@ export class LongLivedAccessTokenUsageQueryHelper {
     }
 }
 
-const enum TableName {
-    long_lived_access_token_usage = 'long_lived_access_token_usage',
-}
+const TableName = {
+    long_lived_access_token_usage: 'long_lived_access_token_usage',
+} as const;
+export type TableName = ValueOf<typeof TableName>;
 
-const enum ColumnName {
-    id = 'id',
-    token = 'token',
-    used_at = 'used_at',
-    valid_to = 'valid_to',
-    device_id = 'device_id',
-    user_id = 'user_id',
-    tariff_id = 'tariff_id',
-    ip_address = 'ip_address',
-}
+const ColumnName = {
+    id: 'id',
+    token: 'token',
+    used_at: 'used_at',
+    valid_to: 'valid_to',
+    device_id: 'device_id',
+    user_id: 'user_id',
+    tariff_id: 'tariff_id',
+    ip_address: 'ip_address',
+} as const;
+export type ColumnName = ValueOf<typeof ColumnName>;

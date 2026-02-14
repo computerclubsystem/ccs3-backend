@@ -2,6 +2,7 @@ import { TariffType } from '@computerclubsystem/types/entities/tariff.mjs';
 import { IDeviceSession } from 'src/storage/entities/device-session.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
 import { SelectQueryBuilder, SortOrder, WhereClauseOperation } from './query-builder.mjs';
+import { ValueOf } from '@computerclubsystem/types/declarations.mjs';
 
 export class DeviceSessionQueryHelper {
     getDeviceCompletedSessionsQueryData(
@@ -226,20 +227,22 @@ export class DeviceSessionQueryHelper {
     }
 }
 
-const enum TableName {
-    device_session = 'device_session',
-}
+const TableName = {
+    device_session: 'device_session',
+} as const;
+export type TableName = ValueOf<typeof TableName>;
 
-const enum ColumnName {
-    id = 'id',
-    device_id = 'device_id',
-    tariff_id = 'tariff_id',
-    total_amount = 'total_amount',
-    started_at = 'started_at',
-    stopped_at = 'stopped_at',
-    started_by_user_id = 'started_by_user_id',
-    stopped_by_user_id = 'stopped_by_user_id',
-    started_by_customer = 'started_by_customer',
-    stopped_by_customer = 'stopped_by_customer',
-    note = 'note',
-}
+const ColumnName = {
+    id: 'id',
+    device_id: 'device_id',
+    tariff_id: 'tariff_id',
+    total_amount: 'total_amount',
+    started_at: 'started_at',
+    stopped_at: 'stopped_at',
+    started_by_user_id: 'started_by_user_id',
+    stopped_by_user_id: 'stopped_by_user_id',
+    started_by_customer: 'started_by_customer',
+    stopped_by_customer: 'stopped_by_customer',
+    note: 'note',
+} as const;
+export type ColumnName = ValueOf<typeof ColumnName>;

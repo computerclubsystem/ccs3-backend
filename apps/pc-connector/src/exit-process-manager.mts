@@ -1,3 +1,4 @@
+import { ValueOf } from '@computerclubsystem/types/declarations.mjs';
 import { Logger } from './logger.mjs';
 
 export class ExitProcessManager {
@@ -46,11 +47,12 @@ export interface ProcessExitData {
     description?: string;
 }
 
-export enum ProcessExitCode {
-    success = 0,
-    maxSubClentErrorsReached = 1,
-    maxSubClientReconnectErrorsReached = 2,
-    maxPubClientErrorsReached = 3,
-    maxPubClientReconnectErrorsReached = 4,
-    maxPubClientPublishErrorsReached = 5,
-}
+export const ProcessExitCode = {
+    success: 0,
+    maxSubClentErrorsReached: 1,
+    maxSubClientReconnectErrorsReached: 2,
+    maxPubClientErrorsReached: 3,
+    maxPubClientReconnectErrorsReached: 4,
+    maxPubClientPublishErrorsReached: 5,
+} as const;
+export type ProcessExitCode = ValueOf<typeof ProcessExitCode>;

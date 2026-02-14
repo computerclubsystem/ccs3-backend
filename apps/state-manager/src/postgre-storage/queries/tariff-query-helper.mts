@@ -1,6 +1,7 @@
 import { ITariff } from 'src/storage/entities/tariff.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
 import { InsertQueryBuilder, SelectQueryBuilder, UpdateQueryBuilder, WhereClauseOperation } from './query-builder.mjs';
+import { ValueOf } from '@computerclubsystem/types/declarations.mjs';
 
 export class TariffQueryHelper {
     private returningQueryText = `
@@ -176,7 +177,7 @@ export class TariffQueryHelper {
     createTariffQueryData(tariff: ITariff, passwordHash: string | undefined | null): IQueryTextWithParamsResult {
         const builder = this.createInsertQueryBuilder();
         builder.setTableName(TableName.tariff);
-        const insertColumnNames = [
+        const insertColumnNames: ColumnName[] = [
             ColumnName.name,
             ColumnName.description,
             ColumnName.type,
@@ -329,28 +330,32 @@ export class TariffQueryHelper {
     }
 }
 
-enum ColumnName {
-    id = 'id',
-    name = 'name',
-    description = 'description',
-    type = 'type',
-    duration = 'duration',
-    from_time = 'from_time',
-    to_time = 'to_time',
-    price = 'price',
-    enabled = 'enabled',
-    created_at = 'created_at',
-    updated_at = 'updated_at',
-    restrict_start_time = 'restrict_start_time',
-    restrict_start_from_time = 'restrict_start_from_time',
-    restrict_start_to_time = 'restrict_start_to_time',
-    remaining_seconds = 'remaining_seconds',
-    can_be_started_by_customer = 'can_be_started_by_customer',
-    password_hash = 'password_hash',
-    created_by_user_id = 'created_by_user_id',
-    updated_by_user_id = 'updated_by_user_id',
-}
 
-enum TableName {
-    tariff = 'tariff',
-}
+const TableName = {
+    tariff: 'tariff',
+} as const;
+export type TableName = ValueOf<typeof TableName>;
+
+const ColumnName = {
+    id: 'id',
+    name: 'name',
+    description: 'description',
+    type: 'type',
+    duration: 'duration',
+    from_time: 'from_time',
+    to_time: 'to_time',
+    price: 'price',
+    enabled: 'enabled',
+    created_at: 'created_at',
+    updated_at: 'updated_at',
+    restrict_start_time: 'restrict_start_time',
+    restrict_start_from_time: 'restrict_start_from_time',
+    restrict_start_to_time: 'restrict_start_to_time',
+    remaining_seconds: 'remaining_seconds',
+    can_be_started_by_customer: 'can_be_started_by_customer',
+    password_hash: 'password_hash',
+    created_by_user_id: 'created_by_user_id',
+    updated_by_user_id: 'updated_by_user_id',
+} as const;
+export type ColumnName = ValueOf<typeof ColumnName>;
+

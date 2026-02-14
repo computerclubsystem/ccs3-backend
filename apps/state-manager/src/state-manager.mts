@@ -113,6 +113,8 @@ import { BusChangePasswordWithLongLivedAccessTokenRequestMessage, createBusChang
 import { BusChangePasswordWithLongLivedAccessTokenErrorCode } from '@computerclubsystem/types/messages/bus/declarations/bus-change-password-with-long-lived-access-token-error-code.mjs';
 import { TariffUsage } from '@computerclubsystem/types/messages/shared-declarations/tariff-usage.mjs';
 import { DeviceUsage } from '@computerclubsystem/types/messages/shared-declarations/device-usage.mjs';
+import { BusGetTariffCurrentUsageRequestMessage, createBusGetTariffCurrentUsageReplyMessage } from '@computerclubsystem/types/messages/bus/bus-get-tariff-current-usage.messages.mjs';
+import { IDeviceWithTariff } from './storage/entities/device-with-tariff.mjs';
 
 export class StateManager {
     private readonly className = (this as object).constructor.name;
@@ -659,6 +661,9 @@ export class StateManager {
                 break;
             case MessageType.busUserConnectionEventNotification:
                 this.processBusUserConnectionEventNotification(message as BusOperatorConnectionEventNotificationMessage);
+                break;
+            case MessageType.busGetTariffCurrentUsageRequest:
+                this.processGetTariffCurrentUsageRequest(message as BusGetTariffCurrentUsageRequestMessage);
                 break;
         }
     }
@@ -3012,6 +3017,19 @@ export class StateManager {
                     return;
                 }
             }
+            const shouldCheckUsage = tariff.type === TariffType.duration;
+            if (shouldCheckUsage) {
+                const tariffUsage = await this.getTariffCurrentUsage(tariff.id);
+                if (tariffUsage.length) {
+                    replyMsg.header.failure = true;
+                    replyMsg.header.errors = [{
+                        code: BusErrorCode.tariffIsInUse,
+                        description: `The tariff is currently in use`,
+                    }];
+                    this.publishToOperatorsChannel(replyMsg, message);
+                    return;
+                }
+            }
             const storageTariff = this.entityConverter.toStorageTariff(tariff);
             storageTariff.updated_by_user_id = message.body.userId;
             storageTariff.updated_at = this.dateTimeHelper.getCurrentUTCDateTimeAsISOString();
@@ -3266,6 +3284,17 @@ export class StateManager {
             this.setErrorToReplyMessage(err, message, replyMsg);
             this.publishToOperatorsChannel(replyMsg, message);
         }
+    }
+
+    async processGetTariffCurrentUsageRequest(message: BusGetTariffCurrentUsageRequestMessage): Promise<void> {
+        const replyMsg = createBusGetTariffCurrentUsageReplyMessage();
+        const storageTariffCurrentUsages = await this.getTariffCurrentUsage(message.body.tariffId);
+        replyMsg.body.devicesWithTariffs = storageTariffCurrentUsages.map(deviceWithTariff => this.entityConverter.toDeviceWithTariff(deviceWithTariff));
+        this.publishToOperatorsChannel(replyMsg, message);
+    }
+
+    getTariffCurrentUsage(tariffId: number): Promise<IDeviceWithTariff[]> {
+        return this.storageProvider.getTariffCurrentUsage(tariffId);
     }
 
     async processBusGetAllDevicesRequest(message: BusGetAllDevicesRequestMessage): Promise<void> {

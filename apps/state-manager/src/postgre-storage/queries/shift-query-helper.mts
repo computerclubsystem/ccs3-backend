@@ -1,6 +1,7 @@
 import { IShift } from 'src/storage/entities/shift.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
 import { SelectQueryBuilder, SortOrder, WhereClauseOperation } from './query-builder.mjs';
+import { ValueOf } from '@computerclubsystem/types/declarations.mjs';
 
 export class ShiftQueryHelper {
     getShiftsSummaryQueryData(fromDate: string, toDate: string, userId: number | null | undefined): IQueryTextWithParamsResult {
@@ -181,24 +182,26 @@ export class ShiftQueryHelper {
     }
 }
 
-const enum TableName {
-    shift = 'shift',
-}
+const TableName = {
+    shift: 'shift',
+} as const;
+export type TableName = ValueOf<typeof TableName>;
 
-const enum ColumnName {
-    id = 'id',
-    user_id = 'user_id',
-    completed_sessions_total = 'completed_sessions_total',
-    completed_sessions_count = 'completed_sessions_count',
-    running_sessions_total = 'running_sessions_total',
-    running_sessions_count = 'running_sessions_count',
-    continuations_total = 'continuations_total',
-    continuations_count = 'continuations_count',
-    created_prepaid_tariffs_total = 'created_prepaid_tariffs_total',
-    created_prepaid_tariffs_count = 'created_prepaid_tariffs_count',
-    recharged_prepaid_tariffs_total = 'recharged_prepaid_tariffs_total',
-    recharged_prepaid_tariffs_count = 'recharged_prepaid_tariffs_count',
-    total_amount = 'total_amount',
-    completed_at = 'completed_at',
-    note = 'note',
-}
+const ColumnName = {
+    id: 'id',
+    user_id: 'user_id',
+    completed_sessions_total: 'completed_sessions_total',
+    completed_sessions_count: 'completed_sessions_count',
+    running_sessions_total: 'running_sessions_total',
+    running_sessions_count: 'running_sessions_count',
+    continuations_total: 'continuations_total',
+    continuations_count: 'continuations_count',
+    created_prepaid_tariffs_total: 'created_prepaid_tariffs_total',
+    created_prepaid_tariffs_count: 'created_prepaid_tariffs_count',
+    recharged_prepaid_tariffs_total: 'recharged_prepaid_tariffs_total',
+    recharged_prepaid_tariffs_count: 'recharged_prepaid_tariffs_count',
+    total_amount: 'total_amount',
+    completed_at: 'completed_at',
+    note: 'note',
+} as const;
+export type ColumnName = ValueOf<typeof ColumnName>;

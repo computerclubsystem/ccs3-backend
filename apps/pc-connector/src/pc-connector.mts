@@ -85,6 +85,7 @@ import { BusErrorCode } from '@computerclubsystem/types/messages/bus/declaration
 import { MessageError } from '@computerclubsystem/types/messages/declarations/message-error.mjs';
 import { BusCreateLongLivedAccessTokenForTariffReplyMessageBody, createBusCreateLongLivedAccessTokenForTariffRequestMessage } from '@computerclubsystem/types/messages/bus/bus-create-long-lived-access-token-for-tariff.messages.mjs';
 import { BusCodeSignInWithLongLivedAccessTokenRequestMessage, createBusCodeSignInWithLongLivedAccessTokenReplyMessage } from '@computerclubsystem/types/messages/bus/bus-code-sign-in-with-long-lived-access-token.messages.mjs';
+import { ValueOf } from '@computerclubsystem/types/declarations.mjs';
 
 export class PcConnector {
     wssServer!: WssServer;
@@ -1678,11 +1679,12 @@ interface ConnectedClientData {
     // isAuthenticated: boolean;
 }
 
-const enum ConnectionCleanUpReason {
+const ConnectionCleanUpReason = {
     // authenticationTimeout = 'authentication-timeout',
-    idleTimeout = 'idle-timeout',
-    noMessagesReceived = 'no-messages-received',
-}
+    idleTimeout: 'idle-timeout',
+    noMessagesReceived: 'no-messages-received',
+} as const;
+export type ConnectionCleanUpReason = ValueOf<typeof ConnectionCleanUpReason>;
 
 interface PcConnectorState {
     pubClientConnectionErrorsCount: number;

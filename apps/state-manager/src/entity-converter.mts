@@ -28,6 +28,8 @@ import { IDeviceSession } from './storage/entities/device-session.mjs';
 import { DeviceSession } from '@computerclubsystem/types/entities/device-session.mjs';
 import { ILongLivedAccessToken } from './storage/entities/long-lived-access-token.mjs';
 import { LongLivedAccessToken } from '@computerclubsystem/types/entities/long-lived-access-token.mjs';
+import { IDeviceWithTariff } from './storage/entities/device-with-tariff.mjs';
+import { DeviceWithTariff } from '@computerclubsystem/types/entities/device-with-tariff.mjs';
 
 export class EntityConverter {
     toLongLivedAccessToken(storageLongLivedAccessToken: ILongLivedAccessToken): LongLivedAccessToken {
@@ -307,5 +309,12 @@ export class EntityConverter {
             disableTransfer: storageDevice.disable_transfer,
         };
         return device;
+    }
+
+    toDeviceWithTariff(storageDeviceWithTariff: IDeviceWithTariff): DeviceWithTariff {
+        return {
+            deviceId: storageDeviceWithTariff.device_id,
+            tariffId: storageDeviceWithTariff.tariff_id,
+        };
     }
 }

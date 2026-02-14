@@ -1,3 +1,4 @@
+import { ValueOf } from '@computerclubsystem/types/declarations.mjs';
 import { Tariff, TariffType } from '@computerclubsystem/types/entities/tariff.mjs';
 
 // TODO: Move this to utils library
@@ -88,16 +89,17 @@ export class TariffValidator {
     }
 }
 
-export enum ValidateTariffErrorCode {
-    tariffNotProvided = 'tariff-not-provided',
-    priceMustBeEqualOrGreaterThanZero = 'price-must-be-equal-or-greater-than-0',
-    durationMustBeGreaterThanZero = 'duration-must-be-greater-than-0',
-    fromAndToMustBeBetweenZeroAnd1439 = 'from-and-to-must-be-between-0-and-1439',
-    restrictFromAndRestrictToMustBeBetweenZeroAnd1439 = 'restrict-from-and-restrict-to-must-be-between-0-and-1439',
-    fromAndToMustNotBeTheSame = 'from-and-to-must-not-be-the-same',
-    nameIsEmpty = 'name-is-empty',
-    unknownTariffType = 'unknown-tariff-type',
-}
+export const ValidateTariffErrorCode = {
+    tariffNotProvided: 'tariff-not-provided',
+    priceMustBeEqualOrGreaterThanZero: 'price-must-be-equal-or-greater-than-0',
+    durationMustBeGreaterThanZero: 'duration-must-be-greater-than-0',
+    fromAndToMustBeBetweenZeroAnd1439: 'from-and-to-must-be-between-0-and-1439',
+    restrictFromAndRestrictToMustBeBetweenZeroAnd1439: 'restrict-from-and-restrict-to-must-be-between-0-and-1439',
+    fromAndToMustNotBeTheSame: 'from-and-to-must-not-be-the-same',
+    nameIsEmpty: 'name-is-empty',
+    unknownTariffType: 'unknown-tariff-type',
+} as const;
+export type ValidateTariffErrorCode = ValueOf<typeof ValidateTariffErrorCode>;
 
 export interface ValidateTariffResult {
     success: boolean;

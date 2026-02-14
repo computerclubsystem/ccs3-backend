@@ -1,6 +1,7 @@
 import { IDevice } from 'src/storage/entities/device.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
 import { SelectQueryBuilder, WhereClauseOperation } from './query-builder.mjs';
+import { ValueOf } from '@computerclubsystem/types/declarations.mjs';
 
 export class DeviceQueryHelper {
     getAllDeviceIdsInDeviceGroupQueryData(deviceGroupId: number): IQueryTextWithParamsResult {
@@ -183,19 +184,21 @@ export class DeviceQueryHelper {
     `;
 }
 
-const enum TableName {
-    device = 'device',
-}
+const TableName = {
+    device: 'device',
+} as const;
+export type TableName = ValueOf<typeof TableName>;
 
-const enum ColumnName {
-    id = 'id',
-    certificate_thumbprint = 'certificate_thumbprint',
-    ip_address = 'ip_address',
-    name = 'name',
-    description = 'description',
-    created_at = 'created_at',
-    approved = 'approved',
-    enabled = 'enabled',
-    device_group_id = 'device_group_id',
-    disable_transfer = 'disable_transfer',
-}
+const ColumnName = {
+    id: 'id',
+    certificate_thumbprint: 'certificate_thumbprint',
+    ip_address: 'ip_address',
+    name: 'name',
+    description: 'description',
+    created_at: 'created_at',
+    approved: 'approved',
+    enabled: 'enabled',
+    device_group_id: 'device_group_id',
+    disable_transfer: 'disable_transfer',
+} as const;
+export type ColumnName = ValueOf<typeof ColumnName>;

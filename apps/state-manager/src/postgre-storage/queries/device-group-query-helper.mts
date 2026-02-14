@@ -1,6 +1,7 @@
 import { IDeviceGroup } from 'src/storage/entities/device-group.mjs';
 import { InsertQueryBuilder, SelectQueryBuilder, UpdateQueryBuilder, WhereClauseOperation } from './query-builder.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
+import { ValueOf } from '@computerclubsystem/types/declarations.mjs';
 
 export class DeviceGroupQueryHelper {
     updateDeviceGroupQueryData(deviceGroup: IDeviceGroup): IQueryTextWithParamsResult {
@@ -82,14 +83,16 @@ export class DeviceGroupQueryHelper {
     }
 }
 
-enum TableName {
-    device_group = 'device_group',
-}
+const TableName = {
+    device_group: 'device_group',
+} as const;
+export type TableName = ValueOf<typeof TableName>;
 
-enum ColumnName {
-    id = 'id',
-    name = 'name',
-    description = 'description',
-    enabled = 'enabled',
-    restrict_device_transfers = 'restrict_device_transfers',
-}
+const ColumnName = {
+    id: 'id',
+    name: 'name',
+    description: 'description',
+    enabled: 'enabled',
+    restrict_device_transfers: 'restrict_device_transfers',
+} as const;
+export type ColumnName = ValueOf<typeof ColumnName>;

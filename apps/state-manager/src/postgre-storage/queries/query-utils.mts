@@ -39,6 +39,7 @@ import { LongLivedAccessTokenQueryHelper } from './long-lived-access-token-query
 import { ILongLivedAccessToken } from 'src/storage/entities/long-lived-access-token.mjs';
 import { LongLivedAccessTokenUsageQueryHelper } from './long-lived-access-token-usage-query-helper.mjs';
 import { ILongLivedAccessTokenUsage } from 'src/storage/entities/long-lived-access-token-usage.mjs';
+import { TariffCurrentUsageQueryHelper } from './tariff-current-usage-query-helper.mjs';
 
 export class QueryUtils {
     private readonly helpers = {
@@ -65,7 +66,12 @@ export class QueryUtils {
         deviceTransfer: new DeviceTransferQueryHelper(),
         longLivedAccessToken: new LongLivedAccessTokenQueryHelper(),
         longLivedAccessTokenUsage: new LongLivedAccessTokenUsageQueryHelper(),
+        tariffCurrentUsage: new TariffCurrentUsageQueryHelper(),
     };
+
+    getTariffCurrentUsage(tariffId: number): IQueryTextWithParamsResult {
+        return this.helpers.tariffCurrentUsage.getTariffCurrentUsageQueryData(tariffId);
+    }
 
     updateLongLivedTokenValidTo(longLivedAccessTokenId: number, validTo: string): IQueryTextWithParamsResult {
         return this.helpers.longLivedAccessToken.updateLongLivedTokenValidTo(longLivedAccessTokenId, validTo);

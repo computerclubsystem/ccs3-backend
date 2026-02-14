@@ -1,8 +1,11 @@
-export const enum TariffType {
-    duration = 1,
-    fromTo = 2,
-    prepaid = 3,
-}
+import { ValueOf } from "src/declarations.mjs";
+
+export const TariffType = {
+    duration: 1,
+    fromTo: 2,
+    prepaid: 3,
+} as const;
+export type TariffType = ValueOf<typeof TariffType>;
 
 export interface Tariff {
     id: number;

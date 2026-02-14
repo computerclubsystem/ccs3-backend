@@ -1,7 +1,10 @@
-export const enum ApiCodeSignInIdentifierType {
-    user = 'user',
-    customerCard = 'customer-card',
-}
+import { ValueOf } from "@computerclubsystem/types/declarations.mjs";
+
+export const ApiCodeSignInIdentifierType = {
+    user: 'user',
+    customerCard: 'customer-card',
+} as const;
+export type ApiCodeSignInIdentifierType = ValueOf<typeof ApiCodeSignInIdentifierType>;
 
 // Sign in code
 export interface ApiGetSignInCodeInfoRequestBody {

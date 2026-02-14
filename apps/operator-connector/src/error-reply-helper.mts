@@ -172,6 +172,11 @@ export class ErrorReplyHelper {
                 code: OperatorReplyMessageErrorCode.userIdIsRequired,
                 description: `User Id is required.`,
             }] as MessageError[];
+        } else if (busMessageErrors?.find(x => x.code === BusErrorCode.tariffIsInUse)) {
+            messageErrors = [{
+                code: OperatorReplyMessageErrorCode.tariffIsInUse,
+                description: `Tariff is in use.`,
+            }] as MessageError[];
         } else {
             messageErrors = [{
                 code: OperatorReplyMessageErrorCode.cantFindTariff,

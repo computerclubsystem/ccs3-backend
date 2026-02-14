@@ -50,6 +50,7 @@ import { GetDeviceByIdRequestMessageHandler } from './operator-request-message-h
 import { RefreshTokenRequestMessageHandler } from './operator-request-message-handlers/refresh-token.mjs';
 import { SignOutRequestMessageHandler } from './operator-request-message-handlers/sign-out.mjs';
 import { UpdateDeviceRequestMessageHandler } from './operator-request-message-handlers/update-device.mjs';
+import { GetTariffCurrentUsageRequestMessageHandler } from './operator-request-message-handlers/get-tariff-current-usage.mjs';
 
 export class RequestMessageHandlerHelper {
     createOperatorRequestMessageHandlersMap(): Map<OperatorRequestMessageType, OperatorRequestMessageHandler> {
@@ -104,6 +105,7 @@ export class RequestMessageHandlerHelper {
         map.set(OperatorRequestMessageType.getDeviceByIdRequest, new GetDeviceByIdRequestMessageHandler());
         map.set(OperatorRequestMessageType.refreshTokenRequest, new RefreshTokenRequestMessageHandler());
         map.set(OperatorRequestMessageType.signOutRequest, new SignOutRequestMessageHandler());
+        map.set(OperatorRequestMessageType.getTariffCurrentUsageRequest, new GetTariffCurrentUsageRequestMessageHandler());
 
         return map;
     }

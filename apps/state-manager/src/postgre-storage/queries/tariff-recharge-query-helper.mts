@@ -1,6 +1,7 @@
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
 import { InsertQueryBuilder, SelectQueryBuilder, WhereClauseOperation } from './query-builder.mjs';
 import { ITariffRecharge } from 'src/storage/entities/tariff-recharge.mjs';
+import { ValueOf } from '@computerclubsystem/types/declarations.mjs';
 
 export class TariffRechargeQueryHelper {
     getRechargedTariffsForDateTimeInterval(fromDate: string | undefined | null, toDate: string): IQueryTextWithParamsResult {
@@ -67,16 +68,19 @@ export class TariffRechargeQueryHelper {
     }
 }
 
-enum ColumnName {
-    id = 'id',
-    tariff_id = 'tariff_id',
-    remaining_seconds_before_recharge = 'remaining_seconds_before_recharge',
-    recharge_seconds = 'recharge_seconds',
-    recharge_price = 'recharge_price',
-    user_id = 'user_id',
-    recharged_at = 'recharged_at',
-}
+const TableName = {
+    tariff_recharge: 'tariff_recharge',
+} as const;
+export type TableName = ValueOf<typeof TableName>;
 
-enum TableName {
-    tariff_recharge = 'tariff_recharge',
-}
+const ColumnName = {
+    id: 'id',
+    tariff_id: 'tariff_id',
+    remaining_seconds_before_recharge: 'remaining_seconds_before_recharge',
+    recharge_seconds: 'recharge_seconds',
+    recharge_price: 'recharge_price',
+    user_id: 'user_id',
+    recharged_at: 'recharged_at',
+} as const;
+export type ColumnName = ValueOf<typeof ColumnName>;
+

@@ -1,3 +1,4 @@
+import { ValueOf } from '@computerclubsystem/types/declarations.mjs';
 import { SystemSettingNameWithValue } from '@computerclubsystem/types/entities/system-setting-name-with-value.mjs';
 import { SystemSettingsName } from '@computerclubsystem/types/entities/system-setting-name.mjs';
 import { URL } from 'node:url';
@@ -159,11 +160,12 @@ export class SystemSettingsValidator {
     }
 }
 
-export const enum ValidateNameWithValuesErrorCode {
-    outOfRange = 'out-of-range',
-    unknownSettingName = 'unknown-setting-name',
-    invalidUrl = 'invalid-url',
-}
+export const ValidateNameWithValuesErrorCode = {
+    outOfRange: 'out-of-range',
+    unknownSettingName: 'unknown-setting-name',
+    invalidUrl: 'invalid-url',
+} as const;
+export type ValidateNameWithValuesErrorCode = ValueOf<typeof ValidateNameWithValuesErrorCode>;
 
 export interface ValidateNameWithValuesResult {
     failed: boolean;

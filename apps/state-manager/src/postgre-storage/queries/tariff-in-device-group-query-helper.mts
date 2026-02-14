@@ -1,3 +1,4 @@
+import { ValueOf } from '@computerclubsystem/types/declarations.mjs';
 import { SelectQueryBuilder, WhereClauseOperation } from './query-builder.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
 
@@ -124,12 +125,14 @@ export class TariffInDeviceGroupQueryHelper {
     }
 }
 
-const enum TableName {
-    tariff_in_device_group = 'tariff_in_device_group',
-}
+const TableName = {
+    tariff_in_device_group: 'tariff_in_device_group',
+} as const;
+export type TableName = ValueOf<typeof TableName>;
 
-const enum ColumnName {
-    id = 'id',
-    tariff_id = 'tariff_id',
-    device_group_id = 'device_group_id',
-}
+const ColumnName = {
+    id: 'id',
+    tariff_id: 'tariff_id',
+    device_group_id: 'device_group_id',
+} as const;
+export type ColumnName = ValueOf<typeof ColumnName>;

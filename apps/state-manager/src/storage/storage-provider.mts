@@ -25,6 +25,7 @@ import { IDeviceGroup } from './entities/device-group.mjs';
 import { ITariffInDeviceGroup } from './entities/tariff-in-device-group.mjs';
 import { ILongLivedAccessToken } from './entities/long-lived-access-token.mjs';
 import { ILongLivedAccessTokenUsage } from './entities/long-lived-access-token-usage.mjs';
+import { IDeviceWithTariff } from './entities/device-with-tariff.mjs';
 
 export interface StorageProvider {
     updateLongLivedTokenValidTo(longLivedAccessTokenId: number, validTo: string): Promise<void>;
@@ -104,6 +105,8 @@ export interface StorageProvider {
     getRolePermissionIds(roleId: number): Promise<number[]>;
     createRoleWithPermissions(role: IRole, permissionIds: number[]): Promise<IRole | undefined>;
     updateRoleWithPermissions(role: IRole, permissionIds: number[]): Promise<IRole | undefined>;
+
+    getTariffCurrentUsage(tariffId: number): Promise<IDeviceWithTariff[]>;
 
     init(config: StorageProviderConfig): Promise<StorageProviderInitResult>;
     stop(): Promise<void>;

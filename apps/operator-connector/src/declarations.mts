@@ -1,13 +1,15 @@
 import { DetailedPeerCertificate } from 'node:tls';
 import { IncomingHttpHeaders } from 'node:http2';
-import { UserAuthDataCacheValue } from './cache-helper.mjs';
+
 import { Permission } from '@computerclubsystem/types/entities/permission.mjs';
-import { TariffValidator } from './tariff-validator.mjs';
 import { BusDeviceStatusesNotificationMessage } from '@computerclubsystem/types/messages/bus/bus-device-statuses-notification.message.mjs';
 import { ChannelName } from '@computerclubsystem/types/channels/channel-name.mjs';
 import { SystemSetting } from '@computerclubsystem/types/entities/system-setting.mjs';
 import { FilterServerLogsItem } from '@computerclubsystem/types/messages/shared-declarations/filter-server-logs-item.mjs';
 import { PermissionName } from '@computerclubsystem/types/entities/declarations/permission-name.mjs';
+import { ValueOf } from '@computerclubsystem/types/declarations.mjs';
+import { UserAuthDataCacheValue } from './cache-helper.mjs';
+import { TariffValidator } from './tariff-validator.mjs';
 
 export interface ConnectedClientData {
     connectionId: number;
@@ -56,11 +58,12 @@ export interface ConnectedClientData {
 //     connectionId: number;
 // }
 
-export const enum ConnectionCleanUpReason {
-    authenticationTimeout = 'authentication-timeout',
-    noMessagesReceived = 'no-messages-received',
-    idleTimeout = 'idle-timeout',
-}
+export const ConnectionCleanUpReason = {
+    authenticationTimeout: 'authentication-timeout',
+    noMessagesReceived: 'no-messages-received',
+    idleTimeout: 'idle-timeout',
+} as const;
+export type ConnectionCleanUpReason = ValueOf<typeof ConnectionCleanUpReason>;
 
 export interface OperatorConnectorState {
     idleTimeout: number;
@@ -92,46 +95,48 @@ export interface IsTokenActiveResult {
     authTokenCacheValue?: UserAuthDataCacheValue;
 }
 
-export enum CanProcessOperatorMessageResultErrorReason {
-    tokenExpired = 'token-expired',
-    messageTypeIsMissing = 'message-type-is-missing',
-    messageRequiresAuthentication = 'message-requires-authentication',
-    tokenNotProvided = 'token-not-provided',
-    tokenNotFound = 'token-not-found',
-    notAuthorized = 'not-authorized',
-}
+export const CanProcessOperatorMessageResultErrorReason = {
+    tokenExpired: 'token-expired',
+    messageTypeIsMissing: 'message-type-is-missing',
+    messageRequiresAuthentication: 'message-requires-authentication',
+    tokenNotProvided: 'token-not-provided',
+    tokenNotFound: 'token-not-found',
+    notAuthorized: 'not-authorized',
+} as const;
+export type CanProcessOperatorMessageResultErrorReason = ValueOf<typeof CanProcessOperatorMessageResultErrorReason>;
 
 export interface CanProcessOperatorMessageResult {
     canProcess: boolean;
     errorReason?: CanProcessOperatorMessageResultErrorReason;
 }
 
-export enum IsAuthorizedResultReason {
+export const IsAuthorizedResultReason = {
     /**
      * When the permissions include "all"
      */
-    hasAllPermissions = 'has-all-permissions',
+    hasAllPermissions: 'has-all-permissions',
     /**
      * When required permission is found
      */
-    hasRequiredPermissions = 'has-required-permissions',
+    hasRequiredPermissions: 'has-required-permissions',
     /**
      * When permissions does not include one or more required permissions
      */
-    missingPermission = 'missing-permission',
+    missingPermission: 'missing-permission',
     /**
      * It is unknown what permissions are needed to check. Will happen only if the message type is unknown for the permission check logic
      */
-    unknownPermissionsRequired = 'unknown-permissions-required',
+    unknownPermissionsRequired: 'unknown-permissions-required',
     /**
      * When the message does not need permissions (like the message for authenticating, refreshing the token, pinging etc. (the last 2 are authorized by the presence of valid token only, permission is not needed))
      */
-    permissionIsNotRequired = 'permission-is-not-required',
+    permissionIsNotRequired: 'permission-is-not-required',
     /**
      * Some messages does not need permissions but need the user to be authenticated
      */
-    notAuthenticated = 'not-authenticated',
-}
+    notAuthenticated: 'not-authenticated',
+} as const;
+export type IsAuthorizedResultReason = ValueOf<typeof IsAuthorizedResultReason>;
 
 export interface IsAuthorizedResult {
     authorized: boolean;

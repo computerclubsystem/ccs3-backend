@@ -1,3 +1,5 @@
+import { ValueOf } from "@computerclubsystem/types/declarations.mjs";
+
 abstract class QueryBuilderBase {
     protected returningColumnNames: string[] = [];
 
@@ -12,13 +14,14 @@ abstract class QueryBuilderBase {
     abstract getQueryString(): string;
 }
 
-export enum WhereClauseOperation {
-    equals = '=',
-    lessThan = '<',
-    greaterThan = '>',
-    lessThanOrEqual = '<=',
-    greaterThanOrEqual = '>=',
-}
+export const WhereClauseOperation = {
+    equals: '=',
+    lessThan: '<',
+    greaterThan: '>',
+    lessThanOrEqual: '<=',
+    greaterThanOrEqual: '>=',
+} as const;
+export type WhereClauseOperation = ValueOf<typeof WhereClauseOperation>;
 
 export interface WhereClause {
     columnName: string;
@@ -26,10 +29,11 @@ export interface WhereClause {
     parameterName: string;
 }
 
-export enum SortOrder {
-    ascending = 'ASC',
-    descending = 'DESC',
-}
+export const SortOrder = {
+    ascending: 'ASC',
+    descending: 'DESC',
+} as const;
+export type SortOrder = ValueOf<typeof SortOrder>;
 
 export interface OrderClause {
     columnName: string;

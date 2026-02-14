@@ -59,6 +59,7 @@ const MESSAGES_REQUIRING_PERMISSIONS_MAP = new Map<OperatorRequestMessageType | 
     [OperatorRequestMessageType.restartDevicesRequest, [PermissionName.devicesStop]],
     [OperatorRequestMessageType.getDeviceConnectivityDetailsRequest, [PermissionName.devicesReadStatus]],
     [OperatorRequestMessageType.shutdownDevicesRequest, [PermissionName.devicesStop]],
+    [OperatorRequestMessageType.getTariffCurrentUsageRequest, [PermissionName.tariffsRead]],
 ]);
 const MESSAGES_REQUIRING_ONLY_AUTHENTICATION_SET = new Set<OperatorRequestMessageType | OperatorNotificationMessageType>([
     OperatorRequestMessageType.pingRequest,

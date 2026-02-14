@@ -34,6 +34,7 @@ import { ITariffInDeviceGroup } from 'src/storage/entities/tariff-in-device-grou
 import { IDeviceTransfer } from 'src/storage/entities/device-transfer.mjs';
 import { ILongLivedAccessToken } from 'src/storage/entities/long-lived-access-token.mjs';
 import { ILongLivedAccessTokenUsage } from 'src/storage/entities/long-lived-access-token-usage.mjs';
+import { IDeviceWithTariff } from 'src/storage/entities/device-with-tariff.mjs';
 
 export class PostgreStorageProvider implements StorageProvider {
     private state: PostgreStorageProviderState;
@@ -73,6 +74,12 @@ export class PostgreStorageProvider implements StorageProvider {
             return parseFloat(numericString);
         });
         return result;
+    }
+
+    async getTariffCurrentUsage(tariffId: number): Promise<IDeviceWithTariff[]> {
+        const queryData = this.queryUtils.getTariffCurrentUsage(tariffId);
+        const res = await this.execQuery(queryData.text, queryData.params);
+        return res.rows as IDeviceWithTariff[];
     }
 
     async updateLongLivedTokenValidTo(longLivedAccessTokenId: number, validTo: string): Promise<void> {

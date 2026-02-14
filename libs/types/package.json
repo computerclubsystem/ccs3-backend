@@ -6,6 +6,7 @@
     "types": "dist/*/**.d.ts",
     "exports": {
         ".": null,
+        "./declarations.mjs": "./dist/declarations.mjs",
         "./channels/*": "./dist/channels/*",
         "./entities/*": "./dist/entities/*",
         "./messages/*": "./dist/messages/*"

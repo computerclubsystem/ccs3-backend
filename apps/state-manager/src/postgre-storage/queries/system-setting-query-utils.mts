@@ -1,6 +1,7 @@
 import { ISystemSettingNameWithValue } from 'src/storage/entities/system-setting-name-with-value.mjs';
 import { IQueryTextWithParamsResult } from './query-with-params.mjs';
 import { UpdateQueryBuilder } from './query-builder.mjs';
+import { ValueOf } from '@computerclubsystem/types/declarations.mjs';
 
 export class SystemSettingQueryUtils {
     updateSystemSettingValueQueryData(systemSettingNameWithValue: ISystemSettingNameWithValue): IQueryTextWithParamsResult {
@@ -35,11 +36,13 @@ export class SystemSettingQueryUtils {
     `;
 }
 
-const enum TableName {
-    systemSetting = 'system_setting',
-}
+const TableName = {
+    systemSetting: 'system_setting',
+} as const;
+export type TableName = ValueOf<typeof TableName>;
 
-const enum ColumnName {
-    name = 'name',
-    value = 'value',
-}
+const ColumnName = {
+    name: 'name',
+    value: 'value',
+} as const;
+export type ColumnName = ValueOf<typeof ColumnName>;
