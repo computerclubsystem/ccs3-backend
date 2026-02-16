@@ -387,7 +387,7 @@ npm run apps/state-manager:build-image-docker
 
 Building `state-manager` manually would look like this:
 ```bash
-docker build -t ccs3/state-manager:latest -f Dockerfile.state-manager ../apps/state-manager
+docker buildx build -t ccs3/state-manager:latest -f Dockerfile.state-manager ../apps/state-manager
 ```
 
 Building all the images:
